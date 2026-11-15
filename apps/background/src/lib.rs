@@ -19,5 +19,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(awake::Awake::new()),
         Box::new(light_switch::LightSwitch::new()),
         Box::new(quick_accent::QuickAccent::new()),
+        Box::new(mouse_utilities::MouseUtilities::new()),
     ]
 }

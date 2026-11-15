@@ -51,6 +51,42 @@ pub fn capture(area: Rect) -> Result<Pixels> {
     Ok(dib.pixels().iter().map(|p| p & 0x00FF_FFFF).collect())
 }
 
+/// Copy a screen area shrunk (or stretched) to `w`x`h`, smoothed. Parts outside every
+/// monitor come back black.
+pub fn capture_scaled(area: Rect, w: i32, h: i32) -> Result<Pixels> {
+    if area.width() <= 0 || area.height() <= 0 || w <= 0 || h <= 0 {
+        return Err(Error::Other("empty capture area".into()));
+    }
+    let mut dib = Dib::new(w, h)?;
+    // SAFETY: the screen DC is released on every path; `dib` owns its own DC.
+    unsafe {
+        let screen = GetDC(None);
+        if screen.is_invalid() {
+            return Err(Error::Other("GetDC(screen) failed".into()));
+        }
+        SetStretchBltMode(dib.dc, HALFTONE);
+        let _ = SetBrushOrgEx(dib.dc, 0, 0, None);
+        let blt = StretchBlt(
+            dib.dc,
+            0,
+            0,
+            w,
+            h,
+            Some(screen),
+            area.left,
+            area.top,
+            area.width(),
+            area.height(),
+            SRCCOPY | CAPTUREBLT,
+        );
+        ReleaseDC(None, screen);
+        if !blt.as_bool() {
+            return Err(Error::Other("StretchBlt(screen) failed".into()));
+        }
+    }
+    Ok(dib.pixels().iter().map(|p| p & 0x00FF_FFFF).collect())
+}
+
 /// A top-down 32-bit DIB selected into its own memory DC.
 pub(crate) struct Dib {
     pub(crate) dc: HDC,
@@ -105,7 +141,7 @@ impl Dib {
         }
     }
 
-    fn pixels(&mut self) -> &mut [u32] {
+    pub(crate) fn pixels(&mut self) -> &mut [u32] {
         // GDI may still be drawing into the bitmap asynchronously.
         // SAFETY: GdiFlush has no preconditions.
         let _ = unsafe { GdiFlush() };

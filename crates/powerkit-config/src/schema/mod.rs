@@ -7,6 +7,7 @@ mod fancy_zones;
 mod keyboard;
 mod launcher;
 mod light_switch;
+mod mouse;
 mod quick_accent;
 mod rename;
 
@@ -16,6 +17,7 @@ pub use fancy_zones::*;
 pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
+pub use mouse::*;
 pub use quick_accent::*;
 pub use rename::*;
 
@@ -122,6 +124,7 @@ pub struct Config {
     pub awake: Awake,
     pub light_switch: LightSwitch,
     pub quick_accent: QuickAccent,
+    pub mouse_utilities: MouseUtilities,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -214,6 +217,7 @@ impl Config {
         self.awake.sanitize(&mut w);
         self.light_switch.sanitize(&mut w);
         self.quick_accent.sanitize(&mut w);
+        self.mouse_utilities.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -230,6 +234,17 @@ impl Config {
         push("color_picker", "pick", &self.color_picker.shortcut);
         push("launcher", "toggle", &self.launcher.shortcut);
         push("light_switch", "toggle", &self.light_switch.shortcut);
+        let mu = &self.mouse_utilities;
+        for (on, action, s) in [
+            (mu.find_my_mouse.enabled, "find_my_mouse", &mu.find_my_mouse.shortcut),
+            (mu.highlighter.enabled, "highlighter", &mu.highlighter.shortcut),
+            (mu.crosshairs.enabled, "crosshairs", &mu.crosshairs.shortcut),
+            (mu.jump.enabled, "jump", &mu.jump.shortcut),
+        ] {
+            if on {
+                push("mouse_utilities", action, s);
+            }
+        }
         let fz = &self.fancy_zones;
         push("fancy_zones", "next_zone", &fz.next_zone_shortcut);
         push("fancy_zones", "prev_zone", &fz.prev_zone_shortcut);
@@ -269,6 +284,7 @@ impl Config {
             "awake" => self.awake.enabled,
             "light_switch" => self.light_switch.enabled,
             "quick_accent" => self.quick_accent.enabled,
+            "mouse_utilities" => self.mouse_utilities.enabled,
             _ => return None,
         })
     }
@@ -284,6 +300,7 @@ impl Config {
             "awake" => &mut self.awake.enabled,
             "light_switch" => &mut self.light_switch.enabled,
             "quick_accent" => &mut self.quick_accent.enabled,
+            "mouse_utilities" => &mut self.mouse_utilities.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -341,6 +358,7 @@ impl Config {
         config.awake = section(&mut map, "awake", &mut warnings);
         config.light_switch = section(&mut map, "light_switch", &mut warnings);
         config.quick_accent = section(&mut map, "quick_accent", &mut warnings);
+        config.mouse_utilities = section(&mut map, "mouse_utilities", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

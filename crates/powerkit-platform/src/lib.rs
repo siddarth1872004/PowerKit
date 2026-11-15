@@ -19,6 +19,8 @@ pub mod input;
 pub mod keyhook;
 pub mod magnifier;
 pub mod monitor;
+pub mod mousehook;
+pub mod overlay;
 pub mod pipe;
 pub mod popup;
 pub mod power;

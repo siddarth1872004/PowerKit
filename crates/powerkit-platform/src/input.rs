@@ -120,3 +120,9 @@ pub fn caps_lock_on() -> bool {
     let state = unsafe { GetKeyState(VK_CAPITAL.0 as i32) };
     state & 1 != 0
 }
+
+/// Move the pointer to a point in physical virtual-desktop pixels.
+pub fn set_cursor_pos(x: i32, y: i32) -> Result<()> {
+    // SAFETY: plain value arguments.
+    unsafe { SetCursorPos(x, y) }.context("SetCursorPos")
+}
