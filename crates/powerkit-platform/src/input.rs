@@ -126,3 +126,34 @@ pub fn set_cursor_pos(x: i32, y: i32) -> Result<()> {
     // SAFETY: plain value arguments.
     unsafe { SetCursorPos(x, y) }.context("SetCursorPos")
 }
+
+/// Click the left button where the pointer is.
+pub fn click_left() -> Result<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT,
+    };
+    let button = |flags| INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: INPUT_0 {
+            mi: MOUSEINPUT {
+                dwFlags: flags,
+                ..Default::default()
+            },
+        },
+    };
+    crate::keyhook::send(&[button(MOUSEEVENTF_LEFTDOWN), button(MOUSEEVENTF_LEFTUP)])
+}
+
+/// Whether the pointer is drawn; applications hide it while typing or playing video.
+pub fn cursor_visible() -> bool {
+    let mut info = CURSORINFO {
+        cbSize: std::mem::size_of::<CURSORINFO>() as u32,
+        ..Default::default()
+    };
+    // SAFETY: `info` is a valid out pointer with its size set.
+    match unsafe { GetCursorInfo(&mut info) } {
+        Ok(()) => info.flags.0 & CURSOR_SHOWING.0 != 0,
+        // Unknown counts as shown, so nothing disappears by mistake.
+        Err(_) => true,
+    }
+}

@@ -243,6 +243,7 @@ impl Config {
             (mu.find_my_mouse.enabled, "find_my_mouse", &mu.find_my_mouse.shortcut),
             (mu.highlighter.enabled, "highlighter", &mu.highlighter.shortcut),
             (mu.crosshairs.enabled, "crosshairs", &mu.crosshairs.shortcut),
+            (mu.crosshairs.enabled, "glide", &mu.crosshairs.gliding_shortcut),
             (mu.jump.enabled, "jump", &mu.jump.shortcut),
         ] {
             if on {

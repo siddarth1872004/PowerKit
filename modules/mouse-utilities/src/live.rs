@@ -1,7 +1,7 @@
 //! The tools at work on Windows: their overlays, what the hooks report, and a frame
 //! timer that runs only while something is on screen.
 
-use crate::logic::{self, DoubleCtrl, Part, Shake};
+use crate::logic::{self, DoubleCtrl, Glide, Part, Shake};
 use anyhow::{anyhow, Result};
 use powerkit_config::{FindMouseActivation, MouseUtilities as Settings};
 use powerkit_core::{Event, MouseEvent, Rect};
@@ -60,7 +60,10 @@ pub struct Live {
     /// The lines and their outline, which is a separate shape in its own color.
     crosshairs: Option<(Overlay, Overlay)>,
     highlighter: bool,
+    /// The pointer mark (or spotlight) of the highlighter's always-highlight mode.
+    marker: Option<Overlay>,
     spots: Vec<Spot>,
+    glide: Option<(Glide, Overlay)>,
     jump: Option<Jump>,
     double_ctrl: DoubleCtrl,
     shake: Shake,
@@ -76,7 +79,9 @@ impl Live {
             spotlight: None,
             crosshairs: None,
             highlighter: false,
+            marker: None,
             spots: Vec::new(),
+            glide: None,
             jump: None,
             double_ctrl: DoubleCtrl::default(),
             shake: Shake::default(),
@@ -115,7 +120,11 @@ impl Live {
     }
 
     fn animating(&self) -> bool {
-        self.spotlight.is_some() || self.crosshairs.is_some() || !self.spots.is_empty()
+        self.spotlight.is_some()
+            || self.crosshairs.is_some()
+            || self.marker.is_some()
+            || self.glide.is_some()
+            || !self.spots.is_empty()
     }
 
     fn ensure_timer(&mut self) -> Result<()> {
@@ -164,19 +173,55 @@ impl Live {
                 logic::scale(c.length, dpi),
             );
             let alpha = logic::percent_alpha(c.opacity_percent);
-            let shape = pieces(&logic::crosshair(cursor, desktop, t, gap, len));
-            lines.show_shape(desktop, &c.color, alpha, &shape)?;
-            let border = logic::crosshair_border(cursor, desktop, t, gap, len, logic::scale(c.border_size, dpi));
-            if border.is_empty() {
+            let o = c.orientation;
+            if c.hide_with_pointer && !input::cursor_visible() {
+                lines.hide();
                 outline.hide();
             } else {
-                outline.show_shape(desktop, &c.border_color, alpha, &pieces(&border))?;
+                let shape = pieces(&logic::crosshair(cursor, desktop, t, gap, len, o));
+                lines.show_shape(desktop, &c.color, alpha, &shape)?;
+                let b = logic::scale(c.border_size, dpi);
+                let border = logic::crosshair_border(cursor, desktop, t, gap, len, b, o);
+                if border.is_empty() {
+                    outline.hide();
+                } else {
+                    outline.show_shape(desktop, &c.border_color, alpha, &pieces(&border))?;
+                }
             }
+        }
+
+        if let Some((glide, overlay)) = &mut self.glide {
+            let c = &s.crosshairs;
+            let speed = if glide.fast() {
+                c.gliding_fast_speed
+            } else {
+                c.gliding_slow_speed
+            };
+            glide.advance(logic::scale(speed, dpi));
+            let lines: Vec<Piece> = glide
+                .lines(logic::scale(c.thickness, dpi))
+                .into_iter()
+                .map(Piece::Rect)
+                .collect();
+            overlay.show_shape(desktop, &c.color, logic::percent_alpha(c.opacity_percent), &lines)?;
         }
 
         let h = &s.highlighter;
         let base = logic::percent_alpha(h.opacity_percent);
         let r = logic::scale(h.radius, dpi);
+        if let Some(marker) = &mut self.marker {
+            let around = logic::around(cursor, r);
+            if h.spotlight_mode {
+                marker.show_shape(
+                    desktop,
+                    &h.always_color,
+                    base,
+                    &[Piece::Rect(desktop), Piece::CutEllipse(around)],
+                )?;
+            } else {
+                marker.show_shape(around, &h.always_color, base, &[Piece::Ellipse(around)])?;
+            }
+        }
         let mut result = Ok(());
         self.spots.retain_mut(|spot| {
             let since = spot.released_at.map(|t| now.saturating_sub(t));
@@ -240,17 +285,54 @@ impl Live {
         }
     }
 
-    pub fn set_highlighter(&mut self, on: bool) {
+    pub fn set_highlighter(&mut self, on: bool) -> Result<()> {
         self.highlighter = on;
         if !on {
             self.spots.clear();
         }
+        let want_marker = on && self.settings.highlighter.always_highlight;
+        match (want_marker, self.marker.is_some()) {
+            (true, false) => {
+                self.marker = Some(Overlay::new()?);
+                self.ensure_timer()?;
+            }
+            (false, true) => self.marker = None,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn cancel_glide(&mut self) {
+        self.glide = None;
+    }
+
+    pub fn gliding(&self) -> bool {
+        self.glide.is_some()
+    }
+
+    /// One press of the gliding cursor shortcut: start, slow down, fix a line, or click.
+    pub fn glide_press(&mut self) -> Result<()> {
+        let Some((glide, _)) = &mut self.glide else {
+            let cursor = input::cursor_pos()?;
+            let m = monitor::from_point(cursor.0, cursor.1).ok_or_else(|| anyhow!("no monitor under the pointer"))?;
+            self.glide = Some((Glide::new(m.rect), Overlay::new()?));
+            self.ensure_timer()?;
+            return self.tick();
+        };
+        if let Some((x, y)) = glide.press() {
+            self.glide = None;
+            input::set_cursor_pos(x, y)?;
+            input::click_left()?;
+        }
+        Ok(())
     }
 
     /// Hide everything and stop the timer.
     pub fn clear(&mut self) {
         self.spotlight = None;
         self.crosshairs = None;
+        self.marker = None;
+        self.glide = None;
         self.spots.clear();
         self.close_jump();
         if let Some(id) = self.timer.take() {
@@ -263,6 +345,9 @@ impl Live {
         let f = &self.settings.find_my_mouse;
         if down && !is_ctrl(vk) && self.spotlight.is_some() {
             self.spotlight = None;
+        }
+        if down && vk == VK_ESCAPE {
+            self.glide = None;
         }
         if f.enabled && f.activation == FindMouseActivation::DoubleCtrl {
             let now = self.now();

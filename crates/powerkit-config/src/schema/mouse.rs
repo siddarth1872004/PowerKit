@@ -68,6 +68,12 @@ pub struct MouseHighlighter {
     pub fade_delay_ms: u32,
     /// How long it takes to fade out, 0-5000 ms.
     pub fade_ms: u32,
+    /// While highlighting is on, also mark the pointer when no button is pressed.
+    pub always_highlight: bool,
+    pub always_color: String,
+    /// The pointer mark becomes a spotlight: the screen dims except a circle of
+    /// `radius` around the pointer, in `always_color`.
+    pub spotlight_mode: bool,
 }
 
 impl Default for MouseHighlighter {
@@ -81,8 +87,20 @@ impl Default for MouseHighlighter {
             radius: 20,
             fade_delay_ms: 500,
             fade_ms: 250,
+            always_highlight: false,
+            always_color: "#FF0000".into(),
+            spotlight_mode: false,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CrosshairsOrientation {
+    #[default]
+    Both,
+    Horizontal,
+    Vertical,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +122,15 @@ pub struct Crosshairs {
     pub border_color: String,
     /// Outline width at 96 DPI, 0-50; 0 draws none.
     pub border_size: u32,
+    pub orientation: CrosshairsOrientation,
+    /// Hide the lines while an application hides the pointer (typing, video).
+    pub hide_with_pointer: bool,
+    /// Gliding cursor: each press advances a line sweep (fast, slow, then the same
+    /// down the screen) and the last one clicks where the lines cross.
+    pub gliding_shortcut: String,
+    /// Sweep speed in pixels per frame at 96 DPI: fast 1-60, slow 1-20.
+    pub gliding_fast_speed: u32,
+    pub gliding_slow_speed: u32,
 }
 
 impl Default for Crosshairs {
@@ -118,6 +145,11 @@ impl Default for Crosshairs {
             length: 0,
             border_color: "#FFFFFF".into(),
             border_size: 1,
+            orientation: CrosshairsOrientation::Both,
+            hide_with_pointer: true,
+            gliding_shortcut: "Win+Alt+Period".into(),
+            gliding_fast_speed: 10,
+            gliding_slow_speed: 2,
         }
     }
 }
@@ -194,6 +226,12 @@ impl MouseUtilities {
         clamp(&mut h.radius, 5, 100, "Mouse Highlighter radius", w);
         clamp(&mut h.fade_delay_ms, 0, 5000, "Mouse Highlighter fade delay", w);
         clamp(&mut h.fade_ms, 0, 5000, "Mouse Highlighter fade", w);
+        fix_color(
+            &mut h.always_color,
+            &d.always_color,
+            "Mouse Highlighter pointer color",
+            w,
+        );
 
         let (c, d) = (&mut self.crosshairs, Crosshairs::default());
         fix_shortcut(&mut c.shortcut, &d.shortcut, "Crosshairs", w);
@@ -204,6 +242,9 @@ impl MouseUtilities {
         clamp(&mut c.length, 0, 10_000, "Crosshairs length", w);
         fix_color(&mut c.border_color, &d.border_color, "Crosshairs border color", w);
         clamp(&mut c.border_size, 0, 50, "Crosshairs border size", w);
+        fix_shortcut(&mut c.gliding_shortcut, &d.gliding_shortcut, "Gliding cursor", w);
+        clamp(&mut c.gliding_fast_speed, 1, 60, "Gliding cursor fast speed", w);
+        clamp(&mut c.gliding_slow_speed, 1, 20, "Gliding cursor slow speed", w);
 
         let (j, d) = (&mut self.jump, MouseJump::default());
         fix_shortcut(&mut j.shortcut, &d.shortcut, "Mouse Jump", w);

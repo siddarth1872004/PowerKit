@@ -1,5 +1,6 @@
 //! Geometry, timing and gesture detection, free of OS calls.
 
+use powerkit_config::CrosshairsOrientation as Orientation;
 use powerkit_core::Rect;
 use std::collections::VecDeque;
 
@@ -33,25 +34,31 @@ pub fn around((x, y): (i32, i32), r: i32) -> Rect {
     Rect::new(x - r, y - r, x + r, y + r)
 }
 
-/// Two lines through the pointer, `thickness` wide, leaving `gap` free on each side of
-/// it; arms are `length` long, or reach the edges of `bounds` when `length` is 0.
-pub fn crosshair(cursor: (i32, i32), bounds: Rect, thickness: i32, gap: i32, length: i32) -> Vec<Part> {
-    let (x, y) = cursor;
-    let t = thickness.max(1);
-    let (top, left) = (y - t / 2, x - t / 2);
-    let (x0, x1, y0, y1) = if length > 0 {
-        (x - gap - length, x + gap + length, y - gap - length, y + gap + length)
-    } else {
-        (bounds.left, bounds.right, bounds.top, bounds.bottom)
+/// The arms of a crosshair through `cursor`, leaving `gap` free around it; `length` 0
+/// reaches the edges of `bounds`.
+pub fn crosshair(
+    cursor: (i32, i32),
+    bounds: Rect,
+    thickness: i32,
+    gap: i32,
+    length: i32,
+    orientation: Orientation,
+) -> Vec<Part> {
+    pick(arms(cursor, bounds, thickness, gap, length), orientation)
+        .map(Part::Rect)
+        .collect()
+}
+
+fn pick(arms: [Rect; 4], orientation: Orientation) -> impl Iterator<Item = Rect> {
+    let keep = match orientation {
+        Orientation::Both => [true; 4],
+        Orientation::Horizontal => [true, true, false, false],
+        Orientation::Vertical => [false, false, true, true],
     };
-    let mut parts = vec![
-        Part::Rect(Rect::new(x0, top, x1, top + t)),
-        Part::Rect(Rect::new(left, y0, left + t, y1)),
-    ];
-    if gap > 0 {
-        parts.push(Part::CutRect(Rect::new(x - gap, y - gap, x + gap, y + gap)));
-    }
-    parts
+    arms.into_iter()
+        .zip(keep)
+        .filter(|(r, k)| *k && !r.is_empty())
+        .map(|(r, _)| r)
 }
 
 /// The four arms of a crosshair (left, right, up, down), leaving `gap` free around
@@ -81,6 +88,7 @@ pub fn crosshair_border(
     gap: i32,
     length: i32,
     border: i32,
+    orientation: Orientation,
 ) -> Vec<Part> {
     if border <= 0 {
         return Vec::new();
@@ -94,11 +102,9 @@ pub fn crosshair_border(
         outer_length,
     );
     let inner = arms(cursor, bounds, thickness, gap, length);
-    outer
-        .into_iter()
-        .filter(|r| !r.is_empty())
+    pick(outer, orientation)
         .map(Part::Rect)
-        .chain(inner.into_iter().filter(|r| !r.is_empty()).map(Part::CutRect))
+        .chain(pick(inner, orientation).map(Part::CutRect))
         .collect()
 }
 
@@ -250,6 +256,61 @@ pub fn centered(w: i32, h: i32, area: Rect) -> Rect {
     Rect::from_size(cx - w / 2, cy - h / 2, w, h)
 }
 
+/// Gliding cursor: a vertical line sweeps across `area`, fast then slow; once its place
+/// is fixed a horizontal line does the same downwards. Each `press` moves to the next
+/// stage; the last one gives the point where the lines cross.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Glide {
+    area: Rect,
+    stage: u8,
+    x: i32,
+    y: i32,
+}
+
+impl Glide {
+    pub fn new(area: Rect) -> Glide {
+        Glide {
+            area,
+            stage: 0,
+            x: area.left,
+            y: area.top,
+        }
+    }
+
+    pub fn press(&mut self) -> Option<(i32, i32)> {
+        if self.stage == 3 {
+            return Some((self.x, self.y));
+        }
+        self.stage += 1;
+        None
+    }
+
+    pub fn fast(&self) -> bool {
+        self.stage.is_multiple_of(2)
+    }
+
+    /// Move the sweeping line by `step` pixels, wrapping at the far edge.
+    pub fn advance(&mut self, step: i32) {
+        let a = self.area;
+        let wrap = |v: i32, lo: i32, hi: i32| if v >= hi { lo + (v - hi) % (hi - lo).max(1) } else { v };
+        if self.stage < 2 {
+            self.x = wrap(self.x + step, a.left, a.right);
+        } else {
+            self.y = wrap(self.y + step, a.top, a.bottom);
+        }
+    }
+
+    /// The vertical line, and once the sweep is downwards also the horizontal one.
+    pub fn lines(&self, thickness: i32) -> Vec<Rect> {
+        let (a, t) = (self.area, thickness.max(1));
+        let mut out = vec![Rect::new(self.x - t / 2, a.top, self.x - t / 2 + t, a.bottom)];
+        if self.stage >= 2 {
+            out.push(Rect::new(a.left, self.y - t / 2, a.right, self.y - t / 2 + t));
+        }
+        out
+    }
+}
+
 /// Make the Mouse Jump picture show the real monitor layout: whatever no monitor covers
 /// becomes `background`, and every monitor gets a one-pixel `edge`.
 pub fn frame_monitors(
@@ -304,22 +365,20 @@ mod tests {
 
     #[test]
     fn crosshair_reaches_edges_or_has_length() {
-        let p = crosshair((100, 200), SCREEN, 4, 10, 0);
+        let p = crosshair((100, 200), SCREEN, 4, 10, 0, Orientation::Both);
         assert_eq!(
             p,
             vec![
-                Part::Rect(Rect::new(-1920, 198, 1920, 202)),
-                Part::Rect(Rect::new(98, 0, 102, 1080)),
-                Part::CutRect(Rect::new(90, 190, 110, 210)),
+                Part::Rect(Rect::new(-1920, 198, 90, 202)),
+                Part::Rect(Rect::new(110, 198, 1920, 202)),
+                Part::Rect(Rect::new(98, 0, 102, 190)),
+                Part::Rect(Rect::new(98, 210, 102, 1080)),
             ]
         );
-        let p = crosshair((0, 0), SCREEN, 1, 0, 50);
+        let p = crosshair((0, 0), SCREEN, 1, 0, 50, Orientation::Vertical);
         assert_eq!(
             p,
-            vec![
-                Part::Rect(Rect::new(-50, 0, 50, 1)),
-                Part::Rect(Rect::new(0, -50, 1, 50))
-            ]
+            vec![Part::Rect(Rect::new(0, -50, 1, 0)), Part::Rect(Rect::new(0, 0, 1, 50))]
         );
     }
 
@@ -401,8 +460,8 @@ mod tests {
 
     #[test]
     fn crosshair_border_rings_the_arms() {
-        assert!(crosshair_border((0, 0), SCREEN, 4, 10, 0, 0).is_empty());
-        let b = crosshair_border((100, 100), SCREEN, 2, 10, 50, 1);
+        assert!(crosshair_border((0, 0), SCREEN, 4, 10, 0, 0, Orientation::Both).is_empty());
+        let b = crosshair_border((100, 100), SCREEN, 2, 10, 50, 1, Orientation::Both);
         assert_eq!(b.len(), 8);
         // Left arm: outer reaches one pixel further out and one pixel closer in.
         assert_eq!(b[0], Part::Rect(Rect::new(39, 98, 91, 102)));
@@ -423,5 +482,21 @@ mod tests {
         assert_eq!(at(25, 25), 7, "inside keeps the picture");
         assert_eq!(at(75, 50), 7);
         assert_eq!(at(25, 60), 1, "below the left monitor");
+    }
+
+    #[test]
+    fn glide_sweeps_then_clicks() {
+        let mut g = Glide::new(Rect::new(0, 0, 100, 50));
+        assert!(g.fast());
+        g.advance(95);
+        g.advance(10);
+        assert_eq!(g.lines(1), vec![Rect::new(5, 0, 6, 50)], "wrapped past the right edge");
+        assert_eq!(g.press(), None);
+        assert!(!g.fast());
+        assert_eq!(g.press(), None);
+        g.advance(20);
+        assert_eq!(g.lines(1)[1], Rect::new(0, 20, 100, 21));
+        assert_eq!(g.press(), None);
+        assert_eq!(g.press(), Some((5, 20)));
     }
 }

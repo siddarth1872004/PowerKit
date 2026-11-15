@@ -68,11 +68,15 @@ impl MouseUtilities {
             if !s.jump.enabled && l.jump_open() {
                 l.toggle_jump()?;
             }
-            l.set_highlighter(self.highlighter_on && s.highlighter.enabled);
+            l.set_highlighter(self.highlighter_on && s.highlighter.enabled)?;
+            if !s.crosshairs.enabled {
+                l.cancel_glide();
+            }
             l.set_crosshairs(self.crosshairs_on && s.crosshairs.enabled)?;
         }
 
-        let want_keys = s.find_my_mouse.enabled;
+        // Esc cancels the gliding cursor, so the keyboard is watched for it too.
+        let want_keys = s.find_my_mouse.enabled || s.crosshairs.enabled;
         let want_mouse = s.find_my_mouse.enabled || (s.highlighter.enabled && self.highlighter_on);
         if !want_keys {
             self.key_hook = None;
@@ -118,6 +122,7 @@ impl MouseUtilities {
             "find_my_mouse" => (s.find_my_mouse.enabled, "Find My Mouse"),
             "highlighter" => (s.highlighter.enabled, "Mouse Highlighter"),
             "crosshairs" => (s.crosshairs.enabled, "Crosshairs"),
+            "glide" => (s.crosshairs.enabled, "Gliding cursor"),
             "jump" => (s.jump.enabled, "Mouse Jump"),
             _ => bail!("unknown action {action:?}"),
         };
@@ -134,6 +139,7 @@ impl MouseUtilities {
             match action {
                 "find_my_mouse" => l.borrow_mut().toggle_spotlight()?,
                 "jump" => l.borrow_mut().toggle_jump()?,
+                "glide" => l.borrow_mut().glide_press()?,
                 _ => {}
             }
         }
@@ -166,6 +172,7 @@ impl Module for MouseUtilities {
                 cmd("find_my_mouse", "Show or hide the spotlight on the pointer"),
                 cmd("highlighter", "Turn click highlighting on or off"),
                 cmd("crosshairs", "Turn the crosshairs on or off"),
+                cmd("glide", "Gliding cursor: start, slow down, fix a line, or click"),
                 cmd("jump", "Pick a spot on any screen to move the pointer to"),
             ],
             settings: vec![],
@@ -234,17 +241,18 @@ impl Module for MouseUtilities {
 
     fn status(&self) -> Value {
         #[cfg(windows)]
-        let (spotlight, jump) = self.live.as_ref().map_or((false, false), |l| {
+        let (spotlight, jump, gliding) = self.live.as_ref().map_or((false, false, false), |l| {
             let l = l.borrow();
-            (l.spotlight_on(), l.jump_open())
+            (l.spotlight_on(), l.jump_open(), l.gliding())
         });
         #[cfg(not(windows))]
-        let (spotlight, jump) = (false, false);
+        let (spotlight, jump, gliding) = (false, false, false);
         json!({
             "highlighter": self.highlighter_on,
             "crosshairs": self.crosshairs_on,
             "spotlight": spotlight,
             "jump": jump,
+            "gliding": gliding,
         })
     }
 }
@@ -288,7 +296,7 @@ mod tests {
                 .map(|(_, a, _)| a)
                 .collect()
         };
-        assert_eq!(ours(&config), ["highlighter", "crosshairs", "jump"]);
+        assert_eq!(ours(&config), ["highlighter", "crosshairs", "glide", "jump"]);
         config.mouse_utilities.crosshairs.enabled = false;
         config.mouse_utilities.find_my_mouse.shortcut = "Win+Shift+F".into();
         assert_eq!(ours(&config), ["find_my_mouse", "highlighter", "jump"]);

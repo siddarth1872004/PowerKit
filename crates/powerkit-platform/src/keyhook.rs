@@ -142,7 +142,7 @@ pub fn send_text(text: &str) -> Result<()> {
     send(&inputs)
 }
 
-fn send(inputs: &[INPUT]) -> Result<()> {
+pub(crate) fn send(inputs: &[INPUT]) -> Result<()> {
     if inputs.is_empty() {
         return Ok(());
     }
