@@ -26,6 +26,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("environment_variables", 9.0, environment_variables),
     ("registry_preview", 10.0, registry_preview),
     ("new_plus", 10.0, new_plus),
+    ("file_locksmith", 9.0, file_locksmith),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1201,6 +1202,94 @@ fn new_plus(c: &mut Canvas, t: f32, _: &Config) {
             (2.0, "New+ lists your templates: files and whole folder trees"),
             (3.7, "The copy is made and ready to rename"),
             (6.2, "Add your own templates with Open templates"),
+        ],
+    );
+}
+
+fn file_locksmith(c: &mut Canvas, t: f32, _: &Config) {
+    c.desktop();
+    let top = c.window(24.0, 20.0, 250.0, 196.0, "Documents");
+    let file = (30.0, top + 26.0);
+    file_row(c, 30.0, top + 6.0, 238.0, "Invoices", true, false);
+    file_row(c, file.0, file.1, 238.0, "report.docx", false, (1.0..3.0).contains(&t));
+    let at = (110.0, file.1 + 10.0);
+    let unlock = (at.0 + 50.0, at.1 + 3.0 + 2.5 * MENU_ROW);
+    if (1.3..2.9).contains(&t) {
+        let items = ["Open", "Copy", "Unlock with PowerKit", "", "Properties"];
+        c.menu(at.0, at.1, 130.0, &items, (t >= 2.0).then_some(2));
+    }
+    let (wx, wy, ww) = (196.0, 48.0, 264.0);
+    let end = (wx + 46.0, wy + 136.0);
+    let second = (wx + 60.0, wy + 70.0);
+    if t >= 2.9 {
+        let inner = c.window(wx, wy, ww, 170.0, "File Locksmith - report.docx");
+        let mut rows = Vec::new();
+        if t < 4.9 {
+            rows.push(vec!["Word".to_string(), "4120".into(), "report.docx".into()]);
+        }
+        if t < 6.9 {
+            rows.push(vec!["Backup".to_string(), "2208".into(), "report.docx".into()]);
+        }
+        let selected = ((3.8..4.9).contains(&t) || (5.8..6.9).contains(&t)).then_some(0);
+        table(
+            c,
+            wx + 6.0,
+            inner + 6.0,
+            ww - 12.0,
+            &[0.0, 90.0, 140.0],
+            &["Process", "PID", "Using"],
+            &rows,
+            selected,
+        );
+        c.button(
+            end.0 - 30.0,
+            end.1 - 8.0,
+            60.0,
+            "End task",
+            (4.6..4.9).contains(&t) || (6.6..6.9).contains(&t),
+        );
+        c.button(wx + ww - 66.0, end.1 - 8.0, 60.0, "Refresh", false);
+        let status = if t >= 6.9 {
+            "No process is using report.docx."
+        } else if t >= 4.9 {
+            "1 process is using report.docx."
+        } else {
+            "2 processes are using report.docx."
+        };
+        c.text(wx + 8.0, end.1 + 18.0, status, 7.0, MUTED);
+    }
+    let (x, y) = path(
+        t,
+        &[
+            (0.0, 300.0, 230.0),
+            (1.0, at.0, at.1),
+            (1.4, at.0, at.1),
+            (2.2, unlock.0, unlock.1),
+            (2.8, unlock.0, unlock.1),
+            (3.6, wx + 40.0, wy + 54.0),
+            (4.2, end.0, end.1),
+            (4.8, end.0, end.1),
+            (5.6, second.0, wy + 54.0),
+            (6.2, end.0, end.1),
+            (7.0, end.0, end.1),
+            (7.8, 380.0, 240.0),
+        ],
+    );
+    click(c, t, 1.1, at.0, at.1);
+    click(c, t, 2.6, unlock.0, unlock.1);
+    click(c, t, 3.7, wx + 40.0, wy + 54.0);
+    click(c, t, 4.6, end.0, end.1);
+    click(c, t, 5.6, second.0, wy + 54.0);
+    click(c, t, 6.6, end.0, end.1);
+    c.cursor(x, y);
+    c.steps(
+        t,
+        &[
+            (0.0, "A file will not delete or move because something has it open"),
+            (1.3, "Right-click it, or a folder, and choose Unlock with PowerKit"),
+            (2.9, "Every process using it is listed"),
+            (3.7, "Select one and choose End task; unsaved work in it is lost"),
+            (6.9, "The file is free"),
         ],
     );
 }

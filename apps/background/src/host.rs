@@ -518,6 +518,7 @@ impl Host {
                     Some("environment_variables") => new.environment_variables = d.environment_variables,
                     Some("registry_preview") => new.registry_preview = d.registry_preview,
                     Some("new_plus") => new.new_plus = d.new_plus,
+                    Some("file_locksmith") => new.file_locksmith = d.file_locksmith,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

@@ -43,6 +43,7 @@ hosts-editor.workspace = true
 environment-variables.workspace = true
 registry-preview.workspace = true
 new-plus.workspace = true
+file-locksmith.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -20,6 +20,7 @@ members = [
     "modules/environment-variables",
     "modules/registry-preview",
     "modules/new-plus",
+    "modules/file-locksmith",
     "modules/power-rename",
     "apps/background",
 ]
@@ -68,6 +69,7 @@ hosts-editor = { path = "modules/hosts-editor" }
 environment-variables = { path = "modules/environment-variables" }
 registry-preview = { path = "modules/registry-preview" }
 new-plus = { path = "modules/new-plus" }
+file-locksmith = { path = "modules/file-locksmith" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

@@ -723,6 +723,15 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 ),
             ],
         )],
+        "file_locksmith" => vec![(
+            "Shell integration",
+            vec![s(
+                "extended_menu_only",
+                "Extended menu only",
+                "Show \"Unlock with PowerKit\" only when Shift is held while right-clicking",
+                Toggle,
+            )],
+        )],
         _ => Vec::new(),
     }
 }
@@ -750,7 +759,11 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
         '\u{E765}',
         &["keyboard_manager", "mouse_utilities", "quick_accent"],
     ),
-    ("File Management", '\u{E8B7}', &["new_plus", "power_rename"]),
+    (
+        "File Management",
+        '\u{E8B7}',
+        &["file_locksmith", "new_plus", "power_rename"],
+    ),
     (
         "Advanced",
         '\u{E9F5}',

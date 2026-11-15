@@ -6,6 +6,7 @@ mod color_picker;
 mod crop_and_lock;
 mod environment_variables;
 mod fancy_zones;
+mod file_locksmith;
 mod grab_and_move;
 mod hosts_editor;
 mod keyboard;
@@ -24,6 +25,7 @@ pub use color_picker::*;
 pub use crop_and_lock::*;
 pub use environment_variables::*;
 pub use fancy_zones::*;
+pub use file_locksmith::*;
 pub use grab_and_move::*;
 pub use hosts_editor::*;
 pub use keyboard::*;
@@ -152,6 +154,7 @@ pub struct Config {
     pub environment_variables: EnvironmentVariables,
     pub registry_preview: RegistryPreview,
     pub new_plus: NewPlus,
+    pub file_locksmith: FileLocksmith,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -339,6 +342,7 @@ impl Config {
             "environment_variables" => self.environment_variables.enabled,
             "registry_preview" => self.registry_preview.enabled,
             "new_plus" => self.new_plus.enabled,
+            "file_locksmith" => self.file_locksmith.enabled,
             _ => return None,
         })
     }
@@ -363,6 +367,7 @@ impl Config {
             "environment_variables" => &mut self.environment_variables.enabled,
             "registry_preview" => &mut self.registry_preview.enabled,
             "new_plus" => &mut self.new_plus.enabled,
+            "file_locksmith" => &mut self.file_locksmith.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -429,6 +434,7 @@ impl Config {
         config.environment_variables = section(&mut map, "environment_variables", &mut warnings);
         config.registry_preview = section(&mut map, "registry_preview", &mut warnings);
         config.new_plus = section(&mut map, "new_plus", &mut warnings);
+        config.file_locksmith = section(&mut map, "file_locksmith", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

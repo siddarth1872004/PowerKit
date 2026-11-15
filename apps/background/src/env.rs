@@ -7,7 +7,7 @@ use crate::Host;
 use environment_variables::vars::{self, Change, Table, Var};
 use powerkit_core::TableEvent;
 use powerkit_platform::event_loop::Waker;
-use powerkit_platform::table_window::{Field, TableRow, TableSpec, TableWindow};
+use powerkit_platform::table_window::{Field, TableRow, TableSpec, TableWindow, EDIT_BUTTONS};
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
@@ -36,6 +36,7 @@ static SPEC: TableSpec = TableSpec {
         "User variables",
         "System variables (saving asks for administrator permission)",
     ],
+    buttons: EDIT_BUTTONS,
 };
 
 /// Write `changes` to one scope's registry key; stops at the first failure. Writing

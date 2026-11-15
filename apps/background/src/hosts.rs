@@ -6,7 +6,7 @@ use crate::Host;
 use hosts_editor::hosts::{self, Entry, HostsFile, Line};
 use powerkit_core::TableEvent;
 use powerkit_platform::event_loop::Waker;
-use powerkit_platform::table_window::{Field, TableRow, TableSpec, TableWindow};
+use powerkit_platform::table_window::{Field, TableRow, TableSpec, TableWindow, EDIT_BUTTONS};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
@@ -35,6 +35,7 @@ static SPEC: TableSpec = TableSpec {
     ],
     checks: true,
     choices: &[],
+    buttons: EDIT_BUTTONS,
 };
 
 /// The listed rows: one per entry, in file order.

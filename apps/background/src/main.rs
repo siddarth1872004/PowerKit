@@ -10,6 +10,7 @@
 //! * `powerkit --write-env F`  apply the system variable changes in F (run elevated)
 //! * `powerkit --reg [F]`   open Registry Preview, with the .reg file F if given
 //! * `powerkit --new DIR`   show the New+ template menu for folder DIR (Explorer menu)
+//! * `powerkit --unlock P…` show which processes use the given files (Explorer menu)
 //! * `powerkit --version`
 //! * `powerkit --after-update`  start once the previous version has exited
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -18,6 +19,7 @@ use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
 use powerkit_host::env::EnvUi;
 use powerkit_host::hosts::HostsUi;
+use powerkit_host::locksmith::LocksmithUi;
 use powerkit_host::registry::RegistryUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::settings::SettingsUi;
@@ -178,9 +180,19 @@ fn main() -> std::process::ExitCode {
         Some(i) => args[i + 1..].to_vec(),
         None => Vec::new(),
     };
+    // The running instance may have another working directory.
+    let unlock: Vec<PathBuf> = match args.iter().position(|a| a == "--unlock") {
+        Some(i) => args[i + 1..]
+            .iter()
+            .map(|f| std::path::absolute(f).unwrap_or_else(|_| PathBuf::from(f)))
+            .collect(),
+        None => Vec::new(),
+    };
     // A module command asked for on the command line, run by this or the running instance.
     let request = if !rename.is_empty() {
         Some(json!({ "id": power_rename::ID, "command": "open", "args": { "paths": rename } }))
+    } else if !unlock.is_empty() {
+        Some(json!({ "id": file_locksmith::ID, "command": "open", "args": { "paths": unlock } }))
     } else if has("--hosts") {
         Some(json!({ "id": hosts_editor::ID, "command": "open" }))
     } else if has("--env") {
@@ -272,6 +284,7 @@ struct Windows {
     hosts: HostsUi,
     env: EnvUi,
     registry: RegistryUi,
+    locksmith: LocksmithUi,
 }
 
 fn run(
@@ -355,6 +368,7 @@ fn run(
         hosts: HostsUi::new(event_loop.waker()),
         env: EnvUi::new(event_loop.waker()),
         registry: RegistryUi::new(event_loop.waker()),
+        locksmith: LocksmithUi::new(event_loop.waker()),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -376,6 +390,15 @@ fn run(
                             &host.config().new_plus,
                             &host.paths().root,
                             &tray,
+                        ),
+                        file_locksmith::OPEN_EVENT => ui.locksmith.open(
+                            payload["paths"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .filter_map(Value::as_str)
+                                .map(PathBuf::from)
+                                .collect(),
                         ),
                         _ => Ok(()),
                     };
@@ -408,6 +431,7 @@ fn run(
                 ui.hosts.poll();
                 ui.env.poll();
                 ui.registry.poll();
+                ui.locksmith.poll();
                 while let Ok((request, reply)) = rx.try_recv() {
                     let response = match host.handle_request(&request.method, &request.params) {
                         Ok(v) => Response::ok(request.id, v),
@@ -545,6 +569,7 @@ fn run(
             Event::Rename(e) => ui.rename.on_event(e, &mut host),
             Event::Table { table, event } if table == powerkit_host::hosts::TABLE => ui.hosts.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
+            Event::Table { table, event } if table == powerkit_host::locksmith::TABLE => ui.locksmith.on_event(event),
             Event::Registry(e) => ui.registry.on_event(e, &host.paths().root),
             other => host.dispatch(&other),
         }

@@ -66,7 +66,14 @@ pub struct TableSpec {
     pub checks: bool,
     /// Entries of the selector above the list; none means no selector.
     pub choices: &'static [&'static str],
+    /// Labels of the Add, Update, Delete, Reload and Save buttons, which report the
+    /// matching [`TableEvent`]; an empty label leaves that button out.
+    pub buttons: [&'static str; 5],
 }
+
+/// The buttons of a window that edits its rows.
+pub const EDIT_BUTTONS: [&str; 5] = ["Add", "Update", "Delete", "Reload", "Save"];
+const BUTTON_IDS: [i32; 5] = [ID_ADD, ID_UPDATE, ID_DELETE, ID_RELOAD, ID_SAVE];
 
 fn label_id(i: usize) -> i32 {
     FIELD_BASE + 2 * i as i32
@@ -165,7 +172,8 @@ fn layout(hwnd: HWND, spec: &TableSpec, dpi: u32) {
         place(ID_CHOICE, s(PAD), top, s(CHOICE_W), s(LINE * 8));
         top += s(LINE) + s(PAD / 2);
     }
-    place(ID_LIST, s(PAD), top, w - s(PAD) * 2, fields - s(PAD) - top);
+    let list_bottom = if spec.fields.is_empty() { buttons } else { fields };
+    place(ID_LIST, s(PAD), top, w - s(PAD) * 2, list_bottom - s(PAD) - top);
 
     let gaps = s(PAD / 2) * (spec.fields.len() * 2).saturating_sub(1) as i32;
     let fixed: i32 = spec.fields.iter().map(|f| s(f.label_width) + s(f.width)).sum();
@@ -180,19 +188,28 @@ fn layout(hwnd: HWND, spec: &TableSpec, dpi: u32) {
         x += width + s(PAD / 2);
     }
 
-    for (i, id) in [ID_ADD, ID_UPDATE, ID_DELETE].into_iter().enumerate() {
+    let shown = |ids: &[usize]| -> Vec<i32> {
+        ids.iter()
+            .filter(|&&i| !spec.buttons[i].is_empty())
+            .map(|&i| BUTTON_IDS[i])
+            .collect()
+    };
+    let step = s(BUTTON_W) + s(PAD / 2);
+    for (i, id) in shown(&[0, 1, 2]).into_iter().enumerate() {
+        place(id, s(PAD) + i as i32 * step, buttons, s(BUTTON_W), s(LINE));
+    }
+    let right = shown(&[3, 4]);
+    let right_w = right.len() as i32 * step;
+    place(ID_STATUS, s(PAD), bottom, w - s(PAD) * 2 - right_w, s(LINE));
+    for (i, id) in right.into_iter().enumerate() {
         place(
             id,
-            s(PAD) + i as i32 * (s(BUTTON_W) + s(PAD / 2)),
-            buttons,
+            w - s(PAD) - right_w + s(PAD / 2) + i as i32 * step,
+            bottom,
             s(BUTTON_W),
             s(LINE),
         );
     }
-    let right = s(BUTTON_W) * 2 + s(PAD / 2);
-    place(ID_STATUS, s(PAD), bottom, w - s(PAD) * 3 - right, s(LINE));
-    place(ID_RELOAD, w - s(PAD) - right, bottom, s(BUTTON_W), s(LINE));
-    place(ID_SAVE, w - s(PAD) - s(BUTTON_W), bottom, s(BUTTON_W), s(LINE));
 }
 
 fn text_of(hwnd: HWND) -> String {
@@ -443,12 +460,12 @@ impl TableWindow {
                     child("STATIC", f.label, label, none, label_id(i))?;
                     child("EDIT", "", edit, WS_EX_CLIENTEDGE, field_id(i))?;
                 }
-                child("BUTTON", "Add", button, none, ID_ADD)?;
-                child("BUTTON", "Update", button, none, ID_UPDATE)?;
-                child("BUTTON", "Delete", button, none, ID_DELETE)?;
+                for (text, id) in spec.buttons.into_iter().zip(BUTTON_IDS) {
+                    if !text.is_empty() {
+                        child("BUTTON", text, button, none, id)?;
+                    }
+                }
                 child("STATIC", "", label, none, ID_STATUS)?;
-                child("BUTTON", "Reload", button, none, ID_RELOAD)?;
-                child("BUTTON", "Save", button, none, ID_SAVE)?;
                 Ok(())
             })();
             if let Err(e) = created {
@@ -595,6 +612,7 @@ mod tests {
         ],
         checks: true,
         choices: &["One", "Two"],
+        buttons: ["", "", "End", "Refresh", ""],
     };
 
     #[test]
@@ -614,6 +632,8 @@ mod tests {
             "selection fills the boxes"
         );
         assert_eq!(text_of(item(w.hwnd, field_id(1))), "x.local");
+        assert!(item(w.hwnd, ID_ADD).is_invalid(), "unlabelled buttons are left out");
+        assert_eq!(text_of(item(w.hwnd, ID_DELETE)), "End");
         w.set_choice(1);
         assert_eq!(send(item(w.hwnd, ID_CHOICE), CB_GETCURSEL, 0, 0), 1);
     }
