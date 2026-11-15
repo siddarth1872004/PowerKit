@@ -164,6 +164,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "fancy-zones"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "proptest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -316,6 +332,7 @@ dependencies = [
  "always-on-top",
  "anyhow",
  "color-picker",
+ "fancy-zones",
  "launcher",
  "power-rename",
  "powerkit-config",

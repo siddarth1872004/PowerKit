@@ -1,0 +1,25 @@
+[package]
+name = "fancy-zones"
+description = "PowerKit utility: window layouts with zones that windows snap into"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+powerkit-core.workspace = true
+powerkit-config.workspace = true
+powerkit-plugin-api.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+powerkit-platform.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

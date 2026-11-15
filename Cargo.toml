@@ -5,6 +5,7 @@ members = [
     "crates/*",
     "modules/always-on-top",
     "modules/color-picker",
+    "modules/fancy-zones",
     "modules/launcher",
     "modules/power-rename",
     "apps/background",

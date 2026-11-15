@@ -97,6 +97,14 @@ impl Drop for InputCapture {
     }
 }
 
+/// Whether a key (virtual-key code) is physically held right now. Works while another
+/// application has focus, which is what drag tracking needs.
+pub fn key_down(vk: u32) -> bool {
+    // SAFETY: plain value argument.
+    let state = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState(vk as i32) };
+    state as u16 & 0x8000 != 0
+}
+
 /// Current cursor position in physical virtual-desktop pixels.
 pub fn cursor_pos() -> Result<(i32, i32)> {
     let mut pt = POINT::default();

@@ -13,6 +13,7 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(power_rename::PowerRename::new()),
         Box::new(always_on_top::AlwaysOnTop::new()),
         Box::new(color_picker::ColorPicker::new()),
+        Box::new(fancy_zones::FancyZones::new()),
         Box::new(launcher::Launcher::new()),
     ]
 }

@@ -25,6 +25,7 @@ pub mod testing;
 pub mod time;
 pub mod tray;
 pub mod window;
+pub mod zones;
 
 mod util;
 

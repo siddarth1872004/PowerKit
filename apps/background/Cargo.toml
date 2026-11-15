@@ -27,6 +27,7 @@ powerkit-plugin-api.workspace = true
 always-on-top.workspace = true
 power-rename.workspace = true
 color-picker.workspace = true
+fancy-zones.workspace = true
 launcher.workspace = true
 
 [dev-dependencies]

@@ -52,8 +52,8 @@ pub fn capture(area: Rect) -> Result<Pixels> {
 }
 
 /// A top-down 32-bit DIB selected into its own memory DC.
-struct Dib {
-    dc: HDC,
+pub(crate) struct Dib {
+    pub(crate) dc: HDC,
     bitmap: HBITMAP,
     old: HGDIOBJ,
     bits: *mut u32,
@@ -61,7 +61,7 @@ struct Dib {
 }
 
 impl Dib {
-    fn new(w: i32, h: i32) -> Result<Dib> {
+    pub(crate) fn new(w: i32, h: i32) -> Result<Dib> {
         let info = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
