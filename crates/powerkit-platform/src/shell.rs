@@ -279,6 +279,45 @@ pub fn game_running() -> bool {
     }
 }
 
+/// Let whichever process comes next (the running PowerKit) bring a window to the
+/// front. A process started from Explorer may; the instance it hands over to may not.
+pub fn allow_foreground() {
+    use windows::Win32::UI::WindowsAndMessaging::{AllowSetForegroundWindow, ASFW_ANY};
+    // SAFETY: plain call. Failure only means the next window may not come forward.
+    if let Err(e) = unsafe { AllowSetForegroundWindow(ASFW_ANY) } {
+        tracing::debug!("AllowSetForegroundWindow: {e}");
+    }
+}
+
+/// Show `path` selected in its folder's Explorer window, with its name ready to edit.
+/// Blocks while Explorer finds or opens the window, so call it off the event loop.
+pub fn select_to_rename(path: &std::path::Path) -> Result<()> {
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    use windows::Win32::UI::Shell::{
+        ILClone, ILCreateFromPathW, ILFindLastID, ILFree, ILRemoveLastID, SHOpenFolderAndSelectItems, OFASI_EDIT,
+    };
+    let text = wide(&path.to_string_lossy());
+    // SAFETY: the item list is created, cloned and freed here; the child pointer
+    // points into `item`, which outlives the call that reads it.
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let item = ILCreateFromPathW(pcwstr(&text));
+        if item.is_null() {
+            return Err(Error::Other(format!("{} was not found", path.display())));
+        }
+        let folder = ILClone(item);
+        let result = if folder.is_null() || !ILRemoveLastID(Some(folder)).as_bool() {
+            Err(Error::Other(format!("{} has no folder to show it in", path.display())))
+        } else {
+            let child = ILFindLastID(item).cast_const();
+            SHOpenFolderAndSelectItems(folder, Some(&[child]), OFASI_EDIT).context("SHOpenFolderAndSelectItems")
+        };
+        ILFree(Some(folder));
+        ILFree(Some(item));
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

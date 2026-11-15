@@ -38,13 +38,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | 📝 | **Hosts File Editor** | Add, change, turn off and delete hosts file entries, with duplicates flagged. Saving asks for administrator permission and keeps a backup. | Tray menu, `powerkit --hosts` |
 | 🌿 | **Environment Variables** | View, add, change and delete user and system variables, with unsaved changes marked. System changes ask for administrator permission; running programs are told about the change. | Tray menu, `powerkit --env` |
 | 🗝️ | **Registry Preview** | Open or type a .reg file and see the keys and values it would write, with problems shown by line. Save it, write it to the registry (administrator permission only when it touches keys outside HKEY_CURRENT_USER), or jump to a key in Registry Editor. | Tray menu, `powerkit --reg [FILE]` |
+| ➕ | **New+** | Right-click a folder or a folder's background and choose New+ to create a file or folder from your own templates. Leading numbers order the menu and can be hidden; `$YYYY`, `$MM`, `$PARENT_FOLDER_NAME`, `%USERNAME%` and other variables can fill in the new name. | Explorer menu, `powerkit --new FOLDER` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-New+ · File Locksmith · Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
+File Locksmith · Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
 ## Install
@@ -86,6 +87,7 @@ powerkit --rename P…   open PowerRename with these files and folders
 powerkit --hosts       open the Hosts File Editor
 powerkit --env         open Environment Variables
 powerkit --reg [F]     open Registry Preview, with the .reg file F
+powerkit --new DIR     show the New+ template menu for folder DIR
 powerkit --quit        ask the running PowerKit to exit
 powerkit --version     print the version
 ```

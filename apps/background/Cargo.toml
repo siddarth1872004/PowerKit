@@ -41,6 +41,7 @@ window-hopper.workspace = true
 hosts-editor.workspace = true
 environment-variables.workspace = true
 registry-preview.workspace = true
+new-plus.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

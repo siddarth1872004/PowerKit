@@ -1,0 +1,23 @@
+[package]
+name = "new-plus"
+description = "PowerKit utility: create files and folders from your own templates"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+powerkit-core.workspace = true
+powerkit-config.workspace = true
+powerkit-plugin-api.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+powerkit-platform.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

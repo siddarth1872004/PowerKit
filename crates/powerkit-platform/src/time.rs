@@ -30,6 +30,35 @@ pub fn to_local(utc_secs: i64) -> Result<i64> {
     Ok(ticks as i64 / TICKS - EPOCH_DIFF)
 }
 
+/// The local date and time now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalTime {
+    pub year: u16,
+    pub month: u16,
+    pub day: u16,
+    /// 0 is Sunday.
+    pub weekday: u16,
+    pub hour: u16,
+    pub minute: u16,
+    pub second: u16,
+    pub millis: u16,
+}
+
+pub fn local_now() -> LocalTime {
+    // SAFETY: plain call that cannot fail.
+    let t = unsafe { windows::Win32::System::SystemInformation::GetLocalTime() };
+    LocalTime {
+        year: t.wYear,
+        month: t.wMonth,
+        day: t.wDay,
+        weekday: t.wDayOfWeek,
+        hour: t.wHour,
+        minute: t.wMinute,
+        second: t.wSecond,
+        millis: t.wMilliseconds,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -40,5 +69,12 @@ mod tests {
         let offset = to_local(now).unwrap() - now;
         assert!(offset.abs() <= 14 * 3600, "offset {offset}");
         assert_eq!(offset % 900, 0, "time zone offsets are multiples of 15 minutes");
+    }
+
+    #[test]
+    fn local_now_is_a_real_date() {
+        let t = local_now();
+        assert!(t.year >= 2024 && (1..=12).contains(&t.month) && (1..=31).contains(&t.day));
+        assert!(t.weekday < 7 && t.hour < 24 && t.millis < 1000);
     }
 }

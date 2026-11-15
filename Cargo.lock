@@ -381,6 +381,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "new-plus"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -458,6 +472,7 @@ dependencies = [
  "launcher",
  "light-switch",
  "mouse-utilities",
+ "new-plus",
  "power-rename",
  "powerkit-config",
  "powerkit-core",

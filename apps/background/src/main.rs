@@ -9,6 +9,7 @@
 //! * `powerkit --env`       open Environment Variables
 //! * `powerkit --write-env F`  apply the system variable changes in F (run elevated)
 //! * `powerkit --reg [F]`   open Registry Preview, with the .reg file F if given
+//! * `powerkit --new DIR`   show the New+ template menu for folder DIR (Explorer menu)
 //! * `powerkit --version`
 //! * `powerkit --after-update`  start once the previous version has exited
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -190,6 +191,9 @@ fn main() -> std::process::ExitCode {
             .get(i + 1)
             .map(|f| std::path::absolute(f).unwrap_or_else(|_| PathBuf::from(f)));
         Some(json!({ "id": registry_preview::ID, "command": "open", "args": { "path": path } }))
+    } else if let Some(folder) = args.iter().position(|a| a == "--new").and_then(|i| args.get(i + 1)) {
+        let folder = std::path::absolute(folder).unwrap_or_else(|_| PathBuf::from(folder));
+        Some(json!({ "id": new_plus::ID, "command": "new", "args": { "folder": folder } }))
     } else {
         None
     };
@@ -208,7 +212,9 @@ fn main() -> std::process::ExitCode {
     let instance = match acquired {
         Ok(Some(guard)) => guard,
         Ok(None) => {
-            // Already running: starting PowerKit again opens the settings window.
+            // Already running: starting PowerKit again opens the settings window. The
+            // instance that shows it may need to come to the front.
+            powerkit_platform::shell::allow_foreground();
             let forwarded = Client::connect_to(&pipe_name, Duration::from_secs(3)).and_then(|mut c| match &request {
                 Some(params) => c.call("module.command", params.clone()),
                 None => c.call("app.open_settings", Value::Null),
@@ -365,6 +371,12 @@ fn run(
                         hosts_editor::OPEN_EVENT => ui.hosts.open(),
                         environment_variables::OPEN_EVENT => ui.env.open(),
                         registry_preview::OPEN_EVENT => ui.registry.open(payload["path"].as_str().map(PathBuf::from)),
+                        new_plus::OPEN_EVENT => powerkit_host::new_menu::show(
+                            Path::new(payload["folder"].as_str().unwrap_or_default()),
+                            &host.config().new_plus,
+                            &host.paths().root,
+                            &tray,
+                        ),
                         _ => Ok(()),
                     };
                     if let Err(e) = opened {

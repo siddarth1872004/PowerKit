@@ -12,6 +12,7 @@ mod keyboard;
 mod launcher;
 mod light_switch;
 mod mouse;
+mod new_plus;
 mod quick_accent;
 mod registry_preview;
 mod rename;
@@ -29,6 +30,7 @@ pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
 pub use mouse::*;
+pub use new_plus::*;
 pub use quick_accent::*;
 pub use registry_preview::*;
 pub use rename::*;
@@ -149,6 +151,7 @@ pub struct Config {
     pub hosts_editor: HostsEditor,
     pub environment_variables: EnvironmentVariables,
     pub registry_preview: RegistryPreview,
+    pub new_plus: NewPlus,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -249,6 +252,7 @@ impl Config {
         self.hosts_editor.sanitize(&mut w);
         self.environment_variables.sanitize(&mut w);
         self.registry_preview.sanitize(&mut w);
+        self.new_plus.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -334,6 +338,7 @@ impl Config {
             "hosts_editor" => self.hosts_editor.enabled,
             "environment_variables" => self.environment_variables.enabled,
             "registry_preview" => self.registry_preview.enabled,
+            "new_plus" => self.new_plus.enabled,
             _ => return None,
         })
     }
@@ -357,6 +362,7 @@ impl Config {
             "hosts_editor" => &mut self.hosts_editor.enabled,
             "environment_variables" => &mut self.environment_variables.enabled,
             "registry_preview" => &mut self.registry_preview.enabled,
+            "new_plus" => &mut self.new_plus.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -422,6 +428,7 @@ impl Config {
         config.hosts_editor = section(&mut map, "hosts_editor", &mut warnings);
         config.environment_variables = section(&mut map, "environment_variables", &mut warnings);
         config.registry_preview = section(&mut map, "registry_preview", &mut warnings);
+        config.new_plus = section(&mut map, "new_plus", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

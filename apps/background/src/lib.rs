@@ -4,6 +4,7 @@
 pub mod env;
 pub mod host;
 pub mod hosts;
+pub mod new_menu;
 pub mod registry;
 pub mod rename;
 pub mod settings;
@@ -33,5 +34,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(hosts_editor::HostsEditor::new()),
         Box::new(environment_variables::EnvironmentVariables::new()),
         Box::new(registry_preview::RegistryPreview::new()),
+        Box::new(new_plus::NewPlus::new()),
     ]
 }
