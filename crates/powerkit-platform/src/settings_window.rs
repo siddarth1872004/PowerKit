@@ -1,16 +1,18 @@
 //! The settings window: the sections on the left, the chosen section's settings as a
 //! two-column list on the right, and a box underneath to edit the selected value.
+//! A utility's section starts with its animated walkthrough.
 //!
 //! The window only shows what its owner gives it and reports what the user does as
 //! [`SettingsEvent`]s on the event loop. Closing it hides it.
 
 use crate::event_loop::push;
+use crate::guide_view::{self, Scene};
 use crate::util::{pcwstr, wide};
 use crate::{Context, Error, Result};
 use powerkit_core::{Event, SettingsEvent};
 use std::marker::PhantomData;
 use windows::core::PWSTR;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::*;
@@ -25,6 +27,7 @@ const ID_ROWS: i32 = 2;
 const ID_EDIT: i32 = 3;
 const ID_APPLY: i32 = 4;
 const ID_STATUS: i32 = 5;
+const ID_GUIDE: i32 = 6;
 const SUBCLASS_ID: usize = 1;
 // Static control styles; their windows-crate constants sit behind a feature this crate
 // does not otherwise need.
@@ -40,12 +43,17 @@ const NAME_COL: i32 = 300;
 const LINE: i32 = 28;
 const BUTTON_W: i32 = 90;
 const FONT_PT: i32 = 10;
+const SECTION_ROW: i32 = 30;
+const SECTION_ICON: i32 = 20;
 
 struct State {
     dpi: u32,
     font: HFONT,
     /// The values shown in the second column, copied into the edit box on selection.
     values: Vec<String>,
+    /// Section names and their icons (.ico files), drawn by the window itself.
+    sections: Vec<(String, Option<&'static [u8]>)>,
+    guide: bool,
 }
 
 fn scale(v: i32, dpi: u32) -> i32 {
@@ -104,11 +112,18 @@ fn apply_font(hwnd: HWND, st: &mut State, dpi: u32) {
         0,
         scale(NAME_COL, dpi) as isize,
     );
+    send(
+        item(hwnd, ID_SECTIONS),
+        LB_SETITEMHEIGHT,
+        0,
+        scale(SECTION_ROW, dpi) as isize,
+    );
     // SAFETY: no control uses the old font any more.
     let _ = unsafe { DeleteObject(old.into()) };
 }
 
-fn layout(hwnd: HWND, dpi: u32) {
+fn layout(hwnd: HWND, st: &State) {
+    let dpi = st.dpi;
     let mut rc = RECT::default();
     // SAFETY: own window; `rc` is a valid out pointer.
     if unsafe { GetClientRect(hwnd, &mut rc) }.is_err() {
@@ -124,7 +139,24 @@ fn layout(hwnd: HWND, dpi: u32) {
         let _ = unsafe { MoveWindow(item(hwnd, id), x, y, cx.max(0), cy.max(0), true) };
     };
     place(ID_SECTIONS, s(PAD), s(PAD), s(SECTIONS_W), status_top - s(PAD) * 3 / 2);
-    place(ID_ROWS, left, s(PAD), w - left - s(PAD), edit_top - s(PAD) * 3 / 2);
+    let mut rows_top = s(PAD);
+    if st.guide {
+        // The walkthrough takes at most half the height, keeping its shape.
+        let gw = w - left - s(PAD);
+        let gh = guide_view::height_for(gw, dpi).min((edit_top - s(PAD) * 3) / 2);
+        let gw = gw.min(
+            ((gh - guide_view::height_for(0, dpi)) as f32 * powerkit_guide::WIDTH / powerkit_guide::HEIGHT) as i32,
+        );
+        place(ID_GUIDE, left + (w - left - s(PAD) - gw) / 2, s(PAD), gw, gh);
+        rows_top += gh + s(PAD);
+    }
+    place(
+        ID_ROWS,
+        left,
+        rows_top,
+        w - left - s(PAD),
+        edit_top - s(PAD) / 2 - rows_top,
+    );
     place(ID_EDIT, left, edit_top, w - left - s(PAD) * 2 - s(BUTTON_W), s(LINE));
     place(ID_APPLY, w - s(PAD) - s(BUTTON_W), edit_top, s(BUTTON_W), s(LINE));
     place(ID_STATUS, s(PAD), status_top, w - s(PAD) * 2, s(LINE));
@@ -159,12 +191,55 @@ fn set_text(hwnd: HWND, text: &str) {
     let _ = unsafe { SetWindowTextW(hwnd, pcwstr(&t)) };
 }
 
+/// One row of the section list: icon, then name.
+fn draw_section(di: &DRAWITEMSTRUCT, st: &State) {
+    let Some((name, ico)) = st.sections.get(di.itemID as usize) else {
+        return;
+    };
+    let selected = di.itemState.0 & ODS_SELECTED.0 != 0;
+    let (back, ink) = if selected {
+        (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT)
+    } else {
+        (COLOR_WINDOW, COLOR_WINDOWTEXT)
+    };
+    let s = |v| scale(v, st.dpi);
+    let r = di.rcItem;
+    let size = s(SECTION_ICON);
+    // SAFETY: drawing into the DC Windows lent for this item, within its rectangle;
+    // the DC's state is put back before returning.
+    unsafe {
+        FillRect(di.hDC, &r, GetSysColorBrush(back));
+        if let Some(icon) = ico.and_then(|i| crate::icon::load(i, size).ok()) {
+            let y = r.top + (r.bottom - r.top - size) / 2;
+            let _ = DrawIconEx(di.hDC, r.left + s(6), y, icon, size, size, 0, None, DI_NORMAL);
+        }
+        let old_font = SelectObject(di.hDC, st.font.into());
+        SetBkMode(di.hDC, TRANSPARENT);
+        SetTextColor(di.hDC, COLORREF(GetSysColor(ink)));
+        let mut text: Vec<u16> = name.encode_utf16().collect();
+        let mut tr = RECT {
+            left: r.left + size + s(14),
+            ..r
+        };
+        DrawTextW(
+            di.hDC,
+            &mut text,
+            &mut tr,
+            DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX,
+        );
+        SelectObject(di.hDC, old_font);
+        if di.itemState.0 & ODS_FOCUS.0 != 0 {
+            let _ = DrawFocusRect(di.hDC, &r);
+        }
+    }
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // SAFETY: `hwnd` is a settings window (this is its class's procedure).
     let st = unsafe { state(hwnd) };
     match (msg, st) {
         (WM_SIZE, Some(st)) => {
-            layout(hwnd, st.dpi);
+            layout(hwnd, st);
             LRESULT(0)
         }
         (WM_DPICHANGED, Some(st)) => {
@@ -216,6 +291,22 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 }
             }
             LRESULT(0)
+        }
+        (WM_MEASUREITEM, st) => {
+            // SAFETY: WM_MEASUREITEM carries a MEASUREITEMSTRUCT to fill in. The list
+            // asks while it is being created, before the state is set.
+            let mi = unsafe { &mut *(lparam.0 as *mut MEASUREITEMSTRUCT) };
+            let dpi = st.map_or_else(|| unsafe { GetDpiForSystem() }.max(96), |s| s.dpi);
+            mi.itemHeight = scale(SECTION_ROW, dpi) as u32;
+            LRESULT(1)
+        }
+        (WM_DRAWITEM, Some(st)) => {
+            // SAFETY: WM_DRAWITEM carries a DRAWITEMSTRUCT for one of our controls.
+            let di = unsafe { &*(lparam.0 as *const DRAWITEMSTRUCT) };
+            if di.CtlID == ID_SECTIONS as u32 {
+                draw_section(di, st);
+            }
+            LRESULT(1)
         }
         (WM_CLOSE, _) => {
             // SAFETY: own window. The return value is the previous visibility.
@@ -329,7 +420,10 @@ impl SettingsWindow {
                 child(
                     &wide("LISTBOX"),
                     &empty,
-                    WS_VSCROLL | WINDOW_STYLE((LBS_NOTIFY | LBS_NOINTEGRALHEIGHT) as u32),
+                    WS_VSCROLL
+                        | WINDOW_STYLE(
+                            (LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS) as u32,
+                        ),
                     WS_EX_CLIENTEDGE,
                     ID_SECTIONS,
                 )
@@ -385,6 +479,7 @@ impl SettingsWindow {
                 if !SetWindowSubclass(edit, Some(edit_proc), SUBCLASS_ID, hwnd.0 as usize).as_bool() {
                     return Err(Error::Other("SetWindowSubclass(settings edit box) failed".into()));
                 }
+                guide_view::create(hwnd, instance.into(), ID_GUIDE)?;
                 Ok(edit)
             })();
             if let Err(e) = created {
@@ -395,11 +490,13 @@ impl SettingsWindow {
                 dpi,
                 font: make_font(dpi),
                 values: Vec::new(),
+                sections: Vec::new(),
+                guide: false,
             });
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut *state as *mut State as isize);
             let dpi = GetDpiForWindow(hwnd).max(96);
             apply_font(hwnd, &mut state, dpi);
-            layout(hwnd, dpi);
+            layout(hwnd, &state);
             Ok(SettingsWindow {
                 hwnd,
                 state,
@@ -426,14 +523,31 @@ impl SettingsWindow {
         unsafe { IsWindowVisible(self.hwnd) }.as_bool()
     }
 
-    pub fn set_sections(&mut self, names: &[String], selected: usize) {
+    /// The sections, each with an optional icon (the bytes of an .ico file).
+    pub fn set_sections(&mut self, sections: &[(String, Option<&'static [u8]>)], selected: usize) {
         let list = item(self.hwnd, ID_SECTIONS);
+        self.state.sections = sections.to_vec();
         send(list, LB_RESETCONTENT, 0, 0);
-        for name in names {
+        for (name, _) in sections {
             let t = wide(name);
             send(list, LB_ADDSTRING, 0, t.as_ptr() as isize);
         }
         send(list, LB_SETCURSEL, selected, 0);
+    }
+
+    /// Play `scene` above the settings, or hide the walkthrough area.
+    pub fn set_guide(&mut self, scene: Option<Scene>) {
+        let view = item(self.hwnd, ID_GUIDE);
+        self.state.guide = scene.is_some();
+        guide_view::set_scene(view, scene);
+        // SAFETY: own child window. The return value is the previous visibility.
+        let _ = unsafe { ShowWindow(view, if self.state.guide { SW_SHOWNA } else { SW_HIDE }) };
+        layout(self.hwnd, &self.state);
+    }
+
+    /// Show `ico` in the title bar and the taskbar.
+    pub fn set_icon(&mut self, ico: &'static [u8]) -> Result<()> {
+        crate::icon::set_window_icon(self.hwnd, ico)
     }
 
     /// Replace the rows (`(name, value)`) and select `selected`, which also puts its
@@ -458,7 +572,7 @@ impl SettingsWindow {
             send(list, LVM_SETITEMTEXTW, i, &it as *const _ as isize);
         }
         send(list, WM_SETREDRAW, 1, 0);
-        layout(self.hwnd, self.state.dpi);
+        layout(self.hwnd, &self.state);
         set_text(item(self.hwnd, ID_EDIT), "");
         if let Some(row) = selected.filter(|&r| r < rows.len()) {
             let it = LVITEMW {

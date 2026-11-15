@@ -125,6 +125,9 @@ impl HostsUi {
         if self.window.is_none() {
             self.window =
                 Some(TableWindow::new(&SPEC).map_err(|e| format!("could not open the Hosts File Editor: {e}"))?);
+            if let Some(w) = self.window.as_mut() {
+                crate::icons::apply("hosts_editor", |ico| w.set_icon(ico));
+            }
         }
         // Unsaved edits survive closing the window; otherwise show the file as it is now.
         if !self.dirty && self.saving.is_none() {

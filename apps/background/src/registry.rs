@@ -96,6 +96,9 @@ impl RegistryUi {
         let fresh = self.window.is_none();
         if fresh {
             self.window = Some(RegistryWindow::new().map_err(|e| format!("could not open Registry Preview: {e}"))?);
+            if let Some(w) = self.window.as_mut() {
+                crate::icons::apply("registry_preview", |ico| w.set_icon(ico));
+            }
         }
         if let Some(w) = self.window.as_mut() {
             w.show();

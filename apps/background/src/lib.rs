@@ -4,6 +4,7 @@
 pub mod env;
 pub mod host;
 pub mod hosts;
+pub mod icons;
 pub mod new_menu;
 pub mod registry;
 pub mod rename;

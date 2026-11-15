@@ -1,0 +1,15 @@
+[package]
+name = "powerkit-guide"
+description = "PowerKit: the animated walkthrough shown for each utility in settings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+powerkit-config.workspace = true
+
+[dev-dependencies]
+powerkit-core.workspace = true
+
+[lints]
+workspace = true

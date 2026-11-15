@@ -20,6 +20,7 @@ serde_json.workspace = true
 tracing.workspace = true
 powerkit-core.workspace = true
 powerkit-config.workspace = true
+powerkit-guide.workspace = true
 powerkit-ipc.workspace = true
 powerkit-logging.workspace = true
 powerkit-platform.workspace = true

@@ -45,6 +45,7 @@ tempfile = "3"
 
 powerkit-core = { path = "crates/powerkit-core" }
 powerkit-config = { path = "crates/powerkit-config" }
+powerkit-guide = { path = "crates/powerkit-guide" }
 powerkit-ipc = { path = "crates/powerkit-ipc" }
 powerkit-logging = { path = "crates/powerkit-logging" }
 powerkit-platform = { path = "crates/powerkit-platform" }

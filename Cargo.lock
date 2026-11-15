@@ -456,6 +456,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "powerkit-guide"
+version = "0.1.0"
+dependencies = [
+ "powerkit-config",
+ "powerkit-core",
+]
+
+[[package]]
 name = "powerkit-host"
 version = "0.1.0"
 dependencies = [
@@ -476,6 +484,7 @@ dependencies = [
  "power-rename",
  "powerkit-config",
  "powerkit-core",
+ "powerkit-guide",
  "powerkit-ipc",
  "powerkit-logging",
  "powerkit-platform",
@@ -515,6 +524,7 @@ name = "powerkit-platform"
 version = "0.1.0"
 dependencies = [
  "powerkit-core",
+ "powerkit-guide",
  "tempfile",
  "thiserror",
  "tracing",

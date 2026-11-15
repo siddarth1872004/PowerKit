@@ -109,6 +109,9 @@ impl RenameUi {
         let taken: Vec<PathBuf> = serde_json::from_value(pending["paths"].clone()).map_err(|e| e.to_string())?;
         if self.window.is_none() {
             self.window = Some(RenameWindow::new(&self.form).map_err(|e| format!("could not open PowerRename: {e}"))?);
+            if let Some(w) = self.window.as_mut() {
+                crate::icons::apply("power_rename", |ico| w.set_icon(ico));
+            }
         }
         for p in taken {
             if !self.paths.contains(&p) {

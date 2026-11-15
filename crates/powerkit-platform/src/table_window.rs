@@ -551,6 +551,11 @@ impl TableWindow {
         set_text(item(self.hwnd, ID_STATUS), text);
     }
 
+    /// Show `ico` in the title bar and the taskbar.
+    pub fn set_icon(&mut self, ico: &'static [u8]) -> Result<()> {
+        crate::icon::set_window_icon(self.hwnd, ico)
+    }
+
     pub fn set_title(&mut self, text: &str) {
         set_text(self.hwnd, text);
     }

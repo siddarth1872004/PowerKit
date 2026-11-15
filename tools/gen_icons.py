@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate PowerKit's icon assets (original artwork, drawn procedurally).
 
-Outputs assets/icon.ico plus the PNG sizes Tauri's bundler expects.
+Outputs assets/icon.ico (the app) and assets/modules/<id>.ico and .png (one per
+module, for the settings window, module windows and the README).
 Pure standard library: no Pillow required.
 """
 import os, struct, zlib
@@ -74,26 +75,216 @@ def bmp_entry(size, rgba):
     return header + b"".join(rows) + mask_row * size
 
 
-def main():
-    images = {s: render(s) for s in (16, 24, 32, 48, 64, 128, 256)}
-    entries = [(s, bmp_entry(s, images[s])) for s in (16, 24, 32, 48, 64)] + [(256, png(256, images[256]))]
-    ico = struct.pack("<HHH", 0, 1, len(entries))
+# Module icons: a white glyph (with one yellow accent) on a rounded square whose
+# gradient gives each module its own colour. Shapes are in unit coordinates and
+# painted in order; None as a colour means "the background shows through".
+
+W = (255, 255, 255, 255)
+Y = (255, 214, 92, 255)
+
+
+def seg_dist(px, py, x0, y0, x1, y1):
+    dx, dy = x1 - x0, y1 - y0
+    t = 0.0 if dx == dy == 0 else max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / (dx * dx + dy * dy)))
+    return ((px - x0 - t * dx) ** 2 + (py - y0 - t * dy) ** 2) ** 0.5
+
+
+def in_poly(px, py, pts):
+    inside = False
+    j = len(pts) - 1
+    for i in range(len(pts)):
+        (xi, yi), (xj, yj) = pts[i], pts[j]
+        if (yi > py) != (yj > py) and px < (xj - xi) * (py - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def rrect(x0, y0, x1, y1, r=0.05):
+    return lambda u, v: rounded(u, v, x0, y0, x1, y1, r)
+
+
+def frame(x0, y0, x1, y1, r, w):
+    return lambda u, v: rounded(u, v, x0, y0, x1, y1, r) and not rounded(u, v, x0 + w, y0 + w, x1 - w, y1 - w, max(r - w, 0))
+
+
+def circle(cx, cy, r):
+    return lambda u, v: (u - cx) ** 2 + (v - cy) ** 2 <= r * r
+
+
+def ring(cx, cy, r, w):
+    return lambda u, v: abs(((u - cx) ** 2 + (v - cy) ** 2) ** 0.5 - r) <= w / 2
+
+
+def ering(cx, cy, rx, ry, w):
+    return lambda u, v: abs((((u - cx) / rx) ** 2 + ((v - cy) / ry) ** 2) ** 0.5 - 1) * min(rx, ry) <= w / 2
+
+
+def line(x0, y0, x1, y1, w=0.07):
+    return lambda u, v: seg_dist(u, v, x0, y0, x1, y1) <= w / 2
+
+
+def lines(pts, w=0.07):
+    return lambda u, v: any(seg_dist(u, v, *pts[i], *pts[i + 1]) <= w / 2 for i in range(len(pts) - 1))
+
+
+def poly(pts):
+    return lambda u, v: in_poly(u, v, pts)
+
+
+def clip(shape, test):
+    return lambda u, v: test(u, v) and shape(u, v)
+
+
+def fade(color, a):
+    return (*color[:3], int(255 * a))
+
+
+MODULES = {
+    "power_rename": ((52, 120, 246), (99, 73, 227), [
+        (W, frame(0.14, 0.34, 0.86, 0.66, 0.08, 0.07)),
+        (W, rrect(0.25, 0.46, 0.5, 0.54, 0.02)),
+        (Y, line(0.64, 0.22, 0.64, 0.78)), (Y, line(0.56, 0.22, 0.72, 0.22, 0.06)), (Y, line(0.56, 0.78, 0.72, 0.78, 0.06)),
+    ]),
+    "always_on_top": ((233, 84, 96), (176, 48, 120), [
+        (W, rrect(0.36, 0.18, 0.64, 0.32, 0.04)),
+        (W, poly([(0.41, 0.32), (0.59, 0.32), (0.66, 0.56), (0.34, 0.56)])),
+        (W, line(0.24, 0.57, 0.76, 0.57, 0.08)),
+        (Y, line(0.5, 0.6, 0.5, 0.84, 0.07)),
+    ]),
+    "color_picker": ((255, 138, 61), (222, 62, 112), [
+        (W, line(0.3, 0.7, 0.62, 0.38, 0.11)),
+        (W, circle(0.69, 0.31, 0.13)),
+        (W, line(0.52, 0.34, 0.66, 0.48, 0.08)),
+        (Y, line(0.21, 0.79, 0.32, 0.68, 0.11)),
+    ]),
+    "launcher": ((35, 166, 213), (48, 92, 214), [
+        (W, ring(0.43, 0.43, 0.2, 0.09)),
+        (Y, line(0.58, 0.58, 0.79, 0.79, 0.12)),
+    ]),
+    "fancy_zones": ((49, 178, 128), (22, 120, 140), [
+        (W, rrect(0.16, 0.18, 0.46, 0.82, 0.05)),
+        (Y, rrect(0.52, 0.18, 0.84, 0.47, 0.05)),
+        (W, rrect(0.52, 0.53, 0.84, 0.82, 0.05)),
+    ]),
+    "keyboard_manager": ((116, 124, 146), (58, 66, 90), [
+        (W, frame(0.12, 0.28, 0.88, 0.74, 0.08, 0.06)),
+        *[(W, rrect(x, 0.39, x + 0.09, 0.48, 0.02)) for x in (0.22, 0.355, 0.49, 0.625)],
+        (Y, rrect(0.3, 0.56, 0.7, 0.63, 0.03)),
+    ]),
+    "awake": ((182, 116, 66), (112, 66, 40), [
+        (W, rrect(0.22, 0.4, 0.62, 0.8, 0.08)),
+        (W, clip(ring(0.64, 0.58, 0.11, 0.07), lambda u, v: u > 0.6)),
+        (Y, line(0.34, 0.16, 0.34, 0.3, 0.06)), (Y, line(0.5, 0.16, 0.5, 0.3, 0.06)),
+    ]),
+    "light_switch": ((250, 172, 40), (76, 66, 176), [
+        (Y, clip(circle(0.5, 0.5, 0.27), lambda u, v: u <= 0.5)),
+        (W, ring(0.5, 0.5, 0.27, 0.07)),
+        (W, line(0.5, 0.23, 0.5, 0.77, 0.05)),
+    ]),
+    "quick_accent": ((222, 80, 170), (130, 58, 200), [
+        (W, rrect(0.12, 0.46, 0.88, 0.76, 0.08)),
+        (Y, rrect(0.39, 0.5, 0.61, 0.72, 0.05)),
+        (W, line(0.45, 0.38, 0.57, 0.22, 0.08)),
+    ]),
+    "mouse_utilities": ((52, 196, 200), (38, 116, 200), [
+        (W, frame(0.3, 0.16, 0.7, 0.84, 0.2, 0.07)),
+        (W, line(0.5, 0.17, 0.5, 0.44, 0.05)),
+        (Y, rrect(0.46, 0.27, 0.54, 0.39, 0.03)),
+    ]),
+    "crop_and_lock": ((118, 186, 60), (36, 136, 90), [
+        (W, lines([(0.3, 0.14), (0.3, 0.7), (0.86, 0.7)], 0.09)),
+        (Y, lines([(0.14, 0.3), (0.7, 0.3), (0.7, 0.86)], 0.09)),
+    ]),
+    "shortcut_guide": ((92, 104, 240), (48, 56, 166), [
+        *[(Y if (x, y) == (0.4, 0.29) else W, rrect(x, y, x + 0.2, y + 0.19, 0.04))
+          for x in (0.17, 0.4, 0.63) for y in (0.29, 0.52)],
+    ]),
+    "grab_and_move": ((240, 112, 70), (196, 56, 64), [
+        (W, line(0.5, 0.22, 0.5, 0.78, 0.07)), (W, line(0.22, 0.5, 0.78, 0.5, 0.07)),
+        (W, poly([(0.5, 0.12), (0.39, 0.25), (0.61, 0.25)])), (W, poly([(0.5, 0.88), (0.39, 0.75), (0.61, 0.75)])),
+        (W, poly([(0.12, 0.5), (0.25, 0.39), (0.25, 0.61)])), (W, poly([(0.88, 0.5), (0.75, 0.39), (0.75, 0.61)])),
+        (Y, circle(0.5, 0.5, 0.08)),
+    ]),
+    "window_hopper": ((98, 170, 250), (66, 84, 218), [
+        (fade(W, 0.45), rrect(0.4, 0.16, 0.86, 0.5, 0.05)),
+        (fade(W, 0.7), rrect(0.27, 0.31, 0.73, 0.65, 0.05)),
+        (W, rrect(0.14, 0.46, 0.6, 0.84, 0.05)),
+        (Y, rrect(0.14, 0.46, 0.6, 0.55, 0.05)),
+    ]),
+    "hosts_editor": ((40, 152, 122), (28, 86, 132), [
+        (W, ring(0.5, 0.5, 0.3, 0.065)),
+        (W, ering(0.5, 0.5, 0.13, 0.3, 0.06)),
+        (W, line(0.22, 0.5, 0.78, 0.5, 0.06)),
+        (Y, line(0.29, 0.36, 0.71, 0.36, 0.05)), (Y, line(0.29, 0.64, 0.71, 0.64, 0.05)),
+    ]),
+    "environment_variables": ((100, 188, 88), (36, 126, 80), [
+        (W, lines([(0.38, 0.18), (0.29, 0.23), (0.29, 0.44), (0.2, 0.5), (0.29, 0.56), (0.29, 0.77), (0.38, 0.82)], 0.065)),
+        (W, lines([(0.62, 0.18), (0.71, 0.23), (0.71, 0.44), (0.8, 0.5), (0.71, 0.56), (0.71, 0.77), (0.62, 0.82)], 0.065)),
+        (Y, line(0.42, 0.41, 0.58, 0.59, 0.075)), (Y, line(0.58, 0.41, 0.42, 0.59, 0.075)),
+    ]),
+    "registry_preview": ((92, 122, 172), (48, 66, 118), [
+        (W, rrect(0.16, 0.16, 0.4, 0.34, 0.04)),
+        (W, line(0.28, 0.34, 0.28, 0.72, 0.055)),
+        (W, line(0.28, 0.5, 0.48, 0.5, 0.055)), (W, line(0.28, 0.72, 0.48, 0.72, 0.055)),
+        (Y, rrect(0.46, 0.41, 0.84, 0.59, 0.04)),
+        (W, rrect(0.46, 0.63, 0.84, 0.81, 0.04)),
+    ]),
+    "new_plus": ((60, 170, 255), (38, 104, 228), [
+        (W, poly([(0.22, 0.14), (0.56, 0.14), (0.74, 0.32), (0.74, 0.86), (0.22, 0.86)])),
+        (fade((40, 90, 180), 0.35), poly([(0.56, 0.14), (0.56, 0.32), (0.74, 0.32)])),
+        (None, circle(0.7, 0.72, 0.19)),
+        (Y, line(0.7, 0.6, 0.7, 0.84, 0.08)), (Y, line(0.58, 0.72, 0.82, 0.72, 0.08)),
+    ]),
+}
+
+
+def module_sampler(top, bottom, shapes):
+    def sample_at(u, v):
+        if not rounded(u, v, 0.04, 0.04, 0.96, 0.96, 0.22):
+            return (0, 0, 0, 0)
+        t = (u + v) / 2
+        bg = tuple(int(a + (b - a) * t) for a, b in zip(top, bottom))
+        c = bg
+        for color, inside in shapes:
+            if inside(u, v):
+                if color is None:
+                    c = bg
+                else:
+                    a = color[3] / 255
+                    c = tuple(int(x * a + y * (1 - a)) for x, y in zip(color[:3], c))
+        return (*c, 255)
+    return sample_at
+
+
+def ico(images, png_sizes=()):
+    """An .ico holding `images` ({size: rgba}); sizes in `png_sizes` stored as PNG."""
+    entries = [(s, png(s, images[s]) if s in png_sizes else bmp_entry(s, images[s])) for s in sorted(images)]
+    out = struct.pack("<HHH", 0, 1, len(entries))
     offset = 6 + 16 * len(entries)
     for s, data in entries:
-        ico += struct.pack("<BBBBHHII", s % 256, s % 256, 0, 0, 1, 32, len(data), offset)
+        out += struct.pack("<BBBBHHII", s % 256, s % 256, 0, 0, 1, 32, len(data), offset)
         offset += len(data)
-    ico += b"".join(d for _, d in entries)
-    os.makedirs(os.path.join(ROOT, "assets"), exist_ok=True)
+    return out + b"".join(d for _, d in entries)
+
+
+def main():
+    global sample
+    images = {s: render(s) for s in (16, 24, 32, 48, 64, 256)}
     with open(os.path.join(ROOT, "assets", "icon.ico"), "wb") as f:
-        f.write(ico)
-    icons = os.path.join(ROOT, "apps", "desktop", "src-tauri", "icons")
-    os.makedirs(icons, exist_ok=True)
-    with open(os.path.join(icons, "icon.ico"), "wb") as f:
-        f.write(ico)
-    for name, s in (("32x32.png", 32), ("128x128.png", 128), ("128x128@2x.png", 256), ("icon.png", 256)):
-        with open(os.path.join(icons, name), "wb") as f:
-            f.write(png(s, images[s]))
-    print("icons written")
+        f.write(ico(images, png_sizes=(256,)))
+    app_sample = sample
+    out = os.path.join(ROOT, "assets", "modules")
+    os.makedirs(out, exist_ok=True)
+    for name, (top, bottom, shapes) in MODULES.items():
+        sample = module_sampler(top, bottom, shapes)
+        images = {s: render(s) for s in (16, 20, 24, 32, 40, 48, 64)}
+        with open(os.path.join(out, name + ".ico"), "wb") as f:
+            f.write(ico(images))
+        with open(os.path.join(out, name + ".png"), "wb") as f:
+            f.write(png(64, images[64]))
+    sample = app_sample
+    print(f"app icon and {len(MODULES)} module icons written")
 
 
 if __name__ == "__main__":

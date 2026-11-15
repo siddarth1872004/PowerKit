@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 powerkit-core.workspace = true
+powerkit-guide.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
@@ -16,6 +17,7 @@ features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_GdiPlus",
     "Win32_Networking_WinHttp",
     "Win32_Security",
     "Win32_Security_Authorization",

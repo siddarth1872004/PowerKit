@@ -118,6 +118,9 @@ impl EnvUi {
         if self.window.is_none() {
             self.window =
                 Some(TableWindow::new(&SPEC).map_err(|e| format!("could not open Environment Variables: {e}"))?);
+            if let Some(w) = self.window.as_mut() {
+                crate::icons::apply("environment_variables", |ico| w.set_icon(ico));
+            }
         }
         // Unsaved edits survive closing the window; otherwise show what is stored now.
         if !self.dirty() && self.saving.is_none() {

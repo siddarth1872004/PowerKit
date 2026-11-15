@@ -21,24 +21,24 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 
 | | Utility | What it does | Default shortcut |
 |---|---|---|---|
-| 🪟 | **FancyZones** | Snap windows into custom zone layouts. Drag with Shift held, or send a window by keyboard. | `Win+Ctrl+Alt+←/→`, `Win+Ctrl+Alt+1…9` |
-| 🚀 | **PowerKit Run** | A launcher for apps, files, calculations and commands. | `Alt+Space` |
-| ⌨️ | **Keyboard Manager** | Remap keys and shortcuts, everywhere or only in chosen apps. | — |
-| 🎨 | **Color Picker** | Pick any color on screen and copy it as HEX, RGB, HSL and more. | `Win+Shift+C` |
-| ✏️ | **PowerRename** | Bulk rename with search and replace, regular expressions, case changes and numbering, with a live preview and undo. | Explorer menu |
-| 📌 | **Always On Top** | Pin a window above all others, with a colored border. | `Win+Ctrl+T` |
-| ☕ | **Awake** | Keep the PC awake indefinitely, for a while, or until a set time. | Tray |
-| 🌗 | **Light Switch** | Switch between light and dark mode on a schedule or by shortcut. | `Win+Ctrl+Shift+D` |
-| 🔤 | **Quick Accent** | Hold a letter, then press Space or an arrow key to type `é`, `ñ`, `ß`… | Hold a letter |
-| 🖱️ | **Mouse utilities** | Find My Mouse, a click highlighter, crosshairs with a gliding cursor, and Mouse Jump. | `Ctrl` ×2, `Win+Shift+H`, `Win+Alt+P`, `Win+Shift+D` |
-| ✂️ | **Crop and Lock** | Crop a window into a live thumbnail, or into a smaller window that still takes input. | `Win+Ctrl+Shift+T`, `Win+Ctrl+Shift+R` |
-| ❓ | **Shortcut Guide** | Hold the Windows key to see the shortcuts for Windows, PowerKit and the focused app, with numbers on the taskbar buttons. | Hold `Win`, or `Win+Shift+/` |
-| ✋ | **Grab and Move** | Hold `Win` (or `Alt`) and drag anywhere in a window to move it; drag with the right button to resize it. | `Win` + drag |
-| 🔀 | **Window Hopper** | Switch between the windows of the focused app, including minimized ones. | ``Alt+` ``, ``Alt+Shift+` `` |
-| 📝 | **Hosts File Editor** | Add, change, turn off and delete hosts file entries, with duplicates flagged. Saving asks for administrator permission and keeps a backup. | Tray menu, `powerkit --hosts` |
-| 🌿 | **Environment Variables** | View, add, change and delete user and system variables, with unsaved changes marked. System changes ask for administrator permission; running programs are told about the change. | Tray menu, `powerkit --env` |
-| 🗝️ | **Registry Preview** | Open or type a .reg file and see the keys and values it would write, with problems shown by line. Save it, write it to the registry (administrator permission only when it touches keys outside HKEY_CURRENT_USER), or jump to a key in Registry Editor. | Tray menu, `powerkit --reg [FILE]` |
-| ➕ | **New+** | Right-click a folder or a folder's background and choose New+ to create a file or folder from your own templates. Leading numbers order the menu and can be hidden; `$YYYY`, `$MM`, `$PARENT_FOLDER_NAME`, `%USERNAME%` and other variables can fill in the new name. | Explorer menu, `powerkit --new FOLDER` |
+| <img src="assets/modules/fancy_zones.png" width="24" alt=""> | **FancyZones** | Snap windows into custom zone layouts. Drag with Shift held, or send a window by keyboard. | `Win+Ctrl+Alt+←/→`, `Win+Ctrl+Alt+1…9` |
+| <img src="assets/modules/launcher.png" width="24" alt=""> | **PowerKit Run** | A launcher for apps, files, calculations and commands. | `Alt+Space` |
+| <img src="assets/modules/keyboard_manager.png" width="24" alt=""> | **Keyboard Manager** | Remap keys and shortcuts, everywhere or only in chosen apps. | — |
+| <img src="assets/modules/color_picker.png" width="24" alt=""> | **Color Picker** | Pick any color on screen and copy it as HEX, RGB, HSL and more. | `Win+Shift+C` |
+| <img src="assets/modules/power_rename.png" width="24" alt=""> | **PowerRename** | Bulk rename with search and replace, regular expressions, case changes and numbering, with a live preview and undo. | Explorer menu |
+| <img src="assets/modules/always_on_top.png" width="24" alt=""> | **Always On Top** | Pin a window above all others, with a colored border. | `Win+Ctrl+T` |
+| <img src="assets/modules/awake.png" width="24" alt=""> | **Awake** | Keep the PC awake indefinitely, for a while, or until a set time. | Tray |
+| <img src="assets/modules/light_switch.png" width="24" alt=""> | **Light Switch** | Switch between light and dark mode on a schedule or by shortcut. | `Win+Ctrl+Shift+D` |
+| <img src="assets/modules/quick_accent.png" width="24" alt=""> | **Quick Accent** | Hold a letter, then press Space or an arrow key to type `é`, `ñ`, `ß`… | Hold a letter |
+| <img src="assets/modules/mouse_utilities.png" width="24" alt=""> | **Mouse utilities** | Find My Mouse, a click highlighter, crosshairs with a gliding cursor, and Mouse Jump. | `Ctrl` ×2, `Win+Shift+H`, `Win+Alt+P`, `Win+Shift+D` |
+| <img src="assets/modules/crop_and_lock.png" width="24" alt=""> | **Crop and Lock** | Crop a window into a live thumbnail, or into a smaller window that still takes input. | `Win+Ctrl+Shift+T`, `Win+Ctrl+Shift+R` |
+| <img src="assets/modules/shortcut_guide.png" width="24" alt=""> | **Shortcut Guide** | Hold the Windows key to see the shortcuts for Windows, PowerKit and the focused app, with numbers on the taskbar buttons. | Hold `Win`, or `Win+Shift+/` |
+| <img src="assets/modules/grab_and_move.png" width="24" alt=""> | **Grab and Move** | Hold `Win` (or `Alt`) and drag anywhere in a window to move it; drag with the right button to resize it. | `Win` + drag |
+| <img src="assets/modules/window_hopper.png" width="24" alt=""> | **Window Hopper** | Switch between the windows of the focused app, including minimized ones. | ``Alt+` ``, ``Alt+Shift+` `` |
+| <img src="assets/modules/hosts_editor.png" width="24" alt=""> | **Hosts File Editor** | Add, change, turn off and delete hosts file entries, with duplicates flagged. Saving asks for administrator permission and keeps a backup. | Tray menu, `powerkit --hosts` |
+| <img src="assets/modules/environment_variables.png" width="24" alt=""> | **Environment Variables** | View, add, change and delete user and system variables, with unsaved changes marked. System changes ask for administrator permission; running programs are told about the change. | Tray menu, `powerkit --env` |
+| <img src="assets/modules/registry_preview.png" width="24" alt=""> | **Registry Preview** | Open or type a .reg file and see the keys and values it would write, with problems shown by line. Save it, write it to the registry (administrator permission only when it touches keys outside HKEY_CURRENT_USER), or jump to a key in Registry Editor. | Tray menu, `powerkit --reg [FILE]` |
+| <img src="assets/modules/new_plus.png" width="24" alt=""> | **New+** | Right-click a folder or a folder's background and choose New+ to create a file or folder from your own templates. Leading numbers order the menu and can be hidden; `$YYYY`, `$MM`, `$PARENT_FOLDER_NAME`, `%USERNAME%` and other variables can fill in the new name. | Explorer menu, `powerkit --new FOLDER` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
@@ -70,8 +70,9 @@ your PC.
 ## Configuration
 
 Choose **Open settings** in the tray menu (or click the tray icon). Pick a utility on the
-left, select a setting, type its new value in the box underneath and press Enter. Double-click
-an on/off setting to flip it. Changes apply at once.
+left to see a short animated walkthrough of it, using your own shortcuts, above its settings.
+Select a setting, type its new value in the box underneath and press Enter. Double-click an
+on/off setting to flip it. Changes apply at once.
 
 Settings are stored in `%APPDATA%\PowerKit\config.json` (or `data\config.json` in portable
 mode). PowerKit reads the file when it starts, so quit PowerKit before editing it by hand.

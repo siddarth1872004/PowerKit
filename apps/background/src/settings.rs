@@ -3,6 +3,7 @@
 
 use crate::Host;
 use powerkit_core::SettingsEvent;
+use powerkit_platform::guide_view::Scene;
 use powerkit_platform::settings_window::SettingsWindow;
 use serde_json::{json, Map, Value};
 
@@ -115,7 +116,11 @@ impl SettingsUi {
     /// Show the window at the section with config key `page`, or where it was.
     pub fn open(&mut self, host: &mut Host, page: Option<&str>) -> Result<(), String> {
         if self.window.is_none() {
-            self.window = Some(SettingsWindow::new().map_err(|e| format!("could not open settings: {e}"))?);
+            let mut w = SettingsWindow::new().map_err(|e| format!("could not open settings: {e}"))?;
+            if let Err(e) = w.set_icon(crate::icons::APP) {
+                tracing::warn!("could not set the settings window icon: {e}");
+            }
+            self.window = Some(w);
         }
         self.sections = vec![("general".into(), "General".into())];
         if let Some(modules) = host.status()["modules"].as_array() {
@@ -129,9 +134,22 @@ impl SettingsUi {
             self.current = i;
         }
         self.current = self.current.min(self.sections.len() - 1);
-        let names: Vec<String> = self.sections.iter().map(|(_, n)| n.clone()).collect();
+        let sections: Vec<(String, Option<&'static [u8]>)> = self
+            .sections
+            .iter()
+            .map(|(id, n)| {
+                (
+                    n.clone(),
+                    if id == "general" {
+                        Some(crate::icons::APP)
+                    } else {
+                        crate::icons::module(id)
+                    },
+                )
+            })
+            .collect();
         let w = self.window.as_mut().expect("created above");
-        w.set_sections(&names, self.current);
+        w.set_sections(&sections, self.current);
         w.set_status("Select a setting, type its new value below and press Enter.");
         self.refresh(host, None);
         self.window.as_mut().expect("created above").show();
@@ -145,6 +163,15 @@ impl SettingsUi {
         };
         let config = serde_json::to_value(host.config()).unwrap_or(Value::Null);
         self.rows = flatten(&config[key.as_str()]);
+        // Restarted after every save too, so a changed shortcut shows straight away.
+        let scene = powerkit_guide::walkthrough(key).map(|walk| {
+            let config = host.config().clone();
+            Scene {
+                duration: walk.duration,
+                frame: Box::new(move |t| walk.frame(t, &config)),
+            }
+        });
+        w.set_guide(scene);
         let shown: Vec<(String, String)> = self.rows.iter().map(|(p, v)| (label(p), display(v))).collect();
         w.set_rows(&shown, selected);
     }
