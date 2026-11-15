@@ -1,0 +1,33 @@
+//! "Rename with PowerKit" in the classic Explorer context menu, registered per user
+//! under HKCU so no elevation is needed.
+
+use anyhow::{anyhow, Result};
+use powerkit_platform::shell;
+
+const VERB: &str = "PowerKitRename";
+const TITLE: &str = "Rename with PowerKit";
+
+/// (class key, argument placeholder): files, folders, and a folder's background.
+const CLASSES: [(&str, &str); 3] = [
+    (r"Software\Classes\*\shell", "%1"),
+    (r"Software\Classes\Directory\shell", "%1"),
+    (r"Software\Classes\Directory\Background\shell", "%V"),
+];
+
+/// Add or remove the menu entries. Removal checks first so a disabled feature never
+/// writes to the registry.
+pub fn sync(enabled: bool) -> Result<()> {
+    let exe = std::env::current_exe().map_err(|e| anyhow!("locating powerkit.exe: {e}"))?;
+    for (class, placeholder) in CLASSES {
+        let key = format!(r"{class}\{VERB}");
+        if enabled {
+            let command = format!("\"{}\" --rename \"{placeholder}\"", exe.display());
+            shell::registry_set(&key, "", TITLE).map_err(|e| anyhow!(e))?;
+            shell::registry_set(&key, "Icon", &format!("\"{}\"", exe.display())).map_err(|e| anyhow!(e))?;
+            shell::registry_set(&format!(r"{key}\command"), "", &command).map_err(|e| anyhow!(e))?;
+        } else if shell::registry_get(&key, "").map_err(|e| anyhow!(e))?.is_some() {
+            shell::registry_delete_tree(&key).map_err(|e| anyhow!(e))?;
+        }
+    }
+    Ok(())
+}

@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members = [
+    # (members that do not exist yet are added as milestones land)
+    "crates/*",
+    "modules/always-on-top",
+    "modules/color-picker",
+    "modules/launcher",
+    "modules/power-rename",
+    "apps/background",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.80"
+authors = ["PowerKit contributors"]
+repository = "https://github.com/powerkit/powerkit"
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std", "registry"] }
+regex = "1"
+proptest = "1"
+tempfile = "3"
+
+powerkit-core = { path = "crates/powerkit-core" }
+powerkit-config = { path = "crates/powerkit-config" }
+powerkit-ipc = { path = "crates/powerkit-ipc" }
+powerkit-logging = { path = "crates/powerkit-logging" }
+powerkit-platform = { path = "crates/powerkit-platform" }
+powerkit-plugin-api = { path = "crates/powerkit-plugin-api" }
+always-on-top = { path = "modules/always-on-top" }
+color-picker = { path = "modules/color-picker" }
+power-rename = { path = "modules/power-rename" }
+fancy-zones = { path = "modules/fancy-zones" }
+launcher = { path = "modules/launcher" }
+keyboard-manager = { path = "modules/keyboard-manager" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true
+panic = "unwind"

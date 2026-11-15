@@ -1,0 +1,17 @@
+[package]
+name = "powerkit-logging"
+description = "File logging with bounded size and runtime-adjustable level"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+powerkit-config.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

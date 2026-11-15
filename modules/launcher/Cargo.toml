@@ -1,0 +1,24 @@
+[package]
+name = "launcher"
+description = "PowerKit utility: a quick launcher for apps, files, calculations, conversions and commands"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+powerkit-core.workspace = true
+powerkit-config.workspace = true
+powerkit-plugin-api.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+powerkit-platform.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

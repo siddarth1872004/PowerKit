@@ -1,0 +1,20 @@
+[package]
+name = "powerkit-plugin-api"
+description = "Extension contract for PowerKit utilities: manifests, permissions, settings schema"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+powerkit-core.workspace = true
+powerkit-config.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true
