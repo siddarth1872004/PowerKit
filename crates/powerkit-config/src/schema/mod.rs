@@ -6,6 +6,7 @@ mod color_picker;
 mod fancy_zones;
 mod keyboard;
 mod launcher;
+mod light_switch;
 mod rename;
 
 pub use awake::*;
@@ -13,6 +14,7 @@ pub use color_picker::*;
 pub use fancy_zones::*;
 pub use keyboard::*;
 pub use launcher::*;
+pub use light_switch::*;
 pub use rename::*;
 
 use powerkit_core::Shortcut;
@@ -116,6 +118,7 @@ pub struct Config {
     pub keyboard_manager: KeyboardManager,
     pub launcher: Launcher,
     pub awake: Awake,
+    pub light_switch: LightSwitch,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -206,6 +209,7 @@ impl Config {
         self.keyboard_manager.sanitize(&mut w);
         self.launcher.sanitize(&mut w);
         self.awake.sanitize(&mut w);
+        self.light_switch.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -221,6 +225,7 @@ impl Config {
         push("always_on_top", "toggle_pin", &self.always_on_top.shortcut);
         push("color_picker", "pick", &self.color_picker.shortcut);
         push("launcher", "toggle", &self.launcher.shortcut);
+        push("light_switch", "toggle", &self.light_switch.shortcut);
         let fz = &self.fancy_zones;
         push("fancy_zones", "next_zone", &fz.next_zone_shortcut);
         push("fancy_zones", "prev_zone", &fz.prev_zone_shortcut);
@@ -258,6 +263,7 @@ impl Config {
             "keyboard_manager" => self.keyboard_manager.enabled,
             "launcher" => self.launcher.enabled,
             "awake" => self.awake.enabled,
+            "light_switch" => self.light_switch.enabled,
             _ => return None,
         })
     }
@@ -271,6 +277,7 @@ impl Config {
             "keyboard_manager" => &mut self.keyboard_manager.enabled,
             "launcher" => &mut self.launcher.enabled,
             "awake" => &mut self.awake.enabled,
+            "light_switch" => &mut self.light_switch.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -326,6 +333,7 @@ impl Config {
         config.keyboard_manager = section(&mut map, "keyboard_manager", &mut warnings);
         config.launcher = section(&mut map, "launcher", &mut warnings);
         config.awake = section(&mut map, "awake", &mut warnings);
+        config.light_switch = section(&mut map, "light_switch", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

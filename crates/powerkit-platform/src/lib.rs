@@ -24,6 +24,7 @@ pub mod power;
 pub mod process;
 pub mod shell;
 pub mod testing;
+pub mod theme;
 pub mod time;
 pub mod tray;
 pub mod window;

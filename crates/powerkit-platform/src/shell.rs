@@ -5,7 +5,8 @@ use crate::{Context, Error, Result};
 use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, HANDLE};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegCreateKeyExW, RegDeleteTreeW, RegDeleteValueW, RegGetValueW, RegSetValueExW, HKEY,
-    HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_SZ,
+    HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_DWORD,
+    RRF_RT_REG_SZ,
 };
 use windows::Win32::System::Threading::CreateMutexW;
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -117,6 +118,42 @@ pub fn registry_get(path: &str, name: &str) -> Result<Option<String>> {
     }
     status.ok().context(format!("reading HKCU\\{path}\\{name}"))?;
     Ok(Some(from_wide(&buf)))
+}
+
+/// Write a DWORD value under `HKEY_CURRENT_USER`.
+pub fn registry_set_dword(path: &str, name: &str, value: u32) -> Result<()> {
+    let key = open_key(path)?;
+    let wname = wide(name);
+    let bytes = value.to_le_bytes();
+    // SAFETY: `wname` is NUL-terminated; `bytes` holds exactly one DWORD.
+    unsafe { RegSetValueExW(key.0, pcwstr(&wname), None, REG_DWORD, Some(&bytes)) }
+        .ok()
+        .context(format!("writing HKCU\\{path}\\{name}"))
+}
+
+/// Read a DWORD value under `HKEY_CURRENT_USER`; `None` when it does not exist.
+pub fn registry_get_dword(path: &str, name: &str) -> Result<Option<u32>> {
+    let wpath = wide(path);
+    let wname = wide(name);
+    let mut value = 0u32;
+    let mut size = 4u32;
+    // SAFETY: `value` is writable for `size` bytes; strings are NUL-terminated.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            pcwstr(&wpath),
+            pcwstr(&wname),
+            RRF_RT_REG_DWORD,
+            None,
+            Some((&mut value as *mut u32).cast()),
+            Some(&mut size),
+        )
+    };
+    if status == ERROR_FILE_NOT_FOUND {
+        return Ok(None);
+    }
+    status.ok().context(format!("reading HKCU\\{path}\\{name}"))?;
+    Ok(Some(value))
 }
 
 /// Delete a value under `HKEY_CURRENT_USER`; succeeds if it is already absent.

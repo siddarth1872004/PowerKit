@@ -31,6 +31,7 @@ fancy-zones.workspace = true
 keyboard-manager.workspace = true
 launcher.workspace = true
 awake.workspace = true
+light-switch.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
