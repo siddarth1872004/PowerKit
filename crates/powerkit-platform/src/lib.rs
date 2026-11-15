@@ -20,6 +20,7 @@ pub mod magnifier;
 pub mod monitor;
 pub mod pipe;
 pub mod popup;
+pub mod power;
 pub mod process;
 pub mod shell;
 pub mod testing;

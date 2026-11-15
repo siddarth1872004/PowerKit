@@ -4,6 +4,7 @@ members = [
     # (members that do not exist yet are added as milestones land)
     "crates/*",
     "modules/always-on-top",
+    "modules/awake",
     "modules/color-picker",
     "modules/fancy-zones",
     "modules/keyboard-manager",
@@ -43,6 +44,7 @@ power-rename = { path = "modules/power-rename" }
 fancy-zones = { path = "modules/fancy-zones" }
 launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }
+awake = { path = "modules/awake" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

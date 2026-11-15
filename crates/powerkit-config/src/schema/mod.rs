@@ -1,12 +1,14 @@
 //! The configuration schema. Every struct is `#[serde(default)]` so documents written by
 //! older versions (missing fields) and newer versions (unknown fields) both load.
 
+mod awake;
 mod color_picker;
 mod fancy_zones;
 mod keyboard;
 mod launcher;
 mod rename;
 
+pub use awake::*;
 pub use color_picker::*;
 pub use fancy_zones::*;
 pub use keyboard::*;
@@ -113,6 +115,7 @@ pub struct Config {
     pub power_rename: PowerRename,
     pub keyboard_manager: KeyboardManager,
     pub launcher: Launcher,
+    pub awake: Awake,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -202,6 +205,7 @@ impl Config {
         self.power_rename.sanitize(&mut w);
         self.keyboard_manager.sanitize(&mut w);
         self.launcher.sanitize(&mut w);
+        self.awake.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -253,6 +257,7 @@ impl Config {
             "power_rename" => self.power_rename.enabled,
             "keyboard_manager" => self.keyboard_manager.enabled,
             "launcher" => self.launcher.enabled,
+            "awake" => self.awake.enabled,
             _ => return None,
         })
     }
@@ -265,6 +270,7 @@ impl Config {
             "power_rename" => &mut self.power_rename.enabled,
             "keyboard_manager" => &mut self.keyboard_manager.enabled,
             "launcher" => &mut self.launcher.enabled,
+            "awake" => &mut self.awake.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -319,6 +325,7 @@ impl Config {
         config.power_rename = section(&mut map, "power_rename", &mut warnings);
         config.keyboard_manager = section(&mut map, "keyboard_manager", &mut warnings);
         config.launcher = section(&mut map, "launcher", &mut warnings);
+        config.awake = section(&mut map, "awake", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

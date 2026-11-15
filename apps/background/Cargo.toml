@@ -30,6 +30,7 @@ color-picker.workspace = true
 fancy-zones.workspace = true
 keyboard-manager.workspace = true
 launcher.workspace = true
+awake.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

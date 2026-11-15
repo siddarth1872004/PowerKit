@@ -506,6 +506,7 @@ impl Host {
                     Some("power_rename") => new.power_rename = d.power_rename,
                     Some("keyboard_manager") => new.keyboard_manager = d.keyboard_manager,
                     Some("launcher") => new.launcher = d.launcher,
+                    Some("awake") => new.awake = d.awake,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

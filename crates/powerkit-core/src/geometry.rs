@@ -54,9 +54,11 @@ impl Rect {
     }
 
     pub fn center(&self) -> (i32, i32) {
+        // Floor division: truncating toward zero would put the centre of a 1-pixel
+        // rect at negative coordinates on its exclusive right/bottom edge.
         (
-            ((self.left as i64 + self.right as i64) / 2) as i32,
-            ((self.top as i64 + self.bottom as i64) / 2) as i32,
+            (self.left as i64 + self.right as i64).div_euclid(2) as i32,
+            (self.top as i64 + self.bottom as i64).div_euclid(2) as i32,
         )
     }
 
@@ -115,6 +117,8 @@ mod tests {
         assert_eq!((r.width(), r.height()), (20, 20));
         assert!(r.contains(-10, -10) && !r.contains(10, 10));
         assert_eq!(r.center(), (0, 0));
+        let thin = Rect::new(-19, -19, -18, -18);
+        assert!(thin.contains(thin.center().0, thin.center().1));
         assert!(Rect::new(0, 0, 0, 5).is_empty());
         assert_eq!(r.intersect(&Rect::new(10, 0, 20, 5)), None);
     }
