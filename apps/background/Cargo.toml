@@ -34,6 +34,7 @@ awake.workspace = true
 light-switch.workspace = true
 quick-accent.workspace = true
 mouse-utilities.workspace = true
+crop-and-lock.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

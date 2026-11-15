@@ -3,6 +3,7 @@
 
 mod awake;
 mod color_picker;
+mod crop_and_lock;
 mod fancy_zones;
 mod keyboard;
 mod launcher;
@@ -13,6 +14,7 @@ mod rename;
 
 pub use awake::*;
 pub use color_picker::*;
+pub use crop_and_lock::*;
 pub use fancy_zones::*;
 pub use keyboard::*;
 pub use launcher::*;
@@ -125,6 +127,7 @@ pub struct Config {
     pub light_switch: LightSwitch,
     pub quick_accent: QuickAccent,
     pub mouse_utilities: MouseUtilities,
+    pub crop_and_lock: CropAndLock,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -218,6 +221,7 @@ impl Config {
         self.light_switch.sanitize(&mut w);
         self.quick_accent.sanitize(&mut w);
         self.mouse_utilities.sanitize(&mut w);
+        self.crop_and_lock.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -245,6 +249,8 @@ impl Config {
                 push("mouse_utilities", action, s);
             }
         }
+        push("crop_and_lock", "thumbnail", &self.crop_and_lock.thumbnail_shortcut);
+        push("crop_and_lock", "reparent", &self.crop_and_lock.reparent_shortcut);
         let fz = &self.fancy_zones;
         push("fancy_zones", "next_zone", &fz.next_zone_shortcut);
         push("fancy_zones", "prev_zone", &fz.prev_zone_shortcut);
@@ -285,6 +291,7 @@ impl Config {
             "light_switch" => self.light_switch.enabled,
             "quick_accent" => self.quick_accent.enabled,
             "mouse_utilities" => self.mouse_utilities.enabled,
+            "crop_and_lock" => self.crop_and_lock.enabled,
             _ => return None,
         })
     }
@@ -301,6 +308,7 @@ impl Config {
             "light_switch" => &mut self.light_switch.enabled,
             "quick_accent" => &mut self.quick_accent.enabled,
             "mouse_utilities" => &mut self.mouse_utilities.enabled,
+            "crop_and_lock" => &mut self.crop_and_lock.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -359,6 +367,7 @@ impl Config {
         config.light_switch = section(&mut map, "light_switch", &mut warnings);
         config.quick_accent = section(&mut map, "quick_accent", &mut warnings);
         config.mouse_utilities = section(&mut map, "mouse_utilities", &mut warnings);
+        config.crop_and_lock = section(&mut map, "crop_and_lock", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

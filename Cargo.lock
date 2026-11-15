@@ -163,6 +163,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "crop-and-lock"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -394,6 +409,7 @@ dependencies = [
  "anyhow",
  "awake",
  "color-picker",
+ "crop-and-lock",
  "fancy-zones",
  "keyboard-manager",
  "launcher",

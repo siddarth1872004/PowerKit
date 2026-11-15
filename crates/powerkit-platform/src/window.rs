@@ -206,7 +206,7 @@ pub fn process_path(pid: u32) -> Option<String> {
 }
 
 /// Outer window rectangle including invisible resize borders.
-fn raw_rect(hwnd: Hwnd) -> Result<Rect> {
+pub(crate) fn raw_rect(hwnd: Hwnd) -> Result<Rect> {
     let mut r = RECT::default();
     // SAFETY: `r` is a valid out pointer.
     unsafe { GetWindowRect(hwnd.raw(), &mut r) }.context("GetWindowRect")?;

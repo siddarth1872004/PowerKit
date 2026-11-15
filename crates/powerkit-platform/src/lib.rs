@@ -11,6 +11,7 @@
 
 pub mod accent_bar;
 pub mod clipboard;
+pub mod crop;
 pub mod event_loop;
 pub mod frame;
 pub mod fs;
