@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerKit</title>
+<meta name="description" content="Windows power-user utilities in one small background process, written in Rust.">
+<link rel="icon" href="icon.png">
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --text: #202226; --muted: #646a76; --line: #dfe3ea;
+  --accent: #2e74ec; --accent-text: #ffffff; --code: #eef1f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181c; --card: #212329; --text: #e8eaee; --muted: #9aa0ac; --line: #30333b;
+    --accent: #5b93f5; --accent-text: #0d1220; --code: #2a2d35;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+main { max-width: 1040px; margin: 0 auto; padding: 0 16px 64px; }
+header { text-align: center; padding: 64px 0 40px; }
+header img { width: 96px; height: 96px; }
+h1 { font-size: 44px; margin: 12px 0 4px; letter-spacing: -0.5px; }
+.tag { font-size: 20px; color: var(--muted); margin: 0 0 28px; }
+.buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-block; padding: 11px 22px; border-radius: 8px; text-decoration: none;
+  font-weight: 600; border: 1px solid var(--line); color: var(--text); background: var(--card);
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.note { color: var(--muted); font-size: 14px; margin-top: 12px; }
+h2 { font-size: 26px; margin: 48px 0 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+}
+.card h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 17px; }
+.card h3 img { width: 28px; height: 28px; }
+.card p { margin: 0 0 8px; color: var(--muted); font-size: 14.5px; }
+.card .keys { font-size: 13px; color: var(--muted); }
+code { background: var(--code); border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
+.steps { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 24px; }
+footer { text-align: center; color: var(--muted); font-size: 14px; padding: 24px 16px 40px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <img src="icon.png" alt="">
+  <h1>PowerKit</h1>
+  <p class="tag">Windows power-user utilities, in one small background process.</p>
+  <div class="buttons">
+    <a class="btn primary" href="https://github.com/siddarth1872004/PowerKit/releases/latest/download/powerkit.exe">Download for Windows</a>
+    <a class="btn" href="https://github.com/siddarth1872004/PowerKit">Source on GitHub</a>
+  </div>
+  <p class="note">Windows 10 and 11 &middot; one portable .exe &middot; MIT license</p>
+</header>
+
+<h2>Utilities</h2>
+<div class="grid">
+<!-- UTILITIES -->
+</div>
+
+<h2>Getting started</h2>
+<div class="steps">
+  <p><strong>1.</strong> Download <code>powerkit.exe</code> and run it. PowerKit lives in the notification area.</p>
+  <p><strong>2.</strong> Click the tray icon to open settings. Each utility has a short animated walkthrough above its settings, drawn with your own shortcuts.</p>
+  <p><strong>3.</strong> PowerKit checks for a new release once a day. Choose <strong>Install update</strong> in the tray menu and it updates itself and restarts.</p>
+  <p>To keep settings next to the program, put an empty file named <code>portable</code> beside <code>powerkit.exe</code>.</p>
+</div>
+</main>
+<footer>
+  PowerKit is an independent project, not affiliated with Microsoft. &middot;
+  <a href="https://github.com/siddarth1872004/PowerKit/releases">Releases</a>
+</footer>
+</body>
+</html>
