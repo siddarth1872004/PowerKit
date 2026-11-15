@@ -1,0 +1,19 @@
+[package]
+name = "registry-preview"
+description = "PowerKit utility: preview, edit and apply .reg files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+powerkit-core.workspace = true
+powerkit-config.workspace = true
+powerkit-plugin-api.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

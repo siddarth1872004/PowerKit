@@ -119,6 +119,19 @@ pub enum TableEvent {
     Choice(usize),
 }
 
+/// What the user did in Registry Preview; rows count the listed keys and values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RegistryEvent {
+    /// The text was edited; carries all of it.
+    Changed(String),
+    Open,
+    Save,
+    SaveAs,
+    Write,
+    /// Show the key of this row in Registry Editor.
+    OpenKey(usize),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     /// A registered global hotkey fired (identifier assigned at registration).
@@ -146,6 +159,7 @@ pub enum Event {
         table: &'static str,
         event: TableEvent,
     },
+    Registry(RegistryEvent),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.

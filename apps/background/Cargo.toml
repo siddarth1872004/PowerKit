@@ -40,6 +40,7 @@ grab-and-move.workspace = true
 window-hopper.workspace = true
 hosts-editor.workspace = true
 environment-variables.workspace = true
+registry-preview.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

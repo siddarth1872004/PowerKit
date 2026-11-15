@@ -516,6 +516,7 @@ impl Host {
                     Some("window_hopper") => new.window_hopper = d.window_hopper,
                     Some("hosts_editor") => new.hosts_editor = d.hosts_editor,
                     Some("environment_variables") => new.environment_variables = d.environment_variables,
+                    Some("registry_preview") => new.registry_preview = d.registry_preview,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

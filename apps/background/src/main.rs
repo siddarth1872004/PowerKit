@@ -8,6 +8,7 @@
 //! * `powerkit --write-hosts F`  copy F over the hosts file (run elevated by the editor)
 //! * `powerkit --env`       open Environment Variables
 //! * `powerkit --write-env F`  apply the system variable changes in F (run elevated)
+//! * `powerkit --reg [F]`   open Registry Preview, with the .reg file F if given
 //! * `powerkit --version`
 //! * `powerkit --after-update`  start once the previous version has exited
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -16,6 +17,7 @@ use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
 use powerkit_host::env::EnvUi;
 use powerkit_host::hosts::HostsUi;
+use powerkit_host::registry::RegistryUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::update::{self, Release};
@@ -41,6 +43,7 @@ const MENU_CHECK_UPDATES: u32 = 3;
 const MENU_INSTALL_UPDATE: u32 = 4;
 const MENU_HOSTS: u32 = 5;
 const MENU_ENV: u32 = 6;
+const MENU_REGISTRY: u32 = 7;
 /// The first automatic check waits so it does not slow down signing in.
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(120);
 const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -181,6 +184,12 @@ fn main() -> std::process::ExitCode {
         Some(json!({ "id": hosts_editor::ID, "command": "open" }))
     } else if has("--env") {
         Some(json!({ "id": environment_variables::ID, "command": "open" }))
+    } else if let Some(i) = args.iter().position(|a| a == "--reg") {
+        // The running instance may have another working directory.
+        let path = args
+            .get(i + 1)
+            .map(|f| std::path::absolute(f).unwrap_or_else(|_| PathBuf::from(f)));
+        Some(json!({ "id": registry_preview::ID, "command": "open", "args": { "path": path } }))
     } else {
         None
     };
@@ -256,6 +265,7 @@ struct Windows {
     rename: RenameUi,
     hosts: HostsUi,
     env: EnvUi,
+    registry: RegistryUi,
 }
 
 fn run(
@@ -338,6 +348,7 @@ fn run(
         rename: RenameUi::default(),
         hosts: HostsUi::new(event_loop.waker()),
         env: EnvUi::new(event_loop.waker()),
+        registry: RegistryUi::new(event_loop.waker()),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -353,6 +364,7 @@ fn run(
                         "power_rename.pending" => ui.rename.open(host),
                         hosts_editor::OPEN_EVENT => ui.hosts.open(),
                         environment_variables::OPEN_EVENT => ui.env.open(),
+                        registry_preview::OPEN_EVENT => ui.registry.open(payload["path"].as_str().map(PathBuf::from)),
                         _ => Ok(()),
                     };
                     if let Err(e) = opened {
@@ -383,6 +395,7 @@ fn run(
             Event::Wake => {
                 ui.hosts.poll();
                 ui.env.poll();
+                ui.registry.poll();
                 while let Ok((request, reply)) = rx.try_recv() {
                     let response = match host.handle_request(&request.method, &request.params) {
                         Ok(v) => Response::ok(request.id, v),
@@ -454,6 +467,9 @@ fn run(
                 if host.config().environment_variables.enabled {
                     items.push(MenuItem::new(MENU_ENV, "Environment Variables"));
                 }
+                if host.config().registry_preview.enabled {
+                    items.push(MenuItem::new(MENU_REGISTRY, "Registry Preview"));
+                }
                 items.push(match &available {
                     Some(r) => MenuItem::new(MENU_INSTALL_UPDATE, format!("Install update {}", r.version)),
                     None => MenuItem::new(MENU_CHECK_UPDATES, "Check for updates"),
@@ -472,11 +488,11 @@ fn run(
                     Ok(Some(MENU_SETTINGS)) => {
                         host.handle_request("app.open_settings", &Value::Null).ok();
                     }
-                    Ok(Some(id @ (MENU_HOSTS | MENU_ENV))) => {
-                        let module = if id == MENU_HOSTS {
-                            hosts_editor::ID
-                        } else {
-                            environment_variables::ID
+                    Ok(Some(id @ (MENU_HOSTS | MENU_ENV | MENU_REGISTRY))) => {
+                        let module = match id {
+                            MENU_HOSTS => hosts_editor::ID,
+                            MENU_ENV => environment_variables::ID,
+                            _ => registry_preview::ID,
                         };
                         let params = json!({ "id": module, "command": "open" });
                         if let Err(e) = host.handle_request("module.command", &params) {
@@ -517,6 +533,7 @@ fn run(
             Event::Rename(e) => ui.rename.on_event(e, &mut host),
             Event::Table { table, event } if table == powerkit_host::hosts::TABLE => ui.hosts.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
+            Event::Registry(e) => ui.registry.on_event(e, &host.paths().root),
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);

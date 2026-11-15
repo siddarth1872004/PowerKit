@@ -13,6 +13,7 @@ mod launcher;
 mod light_switch;
 mod mouse;
 mod quick_accent;
+mod registry_preview;
 mod rename;
 mod shortcut_guide;
 mod window_hopper;
@@ -29,6 +30,7 @@ pub use launcher::*;
 pub use light_switch::*;
 pub use mouse::*;
 pub use quick_accent::*;
+pub use registry_preview::*;
 pub use rename::*;
 pub use shortcut_guide::*;
 pub use window_hopper::*;
@@ -146,6 +148,7 @@ pub struct Config {
     pub window_hopper: WindowHopper,
     pub hosts_editor: HostsEditor,
     pub environment_variables: EnvironmentVariables,
+    pub registry_preview: RegistryPreview,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -245,6 +248,7 @@ impl Config {
         self.window_hopper.sanitize(&mut w);
         self.hosts_editor.sanitize(&mut w);
         self.environment_variables.sanitize(&mut w);
+        self.registry_preview.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -279,6 +283,7 @@ impl Config {
         push("window_hopper", "previous", &self.window_hopper.previous_shortcut);
         push("hosts_editor", "open", &self.hosts_editor.shortcut);
         push("environment_variables", "open", &self.environment_variables.shortcut);
+        push("registry_preview", "open", &self.registry_preview.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -328,6 +333,7 @@ impl Config {
             "window_hopper" => self.window_hopper.enabled,
             "hosts_editor" => self.hosts_editor.enabled,
             "environment_variables" => self.environment_variables.enabled,
+            "registry_preview" => self.registry_preview.enabled,
             _ => return None,
         })
     }
@@ -350,6 +356,7 @@ impl Config {
             "window_hopper" => &mut self.window_hopper.enabled,
             "hosts_editor" => &mut self.hosts_editor.enabled,
             "environment_variables" => &mut self.environment_variables.enabled,
+            "registry_preview" => &mut self.registry_preview.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -414,6 +421,7 @@ impl Config {
         config.window_hopper = section(&mut map, "window_hopper", &mut warnings);
         config.hosts_editor = section(&mut map, "hosts_editor", &mut warnings);
         config.environment_variables = section(&mut map, "environment_variables", &mut warnings);
+        config.registry_preview = section(&mut map, "registry_preview", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }
