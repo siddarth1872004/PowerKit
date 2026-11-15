@@ -46,7 +46,7 @@ turned on or off from the tray icon.
 
 ### Coming next
 
-File Locksmith · Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
+Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
 ## Install
@@ -67,6 +67,18 @@ time. To turn off the daily check, set `general.check_for_updates` to `false`.
 
 The check sends a plain request to the GitHub API, with nothing that identifies you or
 your PC.
+
+### Windows 11 context menu
+
+PowerRename, New+, File Locksmith and Registry Preview add their entries under **Show
+more options** in Explorer's right-click menu. To put them at the top of the menu instead,
+turn on **Show in the Windows 11 context menu** under General (`general.explorer_menu`).
+
+Windows only shows entries there for a signed app package, so PowerKit builds and signs a
+small one itself with a certificate it creates on your PC. The first time, Windows asks for
+administrator approval so the PC trusts that certificate. Turning the setting off removes
+the package and puts the entries back under Show more options; the certificate stays
+trusted, so turning it on again needs no approval.
 
 ## Configuration
 
@@ -93,6 +105,7 @@ powerkit --env         open Environment Variables
 powerkit --reg [F]     open Registry Preview, with the .reg file F
 powerkit --new DIR     show the New+ template menu for folder DIR
 powerkit --unlock P…   show which processes are using files or folders P
+powerkit --trust-menu-cert HEX  trust the context menu certificate (run elevated by PowerKit)
 powerkit --quit        ask the running PowerKit to exit
 powerkit --version     print the version
 ```

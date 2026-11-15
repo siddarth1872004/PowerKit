@@ -94,6 +94,15 @@ fn general_spec() -> Vec<(&'static str, Vec<Spec>)> {
             ],
         ),
         (
+            "Explorer",
+            vec![s(
+                "explorer_menu",
+                "Show in the Windows 11 context menu",
+                "Put Rename, New+, Unlock and .reg Preview at the top of the right-click menu. Windows asks for administrator approval the first time",
+                Toggle,
+            )],
+        ),
+        (
             "Updates",
             vec![s(
                 "check_for_updates",

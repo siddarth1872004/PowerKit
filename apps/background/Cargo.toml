@@ -24,6 +24,7 @@ powerkit-guide.workspace = true
 powerkit-ipc.workspace = true
 powerkit-logging.workspace = true
 powerkit-platform.workspace = true
+powerkit-menu.workspace = true
 powerkit-plugin-api.workspace = true
 always-on-top.workspace = true
 power-rename.workspace = true

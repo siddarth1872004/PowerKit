@@ -80,6 +80,9 @@ pub struct General {
     pub log_level: LogLevel,
     /// Look for a newer release on GitHub once a day.
     pub check_for_updates: bool,
+    /// Put PowerKit's Explorer entries at the top of the Windows 11 context menu
+    /// (a signed sparse package) instead of under "Show more options".
+    pub explorer_menu: bool,
     /// Module ids, most recently used first (bounded).
     pub recent_modules: Vec<String>,
 }
@@ -93,6 +96,8 @@ impl Default for General {
             theme: Theme::System,
             log_level: LogLevel::Info,
             check_for_updates: true,
+            // Off until asked for: turning it on needs administrator approval once.
+            explorer_menu: false,
             recent_modules: Vec::new(),
         }
     }

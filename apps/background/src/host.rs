@@ -258,6 +258,12 @@ impl Host {
     }
 
     /// Bring every module in line with the configuration.
+    /// Apply the current settings to every module again, for when something outside
+    /// the settings changed what they do (the Explorer menu being registered).
+    pub fn reapply(&mut self) {
+        self.reconcile();
+    }
+
     fn reconcile(&mut self) {
         for i in 0..self.slots.len() {
             let want = self.config.module_enabled(&self.slots[i].manifest.id).unwrap_or(true);

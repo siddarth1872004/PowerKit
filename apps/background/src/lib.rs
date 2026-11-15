@@ -2,6 +2,7 @@
 //! tray icon or real global hotkeys.
 
 pub mod env;
+pub mod explorer_menu;
 pub mod host;
 pub mod hosts;
 pub mod icons;

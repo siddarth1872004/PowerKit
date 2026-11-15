@@ -8,9 +8,13 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 serde_json.workspace = true
+tracing.workspace = true
 powerkit-core.workspace = true
 powerkit-config.workspace = true
 powerkit-plugin-api.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+powerkit-menu.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

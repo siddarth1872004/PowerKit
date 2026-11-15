@@ -235,6 +235,7 @@ dependencies = [
  "anyhow",
  "powerkit-config",
  "powerkit-core",
+ "powerkit-menu",
  "powerkit-platform",
  "powerkit-plugin-api",
  "serde_json",
@@ -401,6 +402,7 @@ dependencies = [
  "anyhow",
  "powerkit-config",
  "powerkit-core",
+ "powerkit-menu",
  "powerkit-platform",
  "powerkit-plugin-api",
  "serde_json",
@@ -436,6 +438,7 @@ dependencies = [
  "anyhow",
  "powerkit-config",
  "powerkit-core",
+ "powerkit-menu",
  "powerkit-platform",
  "powerkit-plugin-api",
  "proptest",
@@ -502,6 +505,7 @@ dependencies = [
  "powerkit-guide",
  "powerkit-ipc",
  "powerkit-logging",
+ "powerkit-menu",
  "powerkit-platform",
  "powerkit-plugin-api",
  "quick-accent",
@@ -532,6 +536,14 @@ dependencies = [
  "tempfile",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "powerkit-menu"
+version = "0.1.0"
+dependencies = [
+ "windows",
+ "windows-core",
 ]
 
 [[package]]
@@ -694,9 +706,11 @@ dependencies = [
  "anyhow",
  "powerkit-config",
  "powerkit-core",
+ "powerkit-menu",
  "powerkit-plugin-api",
  "serde_json",
  "tempfile",
+ "tracing",
 ]
 
 [[package]]

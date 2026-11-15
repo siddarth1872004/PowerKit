@@ -16,6 +16,9 @@ const CLASSES: [(&str, &str); 2] = [
 /// Add or remove the menu entries. Removal checks first so a disabled feature never
 /// writes to the registry.
 pub fn sync(enabled: bool) -> Result<()> {
+    // The Windows 11 top-level entry replaces the classic one when it is in use.
+    let top = powerkit_menu::show(crate::ID, enabled).map_err(|e| anyhow!("Explorer menu: {e}"))?;
+    let enabled = enabled && !top;
     let exe = std::env::current_exe().map_err(|e| anyhow!("locating powerkit.exe: {e}"))?;
     for (class, placeholder) in CLASSES {
         let key = format!(r"{class}\{VERB}");

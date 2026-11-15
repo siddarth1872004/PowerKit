@@ -11,6 +11,8 @@
 //! * `powerkit --reg [F]`   open Registry Preview, with the .reg file F if given
 //! * `powerkit --new DIR`   show the New+ template menu for folder DIR (Explorer menu)
 //! * `powerkit --unlock P…` show which processes use the given files (Explorer menu)
+//! * `powerkit --trust-menu-cert HEX`  trust the Explorer menu's signing certificate
+//!   for the machine (run elevated)
 //! * `powerkit --version`
 //! * `powerkit --after-update`  start once the previous version has exited
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -18,6 +20,7 @@
 use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
 use powerkit_host::env::EnvUi;
+use powerkit_host::explorer_menu;
 use powerkit_host::hosts::HostsUi;
 use powerkit_host::locksmith::LocksmithUi;
 use powerkit_host::registry::RegistryUi;
@@ -130,6 +133,26 @@ fn spawn_daily_check(
     });
 }
 
+fn spawn_menu_job(
+    wanted: bool,
+    folder: PathBuf,
+    tx: mpsc::Sender<(bool, Result<(), String>)>,
+    waker: powerkit_platform::event_loop::Waker,
+) {
+    std::thread::spawn(move || {
+        let result = if wanted {
+            std::env::current_exe()
+                .map_err(|e| format!("finding powerkit.exe: {e}"))
+                .and_then(|exe| explorer_menu::install(&folder, &exe))
+        } else {
+            explorer_menu::uninstall(&folder)
+        };
+        if tx.send((wanted, result)).is_ok() {
+            waker.wake();
+        }
+    });
+}
+
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let has = |flag: &str| args.iter().any(|a| a == flag);
@@ -161,6 +184,15 @@ fn main() -> std::process::ExitCode {
             },
         };
         return code.into();
+    }
+    if let Some(i) = args.iter().position(|a| a == explorer_menu::TRUST_FLAG) {
+        return match explorer_menu::trust_elevated(args.get(i + 1).map_or("", String::as_str)) {
+            Ok(()) => 0.into(),
+            Err(e) => {
+                eprintln!("{e}");
+                1.into()
+            }
+        };
     }
     if has("--version") {
         println!("PowerKit {}", env!("CARGO_PKG_VERSION"));
@@ -350,6 +382,20 @@ fn run(
     let (update_tx, update_rx) = mpsc::channel::<UpdateMsg>();
     let auto_check = Arc::new(AtomicBool::new(host.config().general.check_for_updates));
     spawn_daily_check(update_tx.clone(), event_loop.waker(), Arc::clone(&auto_check));
+    // The Explorer menu package, installed or removed off this thread. `menu_applied`
+    // is the setting last acted on; a failure is reported once, not retried.
+    let (menu_tx, menu_rx) = mpsc::channel::<(bool, Result<(), String>)>();
+    let menu_waker = event_loop.waker();
+    let menu_folder = explorer_menu::folder(&host.paths().root);
+    let mut menu_applied = None;
+    let mut menu_busy = false;
+    let wanted = host.config().general.explorer_menu;
+    if wanted || explorer_menu::maybe_installed() {
+        menu_busy = true;
+        spawn_menu_job(wanted, menu_folder.clone(), menu_tx.clone(), menu_waker);
+    } else {
+        menu_applied = Some(false);
+    }
     let mut available: Option<Release> = None;
     let mut update_busy = false;
     if let Some(params) = request {
@@ -438,6 +484,15 @@ fn run(
                         Err(e) => Response::err(request.id, e),
                     };
                     let _ = reply.send(response);
+                }
+                while let Ok((wanted, result)) = menu_rx.try_recv() {
+                    menu_busy = false;
+                    menu_applied = Some(wanted);
+                    if let Err(e) = result {
+                        tracing::error!(wanted, "Explorer menu: {e}");
+                        let _ = tray.notify("PowerKit", &format!("The Windows 11 context menu entries could not be changed: {e}"));
+                    }
+                    host.reapply();
                 }
                 while let Ok(msg) = update_rx.try_recv() {
                     let note = |message: &str| {
@@ -574,6 +629,11 @@ fn run(
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);
+        let wanted = host.config().general.explorer_menu;
+        if !menu_busy && menu_applied != Some(wanted) {
+            menu_busy = true;
+            spawn_menu_job(wanted, menu_folder.clone(), menu_tx.clone(), menu_waker);
+        }
         flush(&mut host, &mut ui)
     });
 

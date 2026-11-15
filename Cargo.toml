@@ -50,6 +50,7 @@ powerkit-guide = { path = "crates/powerkit-guide" }
 powerkit-ipc = { path = "crates/powerkit-ipc" }
 powerkit-logging = { path = "crates/powerkit-logging" }
 powerkit-platform = { path = "crates/powerkit-platform" }
+powerkit-menu = { path = "crates/powerkit-menu" }
 powerkit-plugin-api = { path = "crates/powerkit-plugin-api" }
 always-on-top = { path = "modules/always-on-top" }
 color-picker = { path = "modules/color-picker" }

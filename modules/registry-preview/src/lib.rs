@@ -35,6 +35,17 @@ impl RegistryPreview {
     }
 }
 
+/// The Explorer menu entry for .reg files exists only at the Windows 11 top level;
+/// without it, .reg files open from the tray or `powerkit --reg`.
+fn sync_menu(shown: bool) {
+    #[cfg(windows)]
+    if let Err(e) = powerkit_menu::show(ID, shown) {
+        tracing::warn!(error = %e, "Explorer context menu not updated");
+    }
+    #[cfg(not(windows))]
+    let _ = shown;
+}
+
 impl Module for RegistryPreview {
     fn manifest(&self) -> Manifest {
         Manifest {
@@ -61,15 +72,19 @@ impl Module for RegistryPreview {
     fn start(&mut self, ctx: &mut Ctx) -> Result<()> {
         self.settings = ctx.config.registry_preview.clone();
         self.running = true;
+        sync_menu(self.settings.enabled);
         Ok(())
     }
 
     fn stop(&mut self, _ctx: &mut Ctx) {
         self.running = false;
+        // The menu entry launches PowerKit, so it must not outlive the module.
+        sync_menu(false);
     }
 
     fn config_changed(&mut self, ctx: &mut Ctx) -> Result<()> {
         self.settings = ctx.config.registry_preview.clone();
+        sync_menu(self.settings.enabled);
         Ok(())
     }
 

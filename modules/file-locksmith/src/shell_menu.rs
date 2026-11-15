@@ -13,6 +13,10 @@ const CLASSES: [&str; 2] = [r"Software\Classes\*\shell", r"Software\Classes\Dire
 /// menu only. Removal checks first so a disabled feature never writes to the
 /// registry.
 pub fn sync(enabled: bool, extended: bool) -> Result<()> {
+    // The Windows 11 top-level entry replaces the classic one when it is in use. The
+    // top level has no Shift-only part, so an extended-only entry stays classic.
+    let top = powerkit_menu::show(crate::ID, enabled && !extended).map_err(|e| anyhow!("Explorer menu: {e}"))?;
+    let enabled = enabled && !top;
     let exe = std::env::current_exe().map_err(|e| anyhow!("locating powerkit.exe: {e}"))?;
     for class in CLASSES {
         let key = format!(r"{class}\{VERB}");
