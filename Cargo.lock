@@ -234,6 +234,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "grab-and-move"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -411,6 +426,7 @@ dependencies = [
  "color-picker",
  "crop-and-lock",
  "fancy-zones",
+ "grab-and-move",
  "keyboard-manager",
  "launcher",
  "light-switch",

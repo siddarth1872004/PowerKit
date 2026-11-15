@@ -5,6 +5,7 @@ mod awake;
 mod color_picker;
 mod crop_and_lock;
 mod fancy_zones;
+mod grab_and_move;
 mod keyboard;
 mod launcher;
 mod light_switch;
@@ -17,6 +18,7 @@ pub use awake::*;
 pub use color_picker::*;
 pub use crop_and_lock::*;
 pub use fancy_zones::*;
+pub use grab_and_move::*;
 pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
@@ -134,6 +136,7 @@ pub struct Config {
     pub mouse_utilities: MouseUtilities,
     pub crop_and_lock: CropAndLock,
     pub shortcut_guide: ShortcutGuide,
+    pub grab_and_move: GrabAndMove,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -229,6 +232,7 @@ impl Config {
         self.mouse_utilities.sanitize(&mut w);
         self.crop_and_lock.sanitize(&mut w);
         self.shortcut_guide.sanitize(&mut w);
+        self.grab_and_move.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -304,6 +308,7 @@ impl Config {
             "mouse_utilities" => self.mouse_utilities.enabled,
             "crop_and_lock" => self.crop_and_lock.enabled,
             "shortcut_guide" => self.shortcut_guide.enabled,
+            "grab_and_move" => self.grab_and_move.enabled,
             _ => return None,
         })
     }
@@ -322,6 +327,7 @@ impl Config {
             "mouse_utilities" => &mut self.mouse_utilities.enabled,
             "crop_and_lock" => &mut self.crop_and_lock.enabled,
             "shortcut_guide" => &mut self.shortcut_guide.enabled,
+            "grab_and_move" => &mut self.grab_and_move.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -382,6 +388,7 @@ impl Config {
         config.mouse_utilities = section(&mut map, "mouse_utilities", &mut warnings);
         config.crop_and_lock = section(&mut map, "crop_and_lock", &mut warnings);
         config.shortcut_guide = section(&mut map, "shortcut_guide", &mut warnings);
+        config.grab_and_move = section(&mut map, "grab_and_move", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

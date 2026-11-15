@@ -4,7 +4,7 @@ use crate::util::from_wide;
 use crate::{Context, Error, Result};
 use powerkit_core::Rect;
 use windows::core::BOOL;
-use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
@@ -454,6 +454,19 @@ pub fn restore_opacity(hwnd: Hwnd, state: OpacityState) -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// The top-level window under a screen point.
+pub fn at_point(x: i32, y: i32) -> Option<Hwnd> {
+    // SAFETY: plain value arguments.
+    let h = unsafe { GetAncestor(WindowFromPoint(POINT { x, y }), GA_ROOT) };
+    (!h.is_invalid()).then(|| Hwnd::from_raw(h))
+}
+
+/// Un-maximize a window without activating it.
+pub fn restore(hwnd: Hwnd) {
+    // SAFETY: plain value arguments; the result is the previous visibility.
+    let _ = unsafe { ShowWindow(hwnd.raw(), SW_SHOWNOACTIVATE) };
 }
 
 /// Bring a window to the foreground (restoring it if minimized). Windows may refuse

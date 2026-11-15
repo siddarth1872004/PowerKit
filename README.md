@@ -33,13 +33,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | 🖱️ | **Mouse utilities** | Find My Mouse, a click highlighter, crosshairs with a gliding cursor, and Mouse Jump. | `Ctrl` ×2, `Win+Shift+H`, `Win+Alt+P`, `Win+Shift+D` |
 | ✂️ | **Crop and Lock** | Crop a window into a live thumbnail, or into a smaller window that still takes input. | `Win+Ctrl+Shift+T`, `Win+Ctrl+Shift+R` |
 | ❓ | **Shortcut Guide** | Hold the Windows key to see the shortcuts for Windows, PowerKit and the focused app, with numbers on the taskbar buttons. | Hold `Win`, or `Win+Shift+/` |
+| ✋ | **Grab and Move** | Hold `Win` (or `Alt`) and drag anywhere in a window to move it; drag with the right button to resize it. | `Win` + drag |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Grab and Move · Window Hopper · Hosts File Editor · Environment Variables · Registry Preview ·
+Window Hopper · Hosts File Editor · Environment Variables · Registry Preview ·
 New+ · File Locksmith · Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 

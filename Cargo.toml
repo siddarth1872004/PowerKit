@@ -14,6 +14,7 @@ members = [
     "modules/mouse-utilities",
     "modules/crop-and-lock",
     "modules/shortcut-guide",
+    "modules/grab-and-move",
     "modules/power-rename",
     "apps/background",
 ]
@@ -55,6 +56,7 @@ quick-accent = { path = "modules/quick-accent" }
 mouse-utilities = { path = "modules/mouse-utilities" }
 crop-and-lock = { path = "modules/crop-and-lock" }
 shortcut-guide = { path = "modules/shortcut-guide" }
+grab-and-move = { path = "modules/grab-and-move" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

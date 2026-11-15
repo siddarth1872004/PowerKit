@@ -512,6 +512,7 @@ impl Host {
                     Some("mouse_utilities") => new.mouse_utilities = d.mouse_utilities,
                     Some("crop_and_lock") => new.crop_and_lock = d.crop_and_lock,
                     Some("shortcut_guide") => new.shortcut_guide = d.shortcut_guide,
+                    Some("grab_and_move") => new.grab_and_move = d.grab_and_move,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

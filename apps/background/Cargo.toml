@@ -36,6 +36,7 @@ quick-accent.workspace = true
 mouse-utilities.workspace = true
 crop-and-lock.workspace = true
 shortcut-guide.workspace = true
+grab-and-move.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -1,5 +1,6 @@
-//! A low-level mouse hook that only watches: every callback sees moves and button
-//! presses system-wide, and the input always reaches its application.
+//! A low-level mouse hook: every callback sees moves and button presses system-wide.
+//! Watchers never affect the input; filters may keep a press from reaching its
+//! application.
 
 use crate::event_loop::helper;
 use crate::{Context, Error, Result};
@@ -23,7 +24,8 @@ pub enum MouseInput {
     Up { button: Button, x: i32, y: i32 },
 }
 
-type Callback = Box<dyn FnMut(MouseInput)>;
+/// Returns whether to swallow the input.
+type Callback = Box<dyn FnMut(MouseInput) -> bool>;
 
 #[derive(Default)]
 struct Hooks {
@@ -78,15 +80,16 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
         if let Some(input) = input {
             // A panic must not unwind into the OS; a busy list (re-entered while a
             // callback pumped messages) skips this event.
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let swallow = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 HOOKS.with(|h| {
-                    if let Ok(mut h) = h.try_borrow_mut() {
-                        for (_, f) in h.callbacks.iter_mut() {
-                            f(input);
-                        }
-                    }
+                    let Ok(mut h) = h.try_borrow_mut() else { return false };
+                    // Every callback sees the input, even after one swallowed it.
+                    h.callbacks.iter_mut().fold(false, |sw, (_, f)| f(input) | sw)
                 })
             }));
+            if matches!(swallow, Ok(true)) {
+                return LRESULT(1);
+            }
         }
     }
     // SAFETY: forwarding the unmodified arguments of this callback.
@@ -103,7 +106,16 @@ pub struct MouseHook {
 impl MouseHook {
     /// Must be called on the event-loop thread, whose message loop services the hook.
     /// The callback runs for every mouse move, so it must be quick.
-    pub fn install(callback: impl FnMut(MouseInput) + 'static) -> Result<MouseHook> {
+    pub fn install(mut callback: impl FnMut(MouseInput) + 'static) -> Result<MouseHook> {
+        Self::install_filter(move |input| {
+            callback(input);
+            false
+        })
+    }
+
+    /// Like [`MouseHook::install`], but the callback returns `true` to keep the input
+    /// from its application. Swallow a release only when its press was swallowed too.
+    pub fn install_filter(callback: impl FnMut(MouseInput) -> bool + 'static) -> Result<MouseHook> {
         helper()?;
         HOOKS.with(|h| {
             let mut h = h

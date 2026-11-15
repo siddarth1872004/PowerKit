@@ -105,6 +105,21 @@ pub fn key_down(vk: u32) -> bool {
     state as u16 & 0x8000 != 0
 }
 
+/// Whether a mouse button, as applications see it (after swapping for left-handed
+/// use), is physically held right now.
+pub fn button_down(button: crate::mousehook::Button) -> bool {
+    use crate::mousehook::Button;
+    // SAFETY: plain value argument.
+    let swapped = unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0;
+    // GetAsyncKeyState reports physical buttons.
+    let vk = match (button, swapped) {
+        (Button::Left, false) | (Button::Right, true) => 0x01,
+        (Button::Right, false) | (Button::Left, true) => 0x02,
+        (Button::Middle, _) => 0x04,
+    };
+    key_down(vk)
+}
+
 /// Current cursor position in physical virtual-desktop pixels.
 pub fn cursor_pos() -> Result<(i32, i32)> {
     let mut pt = POINT::default();
