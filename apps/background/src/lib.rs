@@ -1,6 +1,7 @@
 //! The PowerKit background host as a library, so its logic can be tested without a
 //! tray icon or real global hotkeys.
 
+pub mod env;
 pub mod host;
 pub mod hosts;
 pub mod rename;
@@ -29,5 +30,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(grab_and_move::GrabAndMove::new()),
         Box::new(window_hopper::WindowHopper::new()),
         Box::new(hosts_editor::HostsEditor::new()),
+        Box::new(environment_variables::EnvironmentVariables::new()),
     ]
 }

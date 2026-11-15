@@ -6,12 +6,15 @@
 //! * `powerkit --rename P…` open PowerRename with the given paths (Explorer menu)
 //! * `powerkit --hosts`     open the Hosts File Editor
 //! * `powerkit --write-hosts F`  copy F over the hosts file (run elevated by the editor)
+//! * `powerkit --env`       open Environment Variables
+//! * `powerkit --write-env F`  apply the system variable changes in F (run elevated)
 //! * `powerkit --version`
 //! * `powerkit --after-update`  start once the previous version has exited
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
+use powerkit_host::env::EnvUi;
 use powerkit_host::hosts::HostsUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::settings::SettingsUi;
@@ -37,6 +40,7 @@ const MENU_QUIT: u32 = 2;
 const MENU_CHECK_UPDATES: u32 = 3;
 const MENU_INSTALL_UPDATE: u32 = 4;
 const MENU_HOSTS: u32 = 5;
+const MENU_ENV: u32 = 6;
 /// The first automatic check waits so it does not slow down signing in.
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(120);
 const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -131,6 +135,27 @@ fn main() -> std::process::ExitCode {
         };
         return code.into();
     }
+    if let Some(i) = args.iter().position(|a| a == "--write-env") {
+        use environment_variables::vars::{exit, read_changes};
+        let code = match args.get(i + 1).map(|f| read_changes(Path::new(f))) {
+            None => exit::USAGE,
+            Some(Err(e)) => {
+                eprintln!("{e}");
+                exit::BAD_SOURCE
+            }
+            Some(Ok(changes)) => match powerkit_host::env::apply(true, &changes) {
+                Ok(()) => {
+                    powerkit_platform::env::broadcast();
+                    exit::OK
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    exit::WRITE_FAILED
+                }
+            },
+        };
+        return code.into();
+    }
     if has("--version") {
         println!("PowerKit {}", env!("CARGO_PKG_VERSION"));
         return 0.into();
@@ -154,6 +179,8 @@ fn main() -> std::process::ExitCode {
         Some(json!({ "id": power_rename::ID, "command": "open", "args": { "paths": rename } }))
     } else if has("--hosts") {
         Some(json!({ "id": hosts_editor::ID, "command": "open" }))
+    } else if has("--env") {
+        Some(json!({ "id": environment_variables::ID, "command": "open" }))
     } else {
         None
     };
@@ -228,6 +255,7 @@ struct Windows {
     settings: SettingsUi,
     rename: RenameUi,
     hosts: HostsUi,
+    env: EnvUi,
 }
 
 fn run(
@@ -309,6 +337,7 @@ fn run(
         settings: SettingsUi::default(),
         rename: RenameUi::default(),
         hosts: HostsUi::new(event_loop.waker()),
+        env: EnvUi::new(event_loop.waker()),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -323,6 +352,7 @@ fn run(
                     let opened = match event.as_str() {
                         "power_rename.pending" => ui.rename.open(host),
                         hosts_editor::OPEN_EVENT => ui.hosts.open(),
+                        environment_variables::OPEN_EVENT => ui.env.open(),
                         _ => Ok(()),
                     };
                     if let Err(e) = opened {
@@ -352,6 +382,7 @@ fn run(
             Event::Quit => return false,
             Event::Wake => {
                 ui.hosts.poll();
+                ui.env.poll();
                 while let Ok((request, reply)) = rx.try_recv() {
                     let response = match host.handle_request(&request.method, &request.params) {
                         Ok(v) => Response::ok(request.id, v),
@@ -420,6 +451,9 @@ fn run(
                 if host.config().hosts_editor.enabled {
                     items.push(MenuItem::new(MENU_HOSTS, "Hosts File Editor"));
                 }
+                if host.config().environment_variables.enabled {
+                    items.push(MenuItem::new(MENU_ENV, "Environment Variables"));
+                }
                 items.push(match &available {
                     Some(r) => MenuItem::new(MENU_INSTALL_UPDATE, format!("Install update {}", r.version)),
                     None => MenuItem::new(MENU_CHECK_UPDATES, "Check for updates"),
@@ -438,8 +472,13 @@ fn run(
                     Ok(Some(MENU_SETTINGS)) => {
                         host.handle_request("app.open_settings", &Value::Null).ok();
                     }
-                    Ok(Some(MENU_HOSTS)) => {
-                        let params = json!({ "id": hosts_editor::ID, "command": "open" });
+                    Ok(Some(id @ (MENU_HOSTS | MENU_ENV))) => {
+                        let module = if id == MENU_HOSTS {
+                            hosts_editor::ID
+                        } else {
+                            environment_variables::ID
+                        };
+                        let params = json!({ "id": module, "command": "open" });
                         if let Err(e) = host.handle_request("module.command", &params) {
                             let _ = tray.notify("PowerKit", &e);
                         }
@@ -476,7 +515,8 @@ fn run(
             }
             Event::Settings(e) => ui.settings.on_event(e, &mut host),
             Event::Rename(e) => ui.rename.on_event(e, &mut host),
-            Event::Hosts(e) => ui.hosts.on_event(e, &host),
+            Event::Table { table, event } if table == powerkit_host::hosts::TABLE => ui.hosts.on_event(event, &host),
+            Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);

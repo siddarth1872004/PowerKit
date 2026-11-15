@@ -40,6 +40,8 @@ pub enum Permission {
     ProcessLaunch,
     /// Enumerate running processes.
     ProcessQuery,
+    /// Read and change the Windows registry.
+    Registry,
 }
 
 /// A command a utility exposes to the host (tray, launcher, IPC).

@@ -99,23 +99,24 @@ pub enum RenameEvent {
     Closed,
 }
 
-/// The fields under the Hosts File Editor's list.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct HostsFields {
-    pub address: String,
-    pub hosts: String,
-    pub comment: String,
-}
-
-/// What the user did in the Hosts File Editor; rows count the listed entries.
+/// What the user did in a table editor window; rows count the listed rows and
+/// fields hold the edit boxes' text in order.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum HostsEvent {
-    Toggle { row: usize, on: bool },
-    Add(HostsFields),
-    Update { row: usize, fields: HostsFields },
+pub enum TableEvent {
+    Toggle {
+        row: usize,
+        on: bool,
+    },
+    Add(Vec<String>),
+    Update {
+        row: usize,
+        fields: Vec<String>,
+    },
     Delete(usize),
     Save,
     Reload,
+    /// The selector above the list changed to this entry.
+    Choice(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,7 +141,11 @@ pub enum Event {
     Popup(PopupEvent),
     Settings(SettingsEvent),
     Rename(RenameEvent),
-    Hosts(HostsEvent),
+    /// From the table editor window whose spec has this id.
+    Table {
+        table: &'static str,
+        event: TableEvent,
+    },
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.

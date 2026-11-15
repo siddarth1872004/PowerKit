@@ -4,6 +4,7 @@
 mod awake;
 mod color_picker;
 mod crop_and_lock;
+mod environment_variables;
 mod fancy_zones;
 mod grab_and_move;
 mod hosts_editor;
@@ -19,6 +20,7 @@ mod window_hopper;
 pub use awake::*;
 pub use color_picker::*;
 pub use crop_and_lock::*;
+pub use environment_variables::*;
 pub use fancy_zones::*;
 pub use grab_and_move::*;
 pub use hosts_editor::*;
@@ -143,6 +145,7 @@ pub struct Config {
     pub grab_and_move: GrabAndMove,
     pub window_hopper: WindowHopper,
     pub hosts_editor: HostsEditor,
+    pub environment_variables: EnvironmentVariables,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -241,6 +244,7 @@ impl Config {
         self.grab_and_move.sanitize(&mut w);
         self.window_hopper.sanitize(&mut w);
         self.hosts_editor.sanitize(&mut w);
+        self.environment_variables.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -274,6 +278,7 @@ impl Config {
         push("window_hopper", "next", &self.window_hopper.next_shortcut);
         push("window_hopper", "previous", &self.window_hopper.previous_shortcut);
         push("hosts_editor", "open", &self.hosts_editor.shortcut);
+        push("environment_variables", "open", &self.environment_variables.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -322,6 +327,7 @@ impl Config {
             "grab_and_move" => self.grab_and_move.enabled,
             "window_hopper" => self.window_hopper.enabled,
             "hosts_editor" => self.hosts_editor.enabled,
+            "environment_variables" => self.environment_variables.enabled,
             _ => return None,
         })
     }
@@ -343,6 +349,7 @@ impl Config {
             "grab_and_move" => &mut self.grab_and_move.enabled,
             "window_hopper" => &mut self.window_hopper.enabled,
             "hosts_editor" => &mut self.hosts_editor.enabled,
+            "environment_variables" => &mut self.environment_variables.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -406,6 +413,7 @@ impl Config {
         config.grab_and_move = section(&mut map, "grab_and_move", &mut warnings);
         config.window_hopper = section(&mut map, "window_hopper", &mut warnings);
         config.hosts_editor = section(&mut map, "hosts_editor", &mut warnings);
+        config.environment_variables = section(&mut map, "environment_variables", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

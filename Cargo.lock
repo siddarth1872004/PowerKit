@@ -178,6 +178,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "environment-variables"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -437,6 +450,7 @@ dependencies = [
  "awake",
  "color-picker",
  "crop-and-lock",
+ "environment-variables",
  "fancy-zones",
  "grab-and-move",
  "hosts-editor",

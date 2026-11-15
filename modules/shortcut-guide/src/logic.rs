@@ -205,6 +205,7 @@ fn describe(module: &str, action: &str) -> String {
         ("window_hopper", "next") => "Next window of this app",
         ("window_hopper", "previous") => "Previous window of this app",
         ("hosts_editor", "open") => "Hosts File Editor",
+        ("environment_variables", "open") => "Environment Variables",
         ("shortcut_guide", "toggle") => "This guide",
         _ => return format!("{module} {action}").replace('_', " "),
     };

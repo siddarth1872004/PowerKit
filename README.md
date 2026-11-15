@@ -36,13 +36,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | ✋ | **Grab and Move** | Hold `Win` (or `Alt`) and drag anywhere in a window to move it; drag with the right button to resize it. | `Win` + drag |
 | 🔀 | **Window Hopper** | Switch between the windows of the focused app, including minimized ones. | ``Alt+` ``, ``Alt+Shift+` `` |
 | 📝 | **Hosts File Editor** | Add, change, turn off and delete hosts file entries, with duplicates flagged. Saving asks for administrator permission and keeps a backup. | Tray menu, `powerkit --hosts` |
+| 🌿 | **Environment Variables** | View, add, change and delete user and system variables, with unsaved changes marked. System changes ask for administrator permission; running programs are told about the change. | Tray menu, `powerkit --env` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Environment Variables · Registry Preview ·
+Registry Preview ·
 New+ · File Locksmith · Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
@@ -83,6 +84,7 @@ powerkit               start, or open settings if it is already running
 powerkit --settings    start and open settings
 powerkit --rename P…   open PowerRename with these files and folders
 powerkit --hosts       open the Hosts File Editor
+powerkit --env         open Environment Variables
 powerkit --quit        ask the running PowerKit to exit
 powerkit --version     print the version
 ```

@@ -515,6 +515,7 @@ impl Host {
                     Some("grab_and_move") => new.grab_and_move = d.grab_and_move,
                     Some("window_hopper") => new.window_hopper = d.window_hopper,
                     Some("hosts_editor") => new.hosts_editor = d.hosts_editor,
+                    Some("environment_variables") => new.environment_variables = d.environment_variables,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

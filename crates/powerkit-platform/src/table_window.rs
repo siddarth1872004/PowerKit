@@ -1,13 +1,15 @@
-//! The Hosts File Editor window: the entries as a list with a check box each (ticked
-//! means active), boxes to type an entry, and Add / Update / Delete / Reload / Save.
+//! A table editor window: rows in a list (optionally with a check box each), edit
+//! boxes under it that selecting a row fills, and Add / Update / Delete / Reload /
+//! Save. An optional selector above the list switches what is shown. A
+//! [`TableSpec`] says which columns, boxes and extras a window has.
 //!
 //! The window only shows what its owner gives it and reports what the user does as
-//! [`HostsEvent`]s on the event loop. Closing it hides it.
+//! [`Event::Table`]s tagged with the spec's id. Closing it hides it.
 
 use crate::event_loop::push;
 use crate::util::{pcwstr, wide};
 use crate::{Context, Error, Result};
-use powerkit_core::{Event, HostsEvent, HostsFields};
+use powerkit_core::{Event, TableEvent};
 use std::marker::PhantomData;
 use windows::core::PWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
@@ -17,21 +19,17 @@ use windows::Win32::UI::Controls::*;
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-const CLASS_NAME: &str = "PowerKit.Hosts";
+const CLASS_NAME: &str = "PowerKit.Table";
 const ID_LIST: i32 = 1;
-const ID_ADDRESS_LABEL: i32 = 2;
-const ID_ADDRESS: i32 = 3;
-const ID_HOSTS_LABEL: i32 = 4;
-const ID_HOSTS: i32 = 5;
-const ID_COMMENT_LABEL: i32 = 6;
-const ID_COMMENT: i32 = 7;
-const ID_ADD: i32 = 8;
-const ID_UPDATE: i32 = 9;
-const ID_DELETE: i32 = 10;
-const ID_STATUS: i32 = 11;
-const ID_RELOAD: i32 = 12;
-const ID_SAVE: i32 = 13;
-const COLUMNS: [(&str, i32); 4] = [("Address", 180), ("Hosts", 330), ("Comment", 220), ("Note", 110)];
+const ID_CHOICE: i32 = 2;
+const ID_ADD: i32 = 3;
+const ID_UPDATE: i32 = 4;
+const ID_DELETE: i32 = 5;
+const ID_STATUS: i32 = 6;
+const ID_RELOAD: i32 = 7;
+const ID_SAVE: i32 = 8;
+/// Field `i` has its label at `FIELD_BASE + 2i` and its box right after.
+const FIELD_BASE: i32 = 100;
 // Static control styles; their windows-crate constants sit behind a feature this crate
 // does not otherwise need.
 const SS_NOPREFIX: u32 = 0x80;
@@ -46,19 +44,44 @@ const HEIGHT: i32 = 600;
 const PAD: i32 = 12;
 const LINE: i32 = 26;
 const BUTTON_W: i32 = 90;
+const CHOICE_W: i32 = 260;
 const FONT_PT: i32 = 10;
-/// Label and fixed-width box sizes in the fields row.
-const ADDRESS_LABEL_W: i32 = 60;
-const ADDRESS_W: i32 = 170;
-const HOSTS_LABEL_W: i32 = 45;
-const COMMENT_LABEL_W: i32 = 70;
-const COMMENT_W: i32 = 200;
+
+/// An edit box under the list, filled from the column with the same index.
+pub struct Field {
+    pub label: &'static str,
+    pub label_width: i32,
+    /// Box width in 96-DPI pixels; 0 shares out the width left over.
+    pub width: i32,
+}
+
+pub struct TableSpec {
+    /// Tags this window's events.
+    pub id: &'static str,
+    pub title: &'static str,
+    /// Column names and 96-DPI widths.
+    pub columns: &'static [(&'static str, i32)],
+    pub fields: &'static [Field],
+    /// Whether rows have a check box.
+    pub checks: bool,
+    /// Entries of the selector above the list; none means no selector.
+    pub choices: &'static [&'static str],
+}
+
+fn label_id(i: usize) -> i32 {
+    FIELD_BASE + 2 * i as i32
+}
+
+fn field_id(i: usize) -> i32 {
+    label_id(i) + 1
+}
 
 struct State {
+    spec: &'static TableSpec,
     dpi: u32,
     font: HFONT,
-    /// The text of each row's first three columns, copied into the boxes on selection.
-    rows: Vec<[String; 3]>,
+    /// The text of each row's columns that have a box, copied in on selection.
+    rows: Vec<Vec<String>>,
     /// Set while the owner fills the list, so check boxes set then are not reported.
     quiet: bool,
 }
@@ -68,7 +91,7 @@ fn scale(v: i32, dpi: u32) -> i32 {
 }
 
 /// # Safety
-/// `hwnd` must be a hosts window whose state pointer has not been cleared.
+/// `hwnd` must be a table window whose state pointer has not been cleared.
 unsafe fn state<'a>(hwnd: HWND) -> Option<&'a mut State> {
     // SAFETY: the pointer is set in `new` and cleared in `Drop` before the box is freed.
     unsafe { (GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut State).as_mut() }
@@ -110,17 +133,18 @@ fn make_font(dpi: u32) -> HFONT {
 fn apply_font(hwnd: HWND, st: &mut State, dpi: u32) {
     let old = std::mem::replace(&mut st.font, make_font(dpi));
     st.dpi = dpi;
-    for id in ID_LIST..=ID_SAVE {
+    let fields = (0..st.spec.fields.len()).flat_map(|i| [label_id(i), field_id(i)]);
+    for id in (ID_LIST..=ID_SAVE).chain(fields) {
         send(item(hwnd, id), WM_SETFONT, st.font.0 as usize, 1);
     }
-    for (i, (_, w)) in COLUMNS.iter().enumerate() {
+    for (i, (_, w)) in st.spec.columns.iter().enumerate() {
         send(item(hwnd, ID_LIST), LVM_SETCOLUMNWIDTH, i, scale(*w, dpi) as isize);
     }
     // SAFETY: no control uses the old font any more.
     let _ = unsafe { DeleteObject(old.into()) };
 }
 
-fn layout(hwnd: HWND, dpi: u32) {
+fn layout(hwnd: HWND, spec: &TableSpec, dpi: u32) {
     let mut rc = RECT::default();
     // SAFETY: own window; `rc` is a valid out pointer.
     if unsafe { GetClientRect(hwnd, &mut rc) }.is_err() {
@@ -135,21 +159,26 @@ fn layout(hwnd: HWND, dpi: u32) {
     let bottom = h - s(PAD) - s(LINE);
     let buttons = bottom - s(PAD) - s(LINE);
     let fields = buttons - s(PAD / 2) - s(LINE);
-    place(ID_LIST, s(PAD), s(PAD), w - s(PAD) * 2, fields - s(PAD) * 2);
+    let mut top = s(PAD);
+    if !spec.choices.is_empty() {
+        // A drop-down list's height includes its opened list.
+        place(ID_CHOICE, s(PAD), top, s(CHOICE_W), s(LINE * 8));
+        top += s(LINE) + s(PAD / 2);
+    }
+    place(ID_LIST, s(PAD), top, w - s(PAD) * 2, fields - s(PAD) - top);
 
+    let gaps = s(PAD / 2) * (spec.fields.len() * 2).saturating_sub(1) as i32;
+    let fixed: i32 = spec.fields.iter().map(|f| s(f.label_width) + s(f.width)).sum();
+    let flexible = spec.fields.iter().filter(|f| f.width == 0).count().max(1) as i32;
+    let share = (w - s(PAD) * 2 - fixed - gaps) / flexible;
     let mut x = s(PAD);
-    let mut put = |id: i32, width: i32| {
-        place(id, x, fields, width, s(LINE));
+    for (i, f) in spec.fields.iter().enumerate() {
+        let width = if f.width == 0 { share } else { s(f.width) };
+        place(label_id(i), x, fields, s(f.label_width), s(LINE));
+        x += s(f.label_width) + s(PAD / 2);
+        place(field_id(i), x, fields, width, s(LINE));
         x += width + s(PAD / 2);
-    };
-    let fixed = s(ADDRESS_LABEL_W) + s(ADDRESS_W) + s(HOSTS_LABEL_W) + s(COMMENT_LABEL_W) + s(COMMENT_W);
-    let hosts_w = w - s(PAD) * 2 - fixed - s(PAD / 2) * 5;
-    put(ID_ADDRESS_LABEL, s(ADDRESS_LABEL_W));
-    put(ID_ADDRESS, s(ADDRESS_W));
-    put(ID_HOSTS_LABEL, s(HOSTS_LABEL_W));
-    put(ID_HOSTS, hosts_w);
-    put(ID_COMMENT_LABEL, s(COMMENT_LABEL_W));
-    put(ID_COMMENT, s(COMMENT_W));
+    }
 
     for (i, id) in [ID_ADD, ID_UPDATE, ID_DELETE].into_iter().enumerate() {
         place(
@@ -181,12 +210,10 @@ fn set_text(hwnd: HWND, text: &str) {
     let _ = unsafe { SetWindowTextW(hwnd, pcwstr(&t)) };
 }
 
-fn read_fields(hwnd: HWND) -> HostsFields {
-    HostsFields {
-        address: text_of(item(hwnd, ID_ADDRESS)),
-        hosts: text_of(item(hwnd, ID_HOSTS)),
-        comment: text_of(item(hwnd, ID_COMMENT)),
-    }
+fn read_fields(hwnd: HWND, spec: &TableSpec) -> Vec<String> {
+    (0..spec.fields.len())
+        .map(|i| text_of(item(hwnd, field_id(i))))
+        .collect()
 }
 
 fn selected_row(hwnd: HWND) -> Option<usize> {
@@ -199,11 +226,11 @@ fn check_state(state: u32) -> u32 {
 }
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    // SAFETY: `hwnd` is a hosts window (this is its class's procedure).
+    // SAFETY: `hwnd` is a table window (this is its class's procedure).
     let st = unsafe { state(hwnd) };
     match (msg, st) {
         (WM_SIZE, Some(st)) => {
-            layout(hwnd, st.dpi);
+            layout(hwnd, st.spec, st.dpi);
             LRESULT(0)
         }
         (WM_DPICHANGED, Some(st)) => {
@@ -224,23 +251,32 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             };
             LRESULT(0)
         }
-        (WM_COMMAND, Some(_)) => {
+        (WM_COMMAND, Some(st)) => {
             let (id, code) = ((wparam.0 & 0xFFFF) as i32, ((wparam.0 >> 16) & 0xFFFF) as u32);
-            if code == BN_CLICKED {
-                let event = match (id, selected_row(hwnd)) {
-                    (ID_ADD, _) => Some(HostsEvent::Add(read_fields(hwnd))),
-                    (ID_UPDATE, Some(row)) => Some(HostsEvent::Update {
+            let event = if id == ID_CHOICE && code == CBN_SELCHANGE {
+                usize::try_from(send(item(hwnd, ID_CHOICE), CB_GETCURSEL, 0, 0))
+                    .ok()
+                    .map(TableEvent::Choice)
+            } else if code == BN_CLICKED {
+                match (id, selected_row(hwnd)) {
+                    (ID_ADD, _) => Some(TableEvent::Add(read_fields(hwnd, st.spec))),
+                    (ID_UPDATE, Some(row)) => Some(TableEvent::Update {
                         row,
-                        fields: read_fields(hwnd),
+                        fields: read_fields(hwnd, st.spec),
                     }),
-                    (ID_DELETE, Some(row)) => Some(HostsEvent::Delete(row)),
-                    (ID_RELOAD, _) => Some(HostsEvent::Reload),
-                    (ID_SAVE, _) => Some(HostsEvent::Save),
+                    (ID_DELETE, Some(row)) => Some(TableEvent::Delete(row)),
+                    (ID_RELOAD, _) => Some(TableEvent::Reload),
+                    (ID_SAVE, _) => Some(TableEvent::Save),
                     _ => None,
-                };
-                if let Some(e) = event {
-                    push(Event::Hosts(e));
                 }
+            } else {
+                None
+            };
+            if let Some(event) = event {
+                push(Event::Table {
+                    table: st.spec.id,
+                    event,
+                });
             }
             LRESULT(0)
         }
@@ -254,18 +290,21 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                     return LRESULT(0);
                 };
                 let (now, before) = (check_state(nm.uNewState), check_state(nm.uOldState));
-                if !st.quiet && before != 0 && now != before {
-                    push(Event::Hosts(HostsEvent::Toggle {
-                        row,
-                        on: now == CHECKED,
-                    }));
+                if st.spec.checks && !st.quiet && before != 0 && now != before {
+                    push(Event::Table {
+                        table: st.spec.id,
+                        event: TableEvent::Toggle {
+                            row,
+                            on: now == CHECKED,
+                        },
+                    });
                 }
                 let selected = nm.uNewState & LVIS_SELECTED.0 != 0;
                 if selected && nm.uOldState & LVIS_SELECTED.0 == 0 {
-                    if let Some([a, h, c]) = st.rows.get(row) {
-                        set_text(item(hwnd, ID_ADDRESS), a);
-                        set_text(item(hwnd, ID_HOSTS), h);
-                        set_text(item(hwnd, ID_COMMENT), c);
+                    if let Some(texts) = st.rows.get(row) {
+                        for (i, t) in texts.iter().enumerate() {
+                            set_text(item(hwnd, field_id(i)), t);
+                        }
                     }
                 }
             }
@@ -288,20 +327,20 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
     }
 }
 
-/// One listed entry: whether it is active, then address, hosts, comment and a note.
-pub type HostsRow = (bool, [String; 4]);
+/// One listed row: its check box (ignored without check boxes), then each column.
+pub type TableRow = (bool, Vec<String>);
 
-pub struct HostsWindow {
+pub struct TableWindow {
     hwnd: HWND,
     state: Box<State>,
     _not_send: PhantomData<*const ()>,
 }
 
-impl HostsWindow {
-    /// Creates the window hidden; [`HostsWindow::show`] brings it up.
-    pub fn new() -> Result<HostsWindow> {
+impl TableWindow {
+    /// Creates the window hidden; [`TableWindow::show`] brings it up.
+    pub fn new(spec: &'static TableSpec) -> Result<TableWindow> {
         let class = wide(CLASS_NAME);
-        let title = wide("Hosts File Editor");
+        let title = wide(spec.title);
         // SAFETY: strings outlive the calls; `wndproc` matches its callback contract.
         // The state pointer stays valid until `Drop` clears it.
         unsafe {
@@ -343,7 +382,7 @@ impl HostsWindow {
                 Some(instance.into()),
                 None,
             )
-            .context("CreateWindowEx(hosts)")?;
+            .context("CreateWindowEx(table)")?;
             let child = |class: &str, text: &str, style: u32, ex: WINDOW_EX_STYLE, id: i32| {
                 let (class, text) = (wide(class), wide(text));
                 CreateWindowExW(
@@ -360,7 +399,7 @@ impl HostsWindow {
                     Some(instance.into()),
                     None,
                 )
-                .context("CreateWindowEx(hosts control)")
+                .context("CreateWindowEx(table control)")
             };
             let created = (|| -> Result<()> {
                 let label = SS_NOPREFIX | SS_CENTERIMAGE;
@@ -374,13 +413,14 @@ impl HostsWindow {
                     WS_EX_CLIENTEDGE,
                     ID_LIST,
                 )?;
+                let checks = if spec.checks { LVS_EX_CHECKBOXES } else { 0 };
                 send(
                     list,
                     LVM_SETEXTENDEDLISTVIEWSTYLE,
                     0,
-                    (LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_CHECKBOXES) as isize,
+                    (LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | checks) as isize,
                 );
-                for (i, (name, w)) in COLUMNS.into_iter().enumerate() {
+                for (i, &(name, w)) in spec.columns.iter().enumerate() {
                     let mut text = wide(name);
                     let col = LVCOLUMNW {
                         mask: LVCF_TEXT | LVCF_WIDTH,
@@ -390,12 +430,19 @@ impl HostsWindow {
                     };
                     send(list, LVM_INSERTCOLUMNW, i, &col as *const _ as isize);
                 }
-                child("STATIC", "Address", label, none, ID_ADDRESS_LABEL)?;
-                child("EDIT", "", edit, WS_EX_CLIENTEDGE, ID_ADDRESS)?;
-                child("STATIC", "Hosts", label, none, ID_HOSTS_LABEL)?;
-                child("EDIT", "", edit, WS_EX_CLIENTEDGE, ID_HOSTS)?;
-                child("STATIC", "Comment", label, none, ID_COMMENT_LABEL)?;
-                child("EDIT", "", edit, WS_EX_CLIENTEDGE, ID_COMMENT)?;
+                if !spec.choices.is_empty() {
+                    let combo = WS_TABSTOP.0 | WS_VSCROLL.0 | CBS_DROPDOWNLIST as u32;
+                    let c = child("COMBOBOX", "", combo, none, ID_CHOICE)?;
+                    for choice in spec.choices {
+                        let t = wide(choice);
+                        send(c, CB_ADDSTRING, 0, t.as_ptr() as isize);
+                    }
+                    send(c, CB_SETCURSEL, 0, 0);
+                }
+                for (i, f) in spec.fields.iter().enumerate() {
+                    child("STATIC", f.label, label, none, label_id(i))?;
+                    child("EDIT", "", edit, WS_EX_CLIENTEDGE, field_id(i))?;
+                }
                 child("BUTTON", "Add", button, none, ID_ADD)?;
                 child("BUTTON", "Update", button, none, ID_UPDATE)?;
                 child("BUTTON", "Delete", button, none, ID_DELETE)?;
@@ -409,6 +456,7 @@ impl HostsWindow {
                 return Err(e);
             }
             let mut state = Box::new(State {
+                spec,
                 dpi,
                 font: make_font(dpi),
                 rows: Vec::new(),
@@ -417,8 +465,8 @@ impl HostsWindow {
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut *state as *mut State as isize);
             let dpi = GetDpiForWindow(hwnd).max(96);
             apply_font(hwnd, &mut state, dpi);
-            layout(hwnd, dpi);
-            Ok(HostsWindow {
+            layout(hwnd, spec, dpi);
+            Ok(TableWindow {
                 hwnd,
                 state,
                 _not_send: PhantomData,
@@ -444,17 +492,18 @@ impl HostsWindow {
         unsafe { IsWindowVisible(self.hwnd) }.as_bool()
     }
 
-    /// Replace the listed entries and select `selected`, which also fills the boxes.
-    pub fn set_rows(&mut self, rows: &[HostsRow], selected: Option<usize>) {
+    /// Replace the listed rows and select `selected`, which also fills the boxes.
+    pub fn set_rows(&mut self, rows: &[TableRow], selected: Option<usize>) {
         let list = item(self.hwnd, ID_LIST);
+        let boxes = self.state.spec.fields.len();
         self.state.quiet = true;
         send(list, WM_SETREDRAW, 0, 0);
         send(list, LVM_DELETEALLITEMS, 0, 0);
         self.state.rows = rows
             .iter()
-            .map(|(_, [a, h, c, _])| [a.clone(), h.clone(), c.clone()])
+            .map(|(_, cols)| cols.iter().take(boxes).cloned().collect())
             .collect();
-        for (i, (active, cols)) in rows.iter().enumerate() {
+        for (i, (checked, cols)) in rows.iter().enumerate() {
             for (col, text) in cols.iter().enumerate() {
                 let mut t = wide(text);
                 let it = LVITEMW {
@@ -467,18 +516,20 @@ impl HostsWindow {
                 let msg = if col == 0 { LVM_INSERTITEMW } else { LVM_SETITEMTEXTW };
                 send(list, msg, if col == 0 { 0 } else { i }, &it as *const _ as isize);
             }
-            let check = if *active { CHECKED } else { UNCHECKED };
-            let it = LVITEMW {
-                state: LIST_VIEW_ITEM_STATE_FLAGS(check << 12),
-                stateMask: LVIS_STATEIMAGEMASK,
-                ..Default::default()
-            };
-            send(list, LVM_SETITEMSTATE, i, &it as *const _ as isize);
+            if self.state.spec.checks {
+                let check = if *checked { CHECKED } else { UNCHECKED };
+                let it = LVITEMW {
+                    state: LIST_VIEW_ITEM_STATE_FLAGS(check << 12),
+                    stateMask: LVIS_STATEIMAGEMASK,
+                    ..Default::default()
+                };
+                send(list, LVM_SETITEMSTATE, i, &it as *const _ as isize);
+            }
         }
         send(list, WM_SETREDRAW, 1, 0);
         self.state.quiet = false;
-        for id in [ID_ADDRESS, ID_HOSTS, ID_COMMENT] {
-            set_text(item(self.hwnd, id), "");
+        for i in 0..boxes {
+            set_text(item(self.hwnd, field_id(i)), "");
         }
         if let Some(row) = selected.filter(|&r| r < rows.len()) {
             let it = LVITEMW {
@@ -491,6 +542,11 @@ impl HostsWindow {
         }
     }
 
+    /// Show `index` in the selector without reporting it as a change.
+    pub fn set_choice(&mut self, index: usize) {
+        send(item(self.hwnd, ID_CHOICE), CB_SETCURSEL, index, 0);
+    }
+
     pub fn set_status(&mut self, text: &str) {
         set_text(item(self.hwnd, ID_STATUS), text);
     }
@@ -500,7 +556,7 @@ impl HostsWindow {
     }
 }
 
-impl Drop for HostsWindow {
+impl Drop for TableWindow {
     fn drop(&mut self) {
         // SAFETY: own window, on the thread that created it; the state pointer is
         // cleared before the box is freed.
@@ -516,10 +572,30 @@ impl Drop for HostsWindow {
 mod tests {
     use super::*;
 
+    static SPEC: TableSpec = TableSpec {
+        id: "test",
+        title: "Test",
+        columns: &[("A", 100), ("B", 100), ("Note", 80)],
+        fields: &[
+            Field {
+                label: "A",
+                label_width: 30,
+                width: 120,
+            },
+            Field {
+                label: "B",
+                label_width: 30,
+                width: 0,
+            },
+        ],
+        checks: true,
+        choices: &["One", "Two"],
+    };
+
     #[test]
     fn rows_fill_the_list_with_check_boxes() {
-        let mut w = HostsWindow::new().unwrap();
-        let row = |on, a: &str| (on, [a.to_string(), "x.local".into(), String::new(), String::new()]);
+        let mut w = TableWindow::new(&SPEC).unwrap();
+        let row = |on, a: &str| (on, vec![a.to_string(), "x.local".into(), "note".into()]);
         w.set_rows(&[row(true, "1.1.1.1"), row(false, "2.2.2.2")], Some(1));
         let list = item(w.hwnd, ID_LIST);
         assert_eq!(send(list, LVM_GETITEMCOUNT, 0, 0), 2);
@@ -528,9 +604,12 @@ mod tests {
         assert_eq!(check_state(state(1)), UNCHECKED);
         assert_eq!(selected_row(w.hwnd), Some(1));
         assert_eq!(
-            text_of(item(w.hwnd, ID_ADDRESS)),
+            text_of(item(w.hwnd, field_id(0))),
             "2.2.2.2",
             "selection fills the boxes"
         );
+        assert_eq!(text_of(item(w.hwnd, field_id(1))), "x.local");
+        w.set_choice(1);
+        assert_eq!(send(item(w.hwnd, ID_CHOICE), CB_GETCURSEL, 0, 0), 1);
     }
 }

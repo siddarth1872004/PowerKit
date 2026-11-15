@@ -4,14 +4,41 @@
 
 use crate::Host;
 use hosts_editor::hosts::{self, Entry, HostsFile, Line};
-use powerkit_core::{HostsEvent, HostsFields};
+use powerkit_core::TableEvent;
 use powerkit_platform::event_loop::Waker;
-use powerkit_platform::hosts_window::{HostsRow, HostsWindow};
+use powerkit_platform::table_window::{Field, TableRow, TableSpec, TableWindow};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
+pub const TABLE: &str = "hosts";
+
+static SPEC: TableSpec = TableSpec {
+    id: TABLE,
+    title: "Hosts File Editor",
+    columns: &[("Address", 180), ("Hosts", 330), ("Comment", 220), ("Note", 110)],
+    fields: &[
+        Field {
+            label: "Address",
+            label_width: 60,
+            width: 170,
+        },
+        Field {
+            label: "Hosts",
+            label_width: 45,
+            width: 0,
+        },
+        Field {
+            label: "Comment",
+            label_width: 70,
+            width: 200,
+        },
+    ],
+    checks: true,
+    choices: &[],
+};
+
 /// The listed rows: one per entry, in file order.
-pub fn rows(file: &HostsFile) -> Vec<HostsRow> {
+pub fn rows(file: &HostsFile) -> Vec<TableRow> {
     let dupes = file.duplicates();
     file.entry_lines()
         .into_iter()
@@ -21,43 +48,46 @@ pub fn rows(file: &HostsFile) -> Vec<HostsRow> {
             let note = if dupe { "Duplicate" } else { "" };
             (
                 e.active,
-                [e.address.clone(), e.hosts.join(" "), e.comment.clone(), note.into()],
+                vec![e.address.clone(), e.hosts.join(" "), e.comment.clone(), note.into()],
             )
         })
         .collect()
 }
 
 /// Apply an edit to `file`; returns the row to select afterwards.
-pub fn edit(file: &mut HostsFile, event: HostsEvent) -> Result<Option<usize>, String> {
+pub fn edit(file: &mut HostsFile, event: TableEvent) -> Result<Option<usize>, String> {
     let lines = file.entry_lines();
     let line = |row: usize| lines.get(row).copied().ok_or("That entry is no longer listed.");
-    let entry = |f: &HostsFields, active: bool| -> Result<Entry, String> {
-        let (address, names) = hosts::validate(&f.address, &f.hosts)?;
-        Ok(Entry::new(active, &address, names, &f.comment))
+    let entry = |f: &[String], active: bool| -> Result<Entry, String> {
+        let [address, names, comment] = f else {
+            return Err("The entry's fields are missing.".into());
+        };
+        let (address, names) = hosts::validate(address, names)?;
+        Ok(Entry::new(active, &address, names, comment))
     };
     match event {
-        HostsEvent::Toggle { row, on } => {
+        TableEvent::Toggle { row, on } => {
             let i = line(row)?;
             file.entry_mut(i)
                 .ok_or("That entry is no longer listed.")?
                 .set_active(on);
             Ok(Some(row))
         }
-        HostsEvent::Add(f) => {
+        TableEvent::Add(f) => {
             file.lines.push(Line::Entry(entry(&f, true)?));
             Ok(Some(lines.len()))
         }
-        HostsEvent::Update { row, fields } => {
+        TableEvent::Update { row, fields } => {
             let i = line(row)?;
             let active = file.entry(i).is_none_or(|e| e.active);
             file.lines[i] = Line::Entry(entry(&fields, active)?);
             Ok(Some(row))
         }
-        HostsEvent::Delete(row) => {
+        TableEvent::Delete(row) => {
             file.lines.remove(line(row)?);
             Ok(row.checked_sub(1).or(if lines.len() > 1 { Some(0) } else { None }))
         }
-        HostsEvent::Save | HostsEvent::Reload => Ok(None),
+        TableEvent::Save | TableEvent::Reload | TableEvent::Choice(_) => Ok(None),
     }
 }
 
@@ -69,7 +99,7 @@ fn read(path: &Path) -> Result<String, String> {
 pub struct HostsUi {
     waker: Waker,
     path: PathBuf,
-    window: Option<HostsWindow>,
+    window: Option<TableWindow>,
     file: HostsFile,
     /// The file's text as last read or saved, to notice changes made by others.
     loaded: String,
@@ -93,7 +123,8 @@ impl HostsUi {
 
     pub fn open(&mut self) -> Result<(), String> {
         if self.window.is_none() {
-            self.window = Some(HostsWindow::new().map_err(|e| format!("could not open the Hosts File Editor: {e}"))?);
+            self.window =
+                Some(TableWindow::new(&SPEC).map_err(|e| format!("could not open the Hosts File Editor: {e}"))?);
         }
         // Unsaved edits survive closing the window; otherwise show the file as it is now.
         if !self.dirty && self.saving.is_none() {
@@ -131,7 +162,7 @@ impl HostsUi {
         });
     }
 
-    pub fn on_event(&mut self, event: HostsEvent, host: &Host) {
+    pub fn on_event(&mut self, event: TableEvent, host: &Host) {
         if self.saving.is_some() {
             if let Some(w) = self.window.as_mut() {
                 w.set_status("Still saving; wait for it to finish.");
@@ -139,8 +170,8 @@ impl HostsUi {
             return;
         }
         match event {
-            HostsEvent::Reload => self.reload(),
-            HostsEvent::Save => self.save(&host.paths().root),
+            TableEvent::Reload => self.reload(),
+            TableEvent::Save => self.save(&host.paths().root),
             e => match edit(&mut self.file, e) {
                 Ok(selected) => {
                     self.dirty = true;
@@ -240,28 +271,24 @@ impl HostsUi {
 mod tests {
     use super::*;
 
-    fn fields(a: &str, h: &str) -> HostsFields {
-        HostsFields {
-            address: a.into(),
-            hosts: h.into(),
-            comment: String::new(),
-        }
+    fn fields(a: &str, h: &str) -> Vec<String> {
+        vec![a.into(), h.into(), String::new()]
     }
 
     #[test]
     fn edits_change_the_listed_entries() {
         let mut f = HostsFile::parse("# header\r\n1.1.1.1 a\r\n2.2.2.2 b\r\n");
-        assert_eq!(edit(&mut f, HostsEvent::Add(fields("3.3.3.3", "a"))), Ok(Some(2)));
+        assert_eq!(edit(&mut f, TableEvent::Add(fields("3.3.3.3", "a"))), Ok(Some(2)));
         let r = rows(&f);
         assert_eq!(r.len(), 3);
         assert_eq!(r[0].1[3], "Duplicate");
         assert_eq!(r[2].1[3], "Duplicate");
 
-        assert_eq!(edit(&mut f, HostsEvent::Toggle { row: 0, on: false }), Ok(Some(0)));
+        assert_eq!(edit(&mut f, TableEvent::Toggle { row: 0, on: false }), Ok(Some(0)));
         assert!(!rows(&f)[0].0);
         assert_eq!(rows(&f)[2].1[3], "", "a disabled entry is no duplicate");
 
-        let update = HostsEvent::Update {
+        let update = TableEvent::Update {
             row: 0,
             fields: fields("9.9.9.9", "z"),
         };
@@ -269,16 +296,16 @@ mod tests {
         assert!(!rows(&f)[0].0, "updating keeps the entry off");
         assert_eq!(rows(&f)[0].1[0], "9.9.9.9");
 
-        assert_eq!(edit(&mut f, HostsEvent::Delete(1)), Ok(Some(0)));
+        assert_eq!(edit(&mut f, TableEvent::Delete(1)), Ok(Some(0)));
         assert_eq!(f.render(), "# header\r\n# 9.9.9.9\tz\r\n3.3.3.3\ta\r\n");
     }
 
     #[test]
     fn bad_input_changes_nothing() {
         let mut f = HostsFile::parse("1.1.1.1 a\n");
-        assert!(edit(&mut f, HostsEvent::Add(fields("nope", "a"))).is_err());
-        assert!(edit(&mut f, HostsEvent::Delete(5)).is_err());
+        assert!(edit(&mut f, TableEvent::Add(fields("nope", "a"))).is_err());
+        assert!(edit(&mut f, TableEvent::Delete(5)).is_err());
         assert_eq!(f.render(), "1.1.1.1 a\n");
-        assert_eq!(edit(&mut f, HostsEvent::Delete(0)), Ok(None));
+        assert_eq!(edit(&mut f, TableEvent::Delete(0)), Ok(None));
     }
 }
