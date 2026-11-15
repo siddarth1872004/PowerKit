@@ -226,6 +226,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
 
 [[package]]
+name = "keyboard-manager"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "proptest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "launcher"
 version = "0.1.0"
 dependencies = [
@@ -333,6 +349,7 @@ dependencies = [
  "anyhow",
  "color-picker",
  "fancy-zones",
+ "keyboard-manager",
  "launcher",
  "power-rename",
  "powerkit-config",

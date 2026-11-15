@@ -6,6 +6,7 @@ members = [
     "modules/always-on-top",
     "modules/color-picker",
     "modules/fancy-zones",
+    "modules/keyboard-manager",
     "modules/launcher",
     "modules/power-rename",
     "apps/background",

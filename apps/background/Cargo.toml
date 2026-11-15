@@ -28,6 +28,7 @@ always-on-top.workspace = true
 power-rename.workspace = true
 color-picker.workspace = true
 fancy-zones.workspace = true
+keyboard-manager.workspace = true
 launcher.workspace = true
 
 [dev-dependencies]

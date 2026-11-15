@@ -15,6 +15,7 @@ pub mod frame;
 pub mod fs;
 pub mod hotkey;
 pub mod input;
+pub mod keyhook;
 pub mod magnifier;
 pub mod monitor;
 pub mod pipe;
