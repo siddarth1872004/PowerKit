@@ -17,6 +17,7 @@ pub mod event_loop;
 pub mod frame;
 pub mod fs;
 pub mod hotkey;
+pub mod http;
 pub mod input;
 pub mod keyhook;
 pub mod magnifier;

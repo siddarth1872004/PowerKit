@@ -2,6 +2,7 @@
 //! tray icon or real global hotkeys.
 
 pub mod host;
+pub mod update;
 
 pub use host::{Backend, Host, Output};
 

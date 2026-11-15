@@ -64,6 +64,8 @@ pub struct General {
     pub start_minimized: bool,
     pub theme: Theme,
     pub log_level: LogLevel,
+    /// Look for a newer release on GitHub once a day.
+    pub check_for_updates: bool,
     /// Module ids, most recently used first (bounded).
     pub recent_modules: Vec<String>,
 }
@@ -76,6 +78,7 @@ impl Default for General {
             start_minimized: true,
             theme: Theme::System,
             log_level: LogLevel::Info,
+            check_for_updates: true,
             recent_modules: Vec::new(),
         }
     }
