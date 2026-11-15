@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerKit</title>
+<meta name="description" content="Windows power-user utilities in one small background process, written in Rust.">
+<link rel="icon" href="icon.png">
+<style>
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --text: #202226; --muted: #646a76; --line: #dfe3ea;
+  --accent: #2e74ec; --accent-text: #ffffff; --code: #eef1f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181c; --card: #212329; --text: #e8eaee; --muted: #9aa0ac; --line: #30333b;
+    --accent: #5b93f5; --accent-text: #0d1220; --code: #2a2d35;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+main { max-width: 1040px; margin: 0 auto; padding: 0 16px 64px; }
+header { text-align: center; padding: 64px 0 40px; }
+header img { width: 96px; height: 96px; }
+h1 { font-size: 44px; margin: 12px 0 4px; letter-spacing: -0.5px; }
+.tag { font-size: 20px; color: var(--muted); margin: 0 0 28px; }
+.buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-block; padding: 11px 22px; border-radius: 8px; text-decoration: none;
+  font-weight: 600; border: 1px solid var(--line); color: var(--text); background: var(--card);
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.note { color: var(--muted); font-size: 14px; margin-top: 12px; }
+h2 { font-size: 26px; margin: 48px 0 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+}
+.card h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 17px; }
+.card h3 img { width: 28px; height: 28px; }
+.card p { margin: 0 0 8px; color: var(--muted); font-size: 14.5px; }
+.card .keys { font-size: 13px; color: var(--muted); }
+code { background: var(--code); border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
+.steps { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 24px; }
+footer { text-align: center; color: var(--muted); font-size: 14px; padding: 24px 16px 40px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <img src="icon.png" alt="">
+  <h1>PowerKit</h1>
+  <p class="tag">Windows power-user utilities, in one small background process.</p>
+  <div class="buttons">
+    <a class="btn primary" href="https://github.com/siddarth1872004/PowerKit/releases/latest/download/powerkit.exe">Download for Windows</a>
+    <a class="btn" href="https://github.com/siddarth1872004/PowerKit">Source on GitHub</a>
+  </div>
+  <p class="note">Windows 10 and 11 &middot; one portable .exe &middot; MIT license</p>
+</header>
+
+<h2>Utilities</h2>
+<div class="grid">
+<div class="card">
+  <h3><img src="icons/fancy_zones.png" alt="">FancyZones</h3>
+  <p>Snap windows into custom zone layouts. Drag with Shift held, or send a window by keyboard.</p>
+  <div class="keys"><code>Win+Ctrl+Alt+←/→</code>, <code>Win+Ctrl+Alt+1…9</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/launcher.png" alt="">PowerKit Run</h3>
+  <p>A launcher for apps, files, calculations and commands.</p>
+  <div class="keys"><code>Alt+Space</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/keyboard_manager.png" alt="">Keyboard Manager</h3>
+  <p>Remap keys and shortcuts, everywhere or only in chosen apps.</p>
+</div>
+<div class="card">
+  <h3><img src="icons/color_picker.png" alt="">Color Picker</h3>
+  <p>Pick any color on screen and copy it as HEX, RGB, HSL and more.</p>
+  <div class="keys"><code>Win+Shift+C</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/power_rename.png" alt="">PowerRename</h3>
+  <p>Bulk rename with search and replace, regular expressions, case changes and numbering, with a live preview and undo.</p>
+  <div class="keys">Explorer menu</div>
+</div>
+<div class="card">
+  <h3><img src="icons/always_on_top.png" alt="">Always On Top</h3>
+  <p>Pin a window above all others, with a colored border.</p>
+  <div class="keys"><code>Win+Ctrl+T</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/awake.png" alt="">Awake</h3>
+  <p>Keep the PC awake indefinitely, for a while, or until a set time.</p>
+  <div class="keys">Tray</div>
+</div>
+<div class="card">
+  <h3><img src="icons/light_switch.png" alt="">Light Switch</h3>
+  <p>Switch between light and dark mode on a schedule or by shortcut.</p>
+  <div class="keys"><code>Win+Ctrl+Shift+D</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/quick_accent.png" alt="">Quick Accent</h3>
+  <p>Hold a letter, then press Space or an arrow key to type <code>é</code>, <code>ñ</code>, <code>ß</code>…</p>
+  <div class="keys">Hold a letter</div>
+</div>
+<div class="card">
+  <h3><img src="icons/mouse_utilities.png" alt="">Mouse utilities</h3>
+  <p>Find My Mouse, a click highlighter, crosshairs with a gliding cursor, and Mouse Jump.</p>
+  <div class="keys"><code>Ctrl</code> ×2, <code>Win+Shift+H</code>, <code>Win+Alt+P</code>, <code>Win+Shift+D</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/crop_and_lock.png" alt="">Crop and Lock</h3>
+  <p>Crop a window into a live thumbnail, or into a smaller window that still takes input.</p>
+  <div class="keys"><code>Win+Ctrl+Shift+T</code>, <code>Win+Ctrl+Shift+R</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/shortcut_guide.png" alt="">Shortcut Guide</h3>
+  <p>Hold the Windows key to see the shortcuts for Windows, PowerKit and the focused app, with numbers on the taskbar buttons.</p>
+  <div class="keys">Hold <code>Win</code>, or <code>Win+Shift+/</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/grab_and_move.png" alt="">Grab and Move</h3>
+  <p>Hold <code>Win</code> (or <code>Alt</code>) and drag anywhere in a window to move it; drag with the right button to resize it.</p>
+  <div class="keys"><code>Win</code> + drag</div>
+</div>
+<div class="card">
+  <h3><img src="icons/window_hopper.png" alt="">Window Hopper</h3>
+  <p>Switch between the windows of the focused app, including minimized ones.</p>
+  <div class="keys">`<code>Alt+</code> `<code>, </code><code>Alt+Shift+</code> ``</div>
+</div>
+<div class="card">
+  <h3><img src="icons/hosts_editor.png" alt="">Hosts File Editor</h3>
+  <p>Add, change, turn off and delete hosts file entries, with duplicates flagged. Saving asks for administrator permission and keeps a backup.</p>
+  <div class="keys">Tray menu, <code>powerkit --hosts</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/environment_variables.png" alt="">Environment Variables</h3>
+  <p>View, add, change and delete user and system variables, with unsaved changes marked. System changes ask for administrator permission; running programs are told about the change.</p>
+  <div class="keys">Tray menu, <code>powerkit --env</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/registry_preview.png" alt="">Registry Preview</h3>
+  <p>Open or type a .reg file and see the keys and values it would write, with problems shown by line. Save it, write it to the registry (administrator permission only when it touches keys outside HKEY_CURRENT_USER), or jump to a key in Registry Editor.</p>
+  <div class="keys">Tray menu, <code>powerkit --reg [FILE]</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/new_plus.png" alt="">New+</h3>
+  <p>Right-click a folder or a folder's background and choose New+ to create a file or folder from your own templates. Leading numbers order the menu and can be hidden; <code>$YYYY</code>, <code>$MM</code>, <code>$PARENT_FOLDER_NAME</code>, <code>%USERNAME%</code> and other variables can fill in the new name.</p>
+  <div class="keys">Explorer menu, <code>powerkit --new FOLDER</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/file_locksmith.png" alt="">File Locksmith</h3>
+  <p>Right-click files or folders and choose Unlock with PowerKit to see every process that has them open, including anything inside the folders. Select one and choose End task to close it. The entry can be limited to the Shift + right-click menu.</p>
+  <div class="keys">Explorer menu, <code>powerkit --unlock P…</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/image_resizer.png" alt="">Image Resizer</h3>
+  <p>Right-click pictures and choose Resize with PowerKit, then pick a saved size or type one in pixels, percent, centimeters or inches. Fit, fill (cropping the middle) or stretch; save copies named from a pattern like <code>%1 (%2)</code> or replace the originals; never enlarge, keep metadata and dates, set the JPEG quality. Pictures Windows can read but not write, such as HEIC and WebP, are saved as JPEG or another format you choose.</p>
+  <div class="keys">Explorer menu, <code>powerkit --resize P…</code></div>
+</div>
+<div class="card">
+  <h3><img src="icons/text_extractor.png" alt="">Text Extractor</h3>
+  <p>Drag a box over any part of the screen and the text in it is read by the OCR built into Windows and copied, line by line or as one line. Reads the Windows display languages, or any language you name whose OCR is installed.</p>
+  <div class="keys"><code>Win+Shift+T</code></div>
+</div>
+</div>
+
+<h2>Getting started</h2>
+<div class="steps">
+  <p><strong>1.</strong> Download <code>powerkit.exe</code> and run it. PowerKit lives in the notification area.</p>
+  <p><strong>2.</strong> Click the tray icon to open settings. Each utility has a short animated walkthrough above its settings, drawn with your own shortcuts.</p>
+  <p><strong>3.</strong> PowerKit checks for a new release once a day. Choose <strong>Install update</strong> in the tray menu and it updates itself and restarts.</p>
+  <p>To keep settings next to the program, put an empty file named <code>portable</code> beside <code>powerkit.exe</code>.</p>
+</div>
+</main>
+<footer>
+  PowerKit is an independent project, not affiliated with Microsoft. &middot;
+  <a href="https://github.com/siddarth1872004/PowerKit/releases">Releases</a>
+</footer>
+</body>
+</html>

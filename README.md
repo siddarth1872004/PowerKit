@@ -9,6 +9,8 @@
 Window zones, a launcher, key remapping, a color picker, bulk rename, a shortcut guide and more,
 in one small background process. The goal is to cover every Microsoft PowerToys utility.
 
+**[Website](https://siddarth1872004.github.io/PowerKit/) · [Download](https://github.com/siddarth1872004/PowerKit/releases/latest/download/powerkit.exe)**
+
 ![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white)
 ![Rust stable](https://img.shields.io/badge/Rust-stable-B7410E?logo=rust&logoColor=white)
 ![License MIT](https://img.shields.io/badge/license-MIT-2EA44F)
@@ -41,13 +43,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | <img src="assets/modules/new_plus.png" width="24" alt=""> | **New+** | Right-click a folder or a folder's background and choose New+ to create a file or folder from your own templates. Leading numbers order the menu and can be hidden; `$YYYY`, `$MM`, `$PARENT_FOLDER_NAME`, `%USERNAME%` and other variables can fill in the new name. | Explorer menu, `powerkit --new FOLDER` |
 | <img src="assets/modules/file_locksmith.png" width="24" alt=""> | **File Locksmith** | Right-click files or folders and choose Unlock with PowerKit to see every process that has them open, including anything inside the folders. Select one and choose End task to close it. The entry can be limited to the Shift + right-click menu. | Explorer menu, `powerkit --unlock P…` |
 | <img src="assets/modules/image_resizer.png" width="24" alt=""> | **Image Resizer** | Right-click pictures and choose Resize with PowerKit, then pick a saved size or type one in pixels, percent, centimeters or inches. Fit, fill (cropping the middle) or stretch; save copies named from a pattern like `%1 (%2)` or replace the originals; never enlarge, keep metadata and dates, set the JPEG quality. Pictures Windows can read but not write, such as HEIC and WebP, are saved as JPEG or another format you choose. | Explorer menu, `powerkit --resize P…` |
+| <img src="assets/modules/text_extractor.png" width="24" alt=""> | **Text Extractor** | Drag a box over any part of the screen and the text in it is read by the OCR built into Windows and copied, line by line or as one line. Reads the Windows display languages, or any language you name whose OCR is installed. | `Win+Shift+T` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Text Extractor · Power Display · Screen Ruler · ZoomIt ·
+Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
 ## Install

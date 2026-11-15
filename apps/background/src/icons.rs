@@ -25,6 +25,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "new_plus" => include_bytes!("../../../assets/modules/new_plus.ico"),
         "file_locksmith" => include_bytes!("../../../assets/modules/file_locksmith.ico"),
         "image_resizer" => include_bytes!("../../../assets/modules/image_resizer.ico"),
+        "text_extractor" => include_bytes!("../../../assets/modules/text_extractor.ico"),
         _ => return None,
     })
 }

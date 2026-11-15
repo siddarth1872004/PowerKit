@@ -46,6 +46,7 @@ registry-preview.workspace = true
 new-plus.workspace = true
 file-locksmith.workspace = true
 image-resizer.workspace = true
+text-extractor.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

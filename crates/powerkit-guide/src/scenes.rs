@@ -28,6 +28,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("new_plus", 10.0, new_plus),
     ("file_locksmith", 9.0, file_locksmith),
     ("image_resizer", 9.0, image_resizer),
+    ("text_extractor", 9.0, text_extractor),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1395,6 +1396,59 @@ fn image_resizer(c: &mut Canvas, t: f32, cfg: &Config) {
                     "The resized copies are saved next to the originals"
                 },
             ),
+        ],
+    );
+}
+
+fn text_extractor(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.text_extractor;
+    let lines = ["Meeting moved to Thursday", "Room 4B, 10:30 am", "Bring the Q3 numbers"];
+    c.desktop();
+    let top = c.window(20.0, 20.0, 260.0, 150.0, "Photo of the whiteboard");
+    for (i, l) in lines.iter().enumerate() {
+        c.text(40.0, top + 30.0 + i as f32 * 22.0, l, 9.0, TEXT);
+    }
+    press(c, t, 0.5, 1.1, &s.shortcut);
+    let a = (32.0, top + 14.0);
+    let b = (250.0, top + 90.0);
+    let (bx, by) = path(t, &[(0.0, a.0, a.1), (1.8, a.0, a.1), (3.4, b.0, b.1)]);
+    if (1.2..3.8).contains(&t) {
+        c.rect(0.0, 0.0, WIDTH, HEIGHT, 0.0, BLACK.alpha(0.25));
+        if t >= 1.8 {
+            c.rect(a.0, a.1, bx - a.0, by - a.1, 0.0, WHITE.alpha(0.2));
+            c.outline(a.0, a.1, bx - a.0, by - a.1, 0.0, WHITE, 1.5);
+        }
+    }
+    let notes = (240.0, 110.0);
+    if t >= 4.4 {
+        let wt = c.window(notes.0, notes.1, 220.0, 110.0, "Notes");
+        if t >= 5.6 {
+            if s.single_line {
+                c.text(notes.0 + 8.0, wt + 14.0, &lines.join(" "), 6.0, TEXT);
+            } else {
+                for (i, l) in lines.iter().enumerate() {
+                    c.text(notes.0 + 8.0, wt + 14.0 + i as f32 * 14.0, l, 7.0, TEXT);
+                }
+            }
+        }
+    }
+    press(c, t, 5.0, 5.5, "Ctrl+V");
+    let (x, y) = if t < 1.8 {
+        path(t, &[(0.0, 300.0, 230.0), (1.4, a.0, a.1)])
+    } else if t < 4.0 {
+        (bx, by)
+    } else {
+        path(t, &[(4.0, bx, by), (4.8, notes.0 + 60.0, notes.1 + 50.0)])
+    };
+    c.cursor(x, y);
+    let start = format!("Press {}", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.6, "Drag a box around the text you want"),
+            (3.8, "Windows reads the text and it is copied"),
+            (5.0, "Paste it anywhere"),
         ],
     );
 }

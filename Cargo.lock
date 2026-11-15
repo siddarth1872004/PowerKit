@@ -529,6 +529,7 @@ dependencies = [
  "serde_json",
  "shortcut-guide",
  "tempfile",
+ "text-extractor",
  "tracing",
  "window-hopper",
  "winresource",
@@ -863,6 +864,21 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys",
+]
+
+[[package]]
+name = "text-extractor"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]

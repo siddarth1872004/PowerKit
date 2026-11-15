@@ -28,6 +28,7 @@ pub mod keyhook;
 pub mod magnifier;
 pub mod monitor;
 pub mod mousehook;
+pub mod ocr;
 pub mod overlay;
 pub mod package;
 pub mod pipe;

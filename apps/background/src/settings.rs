@@ -803,6 +803,19 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 ],
             ),
         ],
+        "text_extractor" => vec![(
+            "Activation",
+            vec![
+                s("shortcut", "Activation shortcut", "Then drag a box around the text to copy", Shortcut),
+                s(
+                    "language",
+                    "Language",
+                    "A language tag such as en-US or de-DE; empty uses the Windows display languages",
+                    Text(""),
+                ),
+                s("single_line", "Copy as one line", "Join the lines with spaces", Toggle),
+            ],
+        )],
         _ => Vec::new(),
     }
 }
@@ -812,7 +825,14 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     (
         "System Tools",
         '\u{E770}',
-        &["awake", "color_picker", "light_switch", "launcher", "shortcut_guide"],
+        &[
+            "awake",
+            "color_picker",
+            "light_switch",
+            "launcher",
+            "shortcut_guide",
+            "text_extractor",
+        ],
     ),
     (
         "Windowing & Layouts",
