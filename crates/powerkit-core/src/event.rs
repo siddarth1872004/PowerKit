@@ -45,6 +45,17 @@ pub enum PopupEvent {
     Dismiss,
 }
 
+/// What the user did in the settings window.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SettingsEvent {
+    /// A section was chosen in the list on the left.
+    Section(usize),
+    /// A setting's value was edited and applied (Enter or the Apply button).
+    Edit { row: usize, text: String },
+    /// A setting was double-clicked.
+    Toggle(usize),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     /// A registered global hotkey fired (identifier assigned at registration).
@@ -65,6 +76,7 @@ pub enum Event {
     Key(u32),
     Tray(TrayEvent),
     Popup(PopupEvent),
+    Settings(SettingsEvent),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.

@@ -10,6 +10,7 @@
 
 use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
+use powerkit_host::settings::SettingsUi;
 use powerkit_host::update::{self, Release};
 use powerkit_host::{builtin_modules, Backend, Host, Output};
 use powerkit_ipc::{Client, Request, Response};
@@ -71,23 +72,6 @@ impl Backend for OsBackend {
             log.set_level(level);
         }
     }
-}
-
-/// Start the settings application that ships next to this executable. The path is
-/// fixed and arguments are passed without a shell.
-fn open_settings(page: Option<&str>) -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let settings = exe.with_file_name("powerkit-settings.exe");
-    if !settings.exists() {
-        return Err(format!("{} is missing; reinstall PowerKit", settings.display()));
-    }
-    let mut cmd = std::process::Command::new(settings);
-    if let Some(page) = page.filter(|p| p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')) {
-        cmd.arg(format!("--page={page}"));
-    }
-    cmd.spawn()
-        .map(|_| ())
-        .map_err(|e| format!("could not open settings: {e}"))
 }
 
 type IpcJob = (Request, mpsc::SyncSender<Response>);
@@ -296,7 +280,8 @@ fn run(
         host.handle_request("app.open_settings", &Value::Null).ok();
     }
 
-    let mut flush = |host: &mut Host| -> bool {
+    let mut settings = SettingsUi::default();
+    let flush = |host: &mut Host, settings: &mut SettingsUi| -> bool {
         let mut keep_running = true;
         for output in host.take_outputs() {
             match output {
@@ -312,7 +297,7 @@ fn run(
                     }
                 }
                 Output::OpenSettings { page } => {
-                    if let Err(e) = open_settings(page.as_deref()) {
+                    if let Err(e) = settings.open(host, page.as_deref()) {
                         tracing::error!("{e}");
                         let _ = tray.notify("PowerKit", &e);
                     }
@@ -322,7 +307,7 @@ fn run(
         }
         keep_running
     };
-    flush(&mut host);
+    flush(&mut host, &mut settings);
 
     event_loop.run(|event| {
         match event {
@@ -441,13 +426,14 @@ fn run(
                     Err(e) => tracing::warn!("tray menu: {e}"),
                 }
             }
+            Event::Settings(e) => settings.on_event(e, &mut host),
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);
-        flush(&mut host)
+        flush(&mut host, &mut settings)
     });
 
     host.shutdown();
-    flush(&mut host);
+    flush(&mut host, &mut settings);
     Ok(())
 }

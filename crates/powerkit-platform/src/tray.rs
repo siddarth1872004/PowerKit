@@ -82,9 +82,12 @@ impl Tray {
         // handled by the fallback.
         let icon = unsafe {
             let instance = GetModuleHandleW(None).context("GetModuleHandle")?;
-            LoadIconW(Some(instance.into()), windows::core::PCWSTR(1 as *const u16))
-                .or_else(|_| LoadIconW(None, IDI_APPLICATION))
-                .context("LoadIcon")?
+            LoadIconW(
+                Some(instance.into()),
+                windows::core::PCWSTR(std::ptr::without_provenance(1)),
+            )
+            .or_else(|_| LoadIconW(None, IDI_APPLICATION))
+            .context("LoadIcon")?
         };
         let mut data = NOTIFYICONDATAW {
             cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,

@@ -66,7 +66,11 @@ your PC.
 
 ## Configuration
 
-Settings live in `%APPDATA%\PowerKit\config.json` (or `data\config.json` in portable
+Choose **Open settings** in the tray menu (or click the tray icon). Pick a utility on the
+left, select a setting, type its new value in the box underneath and press Enter. Double-click
+an on/off setting to flip it. Changes apply at once.
+
+Settings are stored in `%APPDATA%\PowerKit\config.json` (or `data\config.json` in portable
 mode). PowerKit reads the file when it starts, so quit PowerKit before editing it by hand.
 Invalid values are repaired, with a warning in the log, and the last good file is kept as
 `config.backup.json`.
@@ -120,4 +124,4 @@ what the updater looks for. It stops if the tag and the `Cargo.toml` version dif
 
 ## License
 
-MIT
+[MIT](LICENSE)
