@@ -24,5 +24,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(crop_and_lock::CropAndLock::new()),
         Box::new(shortcut_guide::ShortcutGuide::new()),
         Box::new(grab_and_move::GrabAndMove::new()),
+        Box::new(window_hopper::WindowHopper::new()),
     ]
 }

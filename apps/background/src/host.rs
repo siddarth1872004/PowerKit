@@ -513,6 +513,7 @@ impl Host {
                     Some("crop_and_lock") => new.crop_and_lock = d.crop_and_lock,
                     Some("shortcut_guide") => new.shortcut_guide = d.shortcut_guide,
                     Some("grab_and_move") => new.grab_and_move = d.grab_and_move,
+                    Some("window_hopper") => new.window_hopper = d.window_hopper,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

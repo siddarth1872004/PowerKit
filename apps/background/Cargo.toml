@@ -37,6 +37,7 @@ mouse-utilities.workspace = true
 crop-and-lock.workspace = true
 shortcut-guide.workspace = true
 grab-and-move.workspace = true
+window-hopper.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
