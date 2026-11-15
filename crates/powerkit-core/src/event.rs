@@ -48,12 +48,20 @@ pub enum PopupEvent {
 /// What the user did in the settings window.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SettingsEvent {
-    /// A section was chosen in the list on the left.
-    Section(usize),
-    /// A setting's value was edited and applied (Enter or the Apply button).
-    Edit { row: usize, text: String },
-    /// A setting was double-clicked.
-    Toggle(usize),
+    /// A page was chosen in the navigation pane, by its index there.
+    Page(usize),
+    /// The setting with this key was changed to `value`.
+    Set { key: String, value: SettingValue },
+    /// The button or link with this key was clicked.
+    Action(String),
+}
+
+/// A value entered in the settings window. Numbers arrive as the text typed, so
+/// the owner can say what is wrong with it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SettingValue {
+    Bool(bool),
+    Text(String),
 }
 
 /// What is filled in on the PowerRename window.

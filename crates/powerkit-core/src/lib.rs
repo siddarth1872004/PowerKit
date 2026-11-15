@@ -8,8 +8,8 @@ pub mod lifecycle;
 pub mod shortcut;
 
 pub use event::{
-    Event, MouseEvent, PopupEvent, RegistryEvent, RenameEvent, RenameForm, SettingsEvent, TableEvent, TrayEvent,
-    WindowEventKind,
+    Event, MouseEvent, PopupEvent, RegistryEvent, RenameEvent, RenameForm, SettingValue, SettingsEvent, TableEvent,
+    TrayEvent, WindowEventKind,
 };
 pub use geometry::Rect;
 pub use lifecycle::{Lifecycle, State, Transition};

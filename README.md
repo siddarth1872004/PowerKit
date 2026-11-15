@@ -69,10 +69,12 @@ your PC.
 
 ## Configuration
 
-Choose **Open settings** in the tray menu (or click the tray icon). Pick a utility on the
-left to see a short animated walkthrough of it, using your own shortcuts, above its settings.
-Select a setting, type its new value in the box underneath and press Enter. Double-click an
-on/off setting to flip it. Changes apply at once.
+Choose **Open settings** in the tray menu (or click the tray icon). The Dashboard turns
+each utility on or off; pick one on the left, grouped by category, to see a short animated
+walkthrough of it, using your own shortcuts, above its settings. Settings use switches,
+drop-downs, color pickers and a shortcut recorder (click the pencil, press the keys). Text
+and number boxes save when you press Enter or leave them. Changes apply at once. The window
+follows the Windows light or dark theme, or the one chosen under General.
 
 Settings are stored in `%APPDATA%\PowerKit\config.json` (or `data\config.json` in portable
 mode). PowerKit reads the file when it starts, so quit PowerKit before editing it by hand.

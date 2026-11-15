@@ -7,8 +7,8 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::System::Registry::{
     RegCloseKey, RegCreateKeyExW, RegDeleteTreeW, RegDeleteValueW, RegGetValueW, RegSetValueExW, HKEY,
-    HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_DWORD,
-    RRF_RT_REG_SZ,
+    HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_BINARY,
+    RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
 };
 use windows::Win32::System::Threading::{CreateMutexW, GetExitCodeProcess, WaitForSingleObject, INFINITE};
 use windows::Win32::UI::Shell::{
@@ -196,6 +196,32 @@ pub fn registry_get_dword(path: &str, name: &str) -> Result<Option<u32>> {
     }
     status.ok().context(format!("reading HKCU\\{path}\\{name}"))?;
     Ok(Some(value))
+}
+
+/// A binary value under `HKEY_CURRENT_USER`, or `None` when it is absent.
+pub fn registry_get_binary(path: &str, name: &str) -> Result<Option<Vec<u8>>> {
+    let wpath = wide(path);
+    let wname = wide(name);
+    let mut buf = vec![0u8; 256];
+    let mut size = buf.len() as u32;
+    // SAFETY: `buf` is writable for `size` bytes; strings are NUL-terminated.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            pcwstr(&wpath),
+            pcwstr(&wname),
+            RRF_RT_REG_BINARY,
+            None,
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+    };
+    if status == ERROR_FILE_NOT_FOUND {
+        return Ok(None);
+    }
+    status.ok().context(format!("reading HKCU\\{path}\\{name}"))?;
+    buf.truncate(size as usize);
+    Ok(Some(buf))
 }
 
 /// Delete a value under `HKEY_CURRENT_USER`; succeeds if it is already absent.
