@@ -45,6 +45,7 @@ environment-variables.workspace = true
 registry-preview.workspace = true
 new-plus.workspace = true
 file-locksmith.workspace = true
+image-resizer.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

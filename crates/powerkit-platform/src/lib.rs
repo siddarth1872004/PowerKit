@@ -22,6 +22,7 @@ pub mod guide_view;
 pub mod hotkey;
 pub mod http;
 pub mod icon;
+pub mod image;
 pub mod input;
 pub mod keyhook;
 pub mod magnifier;

@@ -295,6 +295,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-resizer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-menu",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,6 +509,7 @@ dependencies = [
  "file-locksmith",
  "grab-and-move",
  "hosts-editor",
+ "image-resizer",
  "keyboard-manager",
  "launcher",
  "light-switch",

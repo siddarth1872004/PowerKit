@@ -11,6 +11,7 @@
 //! * `powerkit --reg [F]`   open Registry Preview, with the .reg file F if given
 //! * `powerkit --new DIR`   show the New+ template menu for folder DIR (Explorer menu)
 //! * `powerkit --unlock P…` show which processes use the given files (Explorer menu)
+//! * `powerkit --resize P…` resize the given pictures (Explorer menu)
 //! * `powerkit --trust-menu-cert HEX`  trust the Explorer menu's signing certificate
 //!   for the machine (run elevated)
 //! * `powerkit --version`
@@ -25,6 +26,7 @@ use powerkit_host::hosts::HostsUi;
 use powerkit_host::locksmith::LocksmithUi;
 use powerkit_host::registry::RegistryUi;
 use powerkit_host::rename::RenameUi;
+use powerkit_host::resizer::ResizerUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::update::{self, Release};
 use powerkit_host::{builtin_modules, Backend, Host, Output};
@@ -213,18 +215,24 @@ fn main() -> std::process::ExitCode {
         None => Vec::new(),
     };
     // The running instance may have another working directory.
-    let unlock: Vec<PathBuf> = match args.iter().position(|a| a == "--unlock") {
-        Some(i) => args[i + 1..]
-            .iter()
-            .map(|f| std::path::absolute(f).unwrap_or_else(|_| PathBuf::from(f)))
-            .collect(),
-        None => Vec::new(),
+    let absolute_after = |flag: &str| -> Vec<PathBuf> {
+        match args.iter().position(|a| a == flag) {
+            Some(i) => args[i + 1..]
+                .iter()
+                .map(|f| std::path::absolute(f).unwrap_or_else(|_| PathBuf::from(f)))
+                .collect(),
+            None => Vec::new(),
+        }
     };
+    let unlock = absolute_after("--unlock");
+    let resize = absolute_after("--resize");
     // A module command asked for on the command line, run by this or the running instance.
     let request = if !rename.is_empty() {
         Some(json!({ "id": power_rename::ID, "command": "open", "args": { "paths": rename } }))
     } else if !unlock.is_empty() {
         Some(json!({ "id": file_locksmith::ID, "command": "open", "args": { "paths": unlock } }))
+    } else if !resize.is_empty() {
+        Some(json!({ "id": image_resizer::ID, "command": "open", "args": { "paths": resize } }))
     } else if has("--hosts") {
         Some(json!({ "id": hosts_editor::ID, "command": "open" }))
     } else if has("--env") {
@@ -317,6 +325,7 @@ struct Windows {
     env: EnvUi,
     registry: RegistryUi,
     locksmith: LocksmithUi,
+    resizer: ResizerUi,
 }
 
 fn run(
@@ -415,6 +424,7 @@ fn run(
         env: EnvUi::new(event_loop.waker()),
         registry: RegistryUi::new(event_loop.waker()),
         locksmith: LocksmithUi::new(event_loop.waker()),
+        resizer: ResizerUi::new(event_loop.waker()),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -445,6 +455,16 @@ fn run(
                                 .filter_map(Value::as_str)
                                 .map(PathBuf::from)
                                 .collect(),
+                        ),
+                        image_resizer::OPEN_EVENT => ui.resizer.open(
+                            payload["paths"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .filter_map(Value::as_str)
+                                .map(PathBuf::from)
+                                .collect(),
+                            host,
                         ),
                         _ => Ok(()),
                     };
@@ -478,6 +498,7 @@ fn run(
                 ui.env.poll();
                 ui.registry.poll();
                 ui.locksmith.poll();
+                ui.resizer.poll();
                 while let Ok((request, reply)) = rx.try_recv() {
                     let response = match host.handle_request(&request.method, &request.params) {
                         Ok(v) => Response::ok(request.id, v),
@@ -625,6 +646,7 @@ fn run(
             Event::Table { table, event } if table == powerkit_host::hosts::TABLE => ui.hosts.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::locksmith::TABLE => ui.locksmith.on_event(event),
+            Event::Table { table, event } if table == powerkit_host::resizer::TABLE => ui.resizer.on_event(event, &mut host),
             Event::Registry(e) => ui.registry.on_event(e, &host.paths().root),
             other => host.dispatch(&other),
         }

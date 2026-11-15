@@ -9,6 +9,7 @@ mod fancy_zones;
 mod file_locksmith;
 mod grab_and_move;
 mod hosts_editor;
+mod image_resizer;
 mod keyboard;
 mod launcher;
 mod light_switch;
@@ -28,6 +29,7 @@ pub use fancy_zones::*;
 pub use file_locksmith::*;
 pub use grab_and_move::*;
 pub use hosts_editor::*;
+pub use image_resizer::*;
 pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
@@ -160,6 +162,7 @@ pub struct Config {
     pub registry_preview: RegistryPreview,
     pub new_plus: NewPlus,
     pub file_locksmith: FileLocksmith,
+    pub image_resizer: ImageResizer,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -261,6 +264,7 @@ impl Config {
         self.environment_variables.sanitize(&mut w);
         self.registry_preview.sanitize(&mut w);
         self.new_plus.sanitize(&mut w);
+        self.image_resizer.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -348,6 +352,7 @@ impl Config {
             "registry_preview" => self.registry_preview.enabled,
             "new_plus" => self.new_plus.enabled,
             "file_locksmith" => self.file_locksmith.enabled,
+            "image_resizer" => self.image_resizer.enabled,
             _ => return None,
         })
     }
@@ -373,6 +378,7 @@ impl Config {
             "registry_preview" => &mut self.registry_preview.enabled,
             "new_plus" => &mut self.new_plus.enabled,
             "file_locksmith" => &mut self.file_locksmith.enabled,
+            "image_resizer" => &mut self.image_resizer.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -440,6 +446,7 @@ impl Config {
         config.registry_preview = section(&mut map, "registry_preview", &mut warnings);
         config.new_plus = section(&mut map, "new_plus", &mut warnings);
         config.file_locksmith = section(&mut map, "file_locksmith", &mut warnings);
+        config.image_resizer = section(&mut map, "image_resizer", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

@@ -1,0 +1,24 @@
+[package]
+name = "image-resizer"
+description = "PowerKit utility: resize pictures from the Explorer menu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+powerkit-core.workspace = true
+powerkit-config.workspace = true
+powerkit-plugin-api.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+powerkit-menu.workspace = true
+powerkit-platform.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

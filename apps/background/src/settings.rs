@@ -98,7 +98,7 @@ fn general_spec() -> Vec<(&'static str, Vec<Spec>)> {
             vec![s(
                 "explorer_menu",
                 "Show in the Windows 11 context menu",
-                "Put Rename, New+, Unlock and .reg Preview at the top of the right-click menu. Windows asks for administrator approval the first time",
+                "Put Rename, Resize, New+, Unlock and .reg Preview at the top of the right-click menu. Windows asks for administrator approval the first time",
                 Toggle,
             )],
         ),
@@ -741,6 +741,68 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 Toggle,
             )],
         )],
+        "image_resizer" => vec![
+            (
+                "Sizes",
+                vec![
+                    s(
+                        "sizes",
+                        "Sizes",
+                        "Offered in the Image Resizer window, as JSON; a width or height of 0 follows the other",
+                        Json,
+                    ),
+                    s(
+                        "shrink_only",
+                        "Never enlarge pictures",
+                        "Leave pictures that are already smaller than the size as they are",
+                        Toggle,
+                    ),
+                    s(
+                        "ignore_orientation",
+                        "Ignore the orientation of pictures",
+                        "Swap a size's width and height for pictures turned the other way",
+                        Toggle,
+                    ),
+                ],
+            ),
+            (
+                "Saving",
+                vec![
+                    s(
+                        "replace_originals",
+                        "Replace the originals",
+                        "Overwrite the pictures instead of saving resized copies",
+                        Toggle,
+                    ),
+                    s(
+                        "file_name",
+                        "File name",
+                        "%1 original name, %2 size name, %3 and %4 size width and height, %5 and %6 new width and height",
+                        Text("%1 (%2)"),
+                    ),
+                    s(
+                        "fallback_format",
+                        "Fallback format",
+                        "Used for pictures Windows can read but not write, such as HEIC and WebP",
+                        Choice(&[
+                            ("jpeg", "JPEG"),
+                            ("png", "PNG"),
+                            ("bmp", "BMP"),
+                            ("gif", "GIF"),
+                            ("tiff", "TIFF"),
+                        ]),
+                    ),
+                    s("jpeg_quality", "JPEG quality", "1 to 100", Number),
+                    s("remove_metadata", "Remove metadata", "Drop camera details and other metadata", Toggle),
+                    s(
+                        "keep_date_modified",
+                        "Keep the date modified",
+                        "Give resized pictures the date of the originals",
+                        Toggle,
+                    ),
+                ],
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -771,7 +833,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     (
         "File Management",
         '\u{E8B7}',
-        &["file_locksmith", "new_plus", "power_rename"],
+        &["file_locksmith", "image_resizer", "new_plus", "power_rename"],
     ),
     (
         "Advanced",

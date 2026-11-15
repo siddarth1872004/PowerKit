@@ -39,14 +39,15 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | <img src="assets/modules/environment_variables.png" width="24" alt=""> | **Environment Variables** | View, add, change and delete user and system variables, with unsaved changes marked. System changes ask for administrator permission; running programs are told about the change. | Tray menu, `powerkit --env` |
 | <img src="assets/modules/registry_preview.png" width="24" alt=""> | **Registry Preview** | Open or type a .reg file and see the keys and values it would write, with problems shown by line. Save it, write it to the registry (administrator permission only when it touches keys outside HKEY_CURRENT_USER), or jump to a key in Registry Editor. | Tray menu, `powerkit --reg [FILE]` |
 | <img src="assets/modules/new_plus.png" width="24" alt=""> | **New+** | Right-click a folder or a folder's background and choose New+ to create a file or folder from your own templates. Leading numbers order the menu and can be hidden; `$YYYY`, `$MM`, `$PARENT_FOLDER_NAME`, `%USERNAME%` and other variables can fill in the new name. | Explorer menu, `powerkit --new FOLDER` |
-| <img src="assets/modules/file_locksmith.png" width="24" alt=""> | **File Locksmith** | Right-click files or folders and choose Unlock with PowerKit to see every process that has them open, including anything inside the folders. Select one and choose End task to close it. The entry can be limited to the Shift + right-click menu. |
+| <img src="assets/modules/file_locksmith.png" width="24" alt=""> | **File Locksmith** | Right-click files or folders and choose Unlock with PowerKit to see every process that has them open, including anything inside the folders. Select one and choose End task to close it. The entry can be limited to the Shift + right-click menu. | Explorer menu, `powerkit --unlock P…` |
+| <img src="assets/modules/image_resizer.png" width="24" alt=""> | **Image Resizer** | Right-click pictures and choose Resize with PowerKit, then pick a saved size or type one in pixels, percent, centimeters or inches. Fit, fill (cropping the middle) or stretch; save copies named from a pattern like `%1 (%2)` or replace the originals; never enlarge, keep metadata and dates, set the JPEG quality. Pictures Windows can read but not write, such as HEIC and WebP, are saved as JPEG or another format you choose. | Explorer menu, `powerkit --resize P…` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
+Text Extractor · Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
 ## Install
@@ -70,7 +71,7 @@ your PC.
 
 ### Windows 11 context menu
 
-PowerRename, New+, File Locksmith and Registry Preview add their entries under **Show
+PowerRename, Image Resizer, New+, File Locksmith and Registry Preview add their entries under **Show
 more options** in Explorer's right-click menu. To put them at the top of the menu instead,
 turn on **Show in the Windows 11 context menu** under General (`general.explorer_menu`).
 
@@ -105,6 +106,7 @@ powerkit --env         open Environment Variables
 powerkit --reg [F]     open Registry Preview, with the .reg file F
 powerkit --new DIR     show the New+ template menu for folder DIR
 powerkit --unlock P…   show which processes are using files or folders P
+powerkit --resize P…   resize the pictures P
 powerkit --trust-menu-cert HEX  trust the context menu certificate (run elevated by PowerKit)
 powerkit --quit        ask the running PowerKit to exit
 powerkit --version     print the version

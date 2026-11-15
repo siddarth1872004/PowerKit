@@ -24,6 +24,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "registry_preview" => include_bytes!("../../../assets/modules/registry_preview.ico"),
         "new_plus" => include_bytes!("../../../assets/modules/new_plus.ico"),
         "file_locksmith" => include_bytes!("../../../assets/modules/file_locksmith.ico"),
+        "image_resizer" => include_bytes!("../../../assets/modules/image_resizer.ico"),
         _ => return None,
     })
 }

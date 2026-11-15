@@ -27,6 +27,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("registry_preview", 10.0, registry_preview),
     ("new_plus", 10.0, new_plus),
     ("file_locksmith", 9.0, file_locksmith),
+    ("image_resizer", 9.0, image_resizer),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1290,6 +1291,110 @@ fn file_locksmith(c: &mut Canvas, t: f32, _: &Config) {
             (2.9, "Every process using it is listed"),
             (3.7, "Select one and choose End task; unsaved work in it is lost"),
             (6.9, "The file is free"),
+        ],
+    );
+}
+
+fn image_resizer(c: &mut Canvas, t: f32, cfg: &Config) {
+    let r = &cfg.image_resizer;
+    let num = |v: f64| {
+        if v > 0.0 {
+            format!("{}", (v * 100.0).round() / 100.0)
+        } else {
+            "auto".into()
+        }
+    };
+    let rows: Vec<Vec<String>> = r
+        .sizes
+        .iter()
+        .take(4)
+        .map(|s| vec![s.name.clone(), num(s.width), num(s.height)])
+        .collect();
+    // The second size is picked, or the first when only one is set up.
+    let pick = rows.len().min(2).saturating_sub(1);
+    let picked = rows.get(pick).map_or("Medium".to_string(), |r| r[0].clone());
+    c.desktop();
+    let top = c.window(24.0, 20.0, 250.0, 196.0, "Pictures");
+    let selected = (0.6..3.0).contains(&t);
+    file_row(c, 30.0, top + 6.0, 238.0, "beach.jpg", false, selected);
+    file_row(c, 30.0, top + 26.0, 238.0, "garden.png", false, selected);
+    if t >= 5.6 && !r.replace_originals {
+        let saved = |name: &str, ext: &str| {
+            let stem = r.file_name.replace("%1", name).replace("%2", &picked);
+            format!("{stem}.{ext}")
+        };
+        file_row(c, 30.0, top + 46.0, 238.0, &saved("beach", "jpg"), false, false);
+        file_row(c, 30.0, top + 66.0, 238.0, &saved("garden", "png"), false, false);
+    }
+    let at = (110.0, top + 36.0);
+    let resize = (at.0 + 50.0, at.1 + 3.0 + 2.5 * MENU_ROW);
+    if (1.3..2.9).contains(&t) {
+        let items = ["Open", "Copy", "Resize with PowerKit", "", "Properties"];
+        c.menu(at.0, at.1, 130.0, &items, (t >= 2.0).then_some(2));
+    }
+    let (wx, wy, ww) = (200.0, 44.0, 260.0);
+    let inner = wy + TITLE_H;
+    let row = (wx + 50.0, inner + 6.0 + 16.0 + 16.0 * pick as f32 + 8.0);
+    let go = (wx + ww - 40.0, wy + 156.0);
+    if (2.9..6.6).contains(&t) {
+        c.window(wx, wy, ww, 180.0, "Image Resizer - 2 pictures");
+        let chosen = if t >= 3.8 { pick } else { 0 };
+        table(
+            c,
+            wx + 6.0,
+            inner + 6.0,
+            ww - 12.0,
+            &[0.0, 120.0, 180.0],
+            &["Size", "Width", "Height"],
+            &rows,
+            (!rows.is_empty()).then_some(chosen),
+        );
+        c.button(wx + 8.0, go.1 - 8.0, 60.0, "Add size", false);
+        c.button(go.0 - 30.0, go.1 - 8.0, 60.0, "Resize", (4.6..4.9).contains(&t));
+        let status = if t >= 5.6 {
+            "Resized 2 pictures."
+        } else if t >= 4.9 {
+            "Resizing 2 pictures..."
+        } else {
+            "Choose a size, then click Resize."
+        };
+        c.text(wx + 8.0, go.1 + 18.0, status, 7.0, MUTED);
+    }
+    let (x, y) = path(
+        t,
+        &[
+            (0.0, 300.0, 230.0),
+            (1.0, at.0, at.1),
+            (1.4, at.0, at.1),
+            (2.2, resize.0, resize.1),
+            (2.8, resize.0, resize.1),
+            (3.6, row.0, row.1),
+            (4.2, go.0, go.1),
+            (5.0, go.0, go.1),
+            (6.0, 150.0, top + 90.0),
+            (8.0, 150.0, top + 90.0),
+        ],
+    );
+    click(c, t, 1.1, at.0, at.1);
+    click(c, t, 2.6, resize.0, resize.1);
+    click(c, t, 3.7, row.0, row.1);
+    click(c, t, 4.6, go.0, go.1);
+    c.cursor(x, y);
+    c.steps(
+        t,
+        &[
+            (0.0, "Select pictures in Explorer"),
+            (1.3, "Right-click them and choose Resize with PowerKit"),
+            (2.9, "Pick a size, or type your own in the boxes under the list"),
+            (4.6, "Click Resize"),
+            (
+                5.6,
+                if r.replace_originals {
+                    "The pictures are replaced by the resized ones"
+                } else {
+                    "The resized copies are saved next to the originals"
+                },
+            ),
         ],
     );
 }

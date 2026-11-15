@@ -60,7 +60,7 @@ pub struct Entry {
     pub takes: Takes,
 }
 
-pub const ENTRIES: [Entry; 4] = [
+pub const ENTRIES: [Entry; 5] = [
     Entry {
         module: "power_rename",
         title: "Rename with PowerKit",
@@ -91,6 +91,17 @@ pub const ENTRIES: [Entry; 4] = [
         flag: "--unlock",
         clsid: 0x121ff203_8383_4256_8fb1_7d574082e886,
         types: &["*", "Directory"],
+        takes: Takes::All,
+    },
+    Entry {
+        module: "image_resizer",
+        title: "Resize with PowerKit",
+        flag: "--resize",
+        clsid: 0x5c3e9a40_7d1b_4f6e_a2c8_93b1e4d07f25,
+        types: &[
+            ".bmp", ".dib", ".gif", ".heic", ".heif", ".ico", ".jfif", ".jpe", ".jpeg", ".jpg", ".jxr", ".png", ".tif",
+            ".tiff", ".wdp", ".webp",
+        ],
         takes: Takes::All,
     },
 ];
@@ -219,9 +230,9 @@ mod tests {
     fn the_manifest_offers_every_entry_for_its_item_types() {
         let m = manifest("CN=A & B", "1.2.3.0");
         assert!(m.contains(r#"Publisher="CN=A &amp; B" Version="1.2.3.0""#));
-        assert_eq!(m.matches("<desktop5:ItemType ").count(), 8);
+        assert_eq!(m.matches("<desktop5:ItemType ").count(), 24);
         assert!(m.contains(r#"<desktop5:ItemType Type=".reg"><desktop5:Verb Id="registrypreview" Clsid="35DA73AB-FE59-4B83-939F-91C5F9F50CB0" />"#));
-        assert_eq!(m.matches(r#"Path="powerkit_menu.dll""#).count(), 4);
+        assert_eq!(m.matches(r#"Path="powerkit_menu.dll""#).count(), 5);
     }
 
     #[test]

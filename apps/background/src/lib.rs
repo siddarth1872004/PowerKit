@@ -10,6 +10,7 @@ pub mod locksmith;
 pub mod new_menu;
 pub mod registry;
 pub mod rename;
+pub mod resizer;
 pub mod settings;
 pub mod update;
 
@@ -39,5 +40,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(registry_preview::RegistryPreview::new()),
         Box::new(new_plus::NewPlus::new()),
         Box::new(file_locksmith::FileLocksmith::new()),
+        Box::new(image_resizer::ImageResizer::new()),
     ]
 }
