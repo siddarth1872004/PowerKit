@@ -54,6 +54,54 @@ pub fn crosshair(cursor: (i32, i32), bounds: Rect, thickness: i32, gap: i32, len
     parts
 }
 
+/// The four arms of a crosshair (left, right, up, down), leaving `gap` free around
+/// the pointer.
+fn arms((x, y): (i32, i32), bounds: Rect, thickness: i32, gap: i32, length: i32) -> [Rect; 4] {
+    let t = thickness.max(1);
+    let (top, left) = (y - t / 2, x - t / 2);
+    let (x0, x1, y0, y1) = if length > 0 {
+        (x - gap - length, x + gap + length, y - gap - length, y + gap + length)
+    } else {
+        (bounds.left, bounds.right, bounds.top, bounds.bottom)
+    };
+    [
+        Rect::new(x0, top, x - gap, top + t),
+        Rect::new(x + gap, top, x1, top + t),
+        Rect::new(left, y0, left + t, y - gap),
+        Rect::new(left, y + gap, left + t, y1),
+    ]
+}
+
+/// The outline around a crosshair: the arms grown by `border` on every side, minus the
+/// arms themselves. Empty when `border` is 0.
+pub fn crosshair_border(
+    cursor: (i32, i32),
+    bounds: Rect,
+    thickness: i32,
+    gap: i32,
+    length: i32,
+    border: i32,
+) -> Vec<Part> {
+    if border <= 0 {
+        return Vec::new();
+    }
+    let outer_length = if length > 0 { length + 2 * border } else { 0 };
+    let outer = arms(
+        cursor,
+        bounds,
+        thickness.max(1) + 2 * border,
+        (gap - border).max(0),
+        outer_length,
+    );
+    let inner = arms(cursor, bounds, thickness, gap, length);
+    outer
+        .into_iter()
+        .filter(|r| !r.is_empty())
+        .map(Part::Rect)
+        .chain(inner.into_iter().filter(|r| !r.is_empty()).map(Part::CutRect))
+        .collect()
+}
+
 /// The dimmed screen with a round hole of `radius` at the pointer.
 pub fn spotlight(cursor: (i32, i32), bounds: Rect, radius: i32) -> Vec<Part> {
     vec![Part::Rect(bounds), Part::CutEllipse(around(cursor, radius))]
@@ -202,6 +250,39 @@ pub fn centered(w: i32, h: i32, area: Rect) -> Rect {
     Rect::from_size(cx - w / 2, cy - h / 2, w, h)
 }
 
+/// Make the Mouse Jump picture show the real monitor layout: whatever no monitor covers
+/// becomes `background`, and every monitor gets a one-pixel `edge`.
+pub fn frame_monitors(
+    pixels: &mut [u32],
+    w: i32,
+    h: i32,
+    desktop: Rect,
+    monitors: &[Rect],
+    background: u32,
+    edge: u32,
+) {
+    if w <= 0 || h <= 0 || desktop.is_empty() || pixels.len() != (w * h) as usize {
+        return;
+    }
+    let to_x = |v: i32| ((i64::from(v - desktop.left) * i64::from(w)) / i64::from(desktop.width())) as i32;
+    let to_y = |v: i32| ((i64::from(v - desktop.top) * i64::from(h)) / i64::from(desktop.height())) as i32;
+    let scaled: Vec<Rect> = monitors
+        .iter()
+        .map(|m| Rect::new(to_x(m.left), to_y(m.top), to_x(m.right), to_y(m.bottom)))
+        .filter(|r| !r.is_empty())
+        .collect();
+    for y in 0..h {
+        for x in 0..w {
+            let p = &mut pixels[(y * w + x) as usize];
+            match scaled.iter().find(|r| r.contains(x, y)) {
+                None => *p = background,
+                Some(r) if x == r.left || y == r.top || x == r.right - 1 || y == r.bottom - 1 => *p = edge,
+                Some(_) => {}
+            }
+        }
+    }
+}
+
 /// The desktop point a click on the picture stands for; `None` outside the picture.
 pub fn map_point(picture: Rect, desktop: Rect, (x, y): (i32, i32)) -> Option<(i32, i32)> {
     if x < picture.left || x >= picture.right || y < picture.top || y >= picture.bottom {
@@ -316,5 +397,31 @@ mod tests {
             union(&[Rect::new(0, 0, 10, 10), Rect::new(-5, 3, 2, 20)]),
             Some(Rect::new(-5, 0, 10, 20))
         );
+    }
+
+    #[test]
+    fn crosshair_border_rings_the_arms() {
+        assert!(crosshair_border((0, 0), SCREEN, 4, 10, 0, 0).is_empty());
+        let b = crosshair_border((100, 100), SCREEN, 2, 10, 50, 1);
+        assert_eq!(b.len(), 8);
+        // Left arm: outer reaches one pixel further out and one pixel closer in.
+        assert_eq!(b[0], Part::Rect(Rect::new(39, 98, 91, 102)));
+        assert_eq!(b[4], Part::CutRect(Rect::new(40, 99, 90, 101)));
+    }
+
+    #[test]
+    fn frame_monitors_marks_gaps_and_edges() {
+        // Two 100x100 monitors side by side, the right one 50 lower; picture at half size.
+        let desktop = Rect::new(0, 0, 200, 150);
+        let monitors = [Rect::new(0, 0, 100, 100), Rect::new(100, 50, 200, 150)];
+        let (w, h) = (100, 75);
+        let mut px = vec![7u32; (w * h) as usize];
+        frame_monitors(&mut px, w, h, desktop, &monitors, 1, 2);
+        let at = |x: i32, y: i32| px[(y * w + x) as usize];
+        assert_eq!(at(75, 10), 1, "above the right monitor is no screen");
+        assert_eq!(at(0, 0), 2, "corner of the left monitor");
+        assert_eq!(at(25, 25), 7, "inside keeps the picture");
+        assert_eq!(at(75, 50), 7);
+        assert_eq!(at(25, 60), 1, "below the left monitor");
     }
 }

@@ -156,7 +156,12 @@ impl Module for MouseUtilities {
             description: "Find, highlight and aim the mouse pointer, or jump it across screens.".into(),
             version: env!("CARGO_PKG_VERSION").into(),
             api_version: API_VERSION,
-            permissions: vec![Permission::KeyboardHook],
+            permissions: vec![
+                Permission::GlobalHotkeys,
+                Permission::KeyboardHook,
+                Permission::MouseHook,
+                Permission::ScreenCapture,
+            ],
             commands: vec![
                 cmd("find_my_mouse", "Show or hide the spotlight on the pointer"),
                 cmd("highlighter", "Turn click highlighting on or off"),

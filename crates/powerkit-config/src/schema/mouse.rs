@@ -1,4 +1,4 @@
-use super::{clamp, fix_color, fix_shortcut};
+use super::{clamp, fix_apps, fix_color, fix_shortcut};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -29,6 +29,10 @@ pub struct FindMyMouse {
     pub initial_zoom: u32,
     /// 0-5000 ms; 0 shows the final size at once.
     pub animation_ms: u32,
+    /// Stay off while a full-screen game or other Direct3D program runs.
+    pub skip_in_game_mode: bool,
+    /// Lowercase executable names; stays off while one of them is in front.
+    pub excluded_apps: Vec<String>,
 }
 
 impl Default for FindMyMouse {
@@ -42,6 +46,8 @@ impl Default for FindMyMouse {
             radius: 100,
             initial_zoom: 9,
             animation_ms: 500,
+            skip_in_game_mode: true,
+            excluded_apps: Vec::new(),
         }
     }
 }
@@ -94,6 +100,10 @@ pub struct Crosshairs {
     pub center_gap: u32,
     /// Length of each arm at 96 DPI, 0-10000; 0 reaches the screen edges.
     pub length: u32,
+    /// Outline drawn around the lines, so they stay visible on their own color.
+    pub border_color: String,
+    /// Outline width at 96 DPI, 0-50; 0 draws none.
+    pub border_size: u32,
 }
 
 impl Default for Crosshairs {
@@ -106,6 +116,8 @@ impl Default for Crosshairs {
             thickness: 5,
             center_gap: 20,
             length: 0,
+            border_color: "#FFFFFF".into(),
+            border_size: 1,
         }
     }
 }
@@ -168,6 +180,7 @@ impl MouseUtilities {
         clamp(&mut f.radius, 20, 500, "Find My Mouse radius", w);
         clamp(&mut f.initial_zoom, 1, 15, "Find My Mouse initial zoom", w);
         clamp(&mut f.animation_ms, 0, 5000, "Find My Mouse animation", w);
+        fix_apps(&mut f.excluded_apps);
         if f.activation == FindMouseActivation::ShortcutOnly && f.shortcut.is_empty() && f.enabled {
             w.push("Find My Mouse: \"shortcut only\" has no shortcut; using double Ctrl".into());
             f.activation = FindMouseActivation::DoubleCtrl;
@@ -189,6 +202,8 @@ impl MouseUtilities {
         clamp(&mut c.thickness, 1, 50, "Crosshairs thickness", w);
         clamp(&mut c.center_gap, 0, 500, "Crosshairs center gap", w);
         clamp(&mut c.length, 0, 10_000, "Crosshairs length", w);
+        fix_color(&mut c.border_color, &d.border_color, "Crosshairs border color", w);
+        clamp(&mut c.border_size, 0, 50, "Crosshairs border size", w);
 
         let (j, d) = (&mut self.jump, MouseJump::default());
         fix_shortcut(&mut j.shortcut, &d.shortcut, "Mouse Jump", w);
@@ -209,6 +224,7 @@ mod tests {
         m.highlighter.left_color = "yellow".into();
         m.crosshairs.thickness = 0;
         m.jump.shortcut = "D".into();
+        m.find_my_mouse.excluded_apps = vec![" Game.EXE".into(), "game.exe".into()];
         let mut w = Vec::new();
         m.sanitize(&mut w);
         assert_eq!(m.find_my_mouse.activation, FindMouseActivation::DoubleCtrl);
@@ -216,6 +232,7 @@ mod tests {
         assert_eq!(m.highlighter.left_color, "#FFFF00");
         assert_eq!(m.crosshairs.thickness, 1);
         assert_eq!(m.jump.shortcut, "Win+Shift+D");
+        assert_eq!(m.find_my_mouse.excluded_apps, ["game.exe"]);
         assert_eq!(w.len(), 5, "{w:?}");
     }
 

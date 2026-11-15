@@ -8,7 +8,7 @@ use powerkit_core::{Event, MouseEvent, Rect};
 use powerkit_platform::input::{self, InputCapture};
 use powerkit_platform::mousehook::{Button, MouseInput};
 use powerkit_platform::overlay::{Overlay, Piece};
-use powerkit_platform::{event_loop, magnifier, monitor};
+use powerkit_platform::{event_loop, magnifier, monitor, shell, window};
 use std::time::Instant;
 
 const FRAME_MS: u32 = 16;
@@ -16,6 +16,9 @@ const FRAME_MS: u32 = 16;
 const MAX_SPOTS: usize = 8;
 const VK_RETURN: u32 = 0x0D;
 const VK_ESCAPE: u32 = 0x1B;
+/// Mouse Jump: where no monitor is, and the line around each one.
+const JUMP_BACKGROUND: u32 = 0x202020;
+const JUMP_EDGE: u32 = 0x808080;
 
 fn pieces(parts: &[Part]) -> Vec<Piece> {
     parts
@@ -54,7 +57,8 @@ pub struct Live {
     desktop: Option<Rect>,
     /// Start time and window of the Find My Mouse spotlight.
     spotlight: Option<(u64, Overlay)>,
-    crosshairs: Option<Overlay>,
+    /// The lines and their outline, which is a separate shape in its own color.
+    crosshairs: Option<(Overlay, Overlay)>,
     highlighter: bool,
     spots: Vec<Spot>,
     jump: Option<Jump>,
@@ -152,16 +156,22 @@ impl Live {
             )?;
         }
 
-        if let Some(overlay) = &mut self.crosshairs {
+        if let Some((lines, outline)) = &mut self.crosshairs {
             let c = &s.crosshairs;
-            let shape = pieces(&logic::crosshair(
-                cursor,
-                desktop,
+            let (t, gap, len) = (
                 logic::scale(c.thickness, dpi),
                 logic::scale(c.center_gap, dpi),
                 logic::scale(c.length, dpi),
-            ));
-            overlay.show_shape(desktop, &c.color, logic::percent_alpha(c.opacity_percent), &shape)?;
+            );
+            let alpha = logic::percent_alpha(c.opacity_percent);
+            let shape = pieces(&logic::crosshair(cursor, desktop, t, gap, len));
+            lines.show_shape(desktop, &c.color, alpha, &shape)?;
+            let border = logic::crosshair_border(cursor, desktop, t, gap, len, logic::scale(c.border_size, dpi));
+            if border.is_empty() {
+                outline.hide();
+            } else {
+                outline.show_shape(desktop, &c.border_color, alpha, &pieces(&border))?;
+            }
         }
 
         let h = &s.highlighter;
@@ -192,7 +202,7 @@ impl Live {
     }
 
     pub fn toggle_spotlight(&mut self) -> Result<()> {
-        if self.spotlight.take().is_some() {
+        if self.spotlight.take().is_some() || self.spotlight_blocked() {
             return Ok(());
         }
         self.spotlight = Some((self.now(), Overlay::new()?));
@@ -200,10 +210,25 @@ impl Live {
         self.tick()
     }
 
+    /// Find My Mouse stays off during games and in front of excluded apps.
+    fn spotlight_blocked(&self) -> bool {
+        let f = &self.settings.find_my_mouse;
+        if f.skip_in_game_mode && shell::game_running() {
+            return true;
+        }
+        if f.excluded_apps.is_empty() {
+            return false;
+        }
+        window::foreground()
+            .and_then(window::thread_process)
+            .and_then(|(pid, _)| window::process_exe(pid))
+            .is_some_and(|exe| f.excluded_apps.contains(&exe))
+    }
+
     pub fn set_crosshairs(&mut self, on: bool) -> Result<()> {
         match (on, self.crosshairs.is_some()) {
             (true, false) => {
-                self.crosshairs = Some(Overlay::new()?);
+                self.crosshairs = Some((Overlay::new()?, Overlay::new()?));
                 self.ensure_timer()?;
                 self.tick()
             }
@@ -306,7 +331,9 @@ impl Live {
         let max_h = logic::scale(j.max_height, m.dpi).min(m.work_area.height() * 9 / 10);
         let (w, h) = logic::fit(desktop.width(), desktop.height(), max_w, max_h);
         let picture = logic::centered(w, h, m.work_area);
-        let pixels = magnifier::capture_scaled(desktop, w, h)?;
+        let mut pixels = magnifier::capture_scaled(desktop, w, h)?;
+        let monitors: Vec<Rect> = monitor::enumerate()?.iter().map(|m| m.rect).collect();
+        logic::frame_monitors(&mut pixels, w, h, desktop, &monitors, JUMP_BACKGROUND, JUMP_EDGE);
         let mut overlay = Overlay::new()?;
         overlay.show_picture(picture, &pixels)?;
         let capture = InputCapture::new()?;

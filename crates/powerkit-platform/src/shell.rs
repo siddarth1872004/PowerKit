@@ -223,6 +223,20 @@ impl Drop for SingleInstance {
     }
 }
 
+/// Whether a full-screen Direct3D program (usually a game) is in front, which is what
+/// Windows' own notification quiet hours treat as game mode.
+pub fn game_running() -> bool {
+    use windows::Win32::UI::Shell::{SHQueryUserNotificationState, QUNS_RUNNING_D3D_FULL_SCREEN};
+    // SAFETY: no arguments; a failure only means the state is unknown.
+    match unsafe { SHQueryUserNotificationState() } {
+        Ok(state) => state == QUNS_RUNNING_D3D_FULL_SCREEN,
+        Err(e) => {
+            tracing::debug!(error = %e, "could not query the notification state");
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
