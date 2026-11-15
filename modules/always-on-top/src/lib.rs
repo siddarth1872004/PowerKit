@@ -182,7 +182,11 @@ impl AlwaysOnTop {
     }
 
     fn unpin_at(&mut self, index: usize) {
-        let p = self.pinned.remove(index);
+        let mut p = self.pinned.remove(index);
+        // Undo in the reverse order of `pin`: the frame (itself topmost) and its hook go
+        // first, or clearing the window's topmost state sometimes does not stick.
+        p.frame = None;
+        p._hook = None;
         let ours = window::thread_process(p.hwnd).map(|(pid, _)| pid) == Some(p.pid);
         if !ours {
             return;
