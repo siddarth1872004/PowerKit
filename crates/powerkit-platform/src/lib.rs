@@ -10,6 +10,7 @@
 #![cfg(windows)]
 
 pub mod accent_bar;
+pub mod canvas;
 pub mod clipboard;
 pub mod crop;
 pub mod event_loop;
@@ -27,6 +28,7 @@ pub mod popup;
 pub mod power;
 pub mod process;
 pub mod shell;
+pub mod taskbar;
 pub mod testing;
 pub mod theme;
 pub mod time;

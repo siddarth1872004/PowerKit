@@ -11,6 +11,7 @@ mod light_switch;
 mod mouse;
 mod quick_accent;
 mod rename;
+mod shortcut_guide;
 
 pub use awake::*;
 pub use color_picker::*;
@@ -22,6 +23,7 @@ pub use light_switch::*;
 pub use mouse::*;
 pub use quick_accent::*;
 pub use rename::*;
+pub use shortcut_guide::*;
 
 use powerkit_core::Shortcut;
 use serde::{Deserialize, Serialize};
@@ -128,6 +130,7 @@ pub struct Config {
     pub quick_accent: QuickAccent,
     pub mouse_utilities: MouseUtilities,
     pub crop_and_lock: CropAndLock,
+    pub shortcut_guide: ShortcutGuide,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -222,6 +225,7 @@ impl Config {
         self.quick_accent.sanitize(&mut w);
         self.mouse_utilities.sanitize(&mut w);
         self.crop_and_lock.sanitize(&mut w);
+        self.shortcut_guide.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -252,6 +256,9 @@ impl Config {
         }
         push("crop_and_lock", "thumbnail", &self.crop_and_lock.thumbnail_shortcut);
         push("crop_and_lock", "reparent", &self.crop_and_lock.reparent_shortcut);
+        if self.shortcut_guide.enabled {
+            push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
+        }
         let fz = &self.fancy_zones;
         push("fancy_zones", "next_zone", &fz.next_zone_shortcut);
         push("fancy_zones", "prev_zone", &fz.prev_zone_shortcut);
@@ -293,6 +300,7 @@ impl Config {
             "quick_accent" => self.quick_accent.enabled,
             "mouse_utilities" => self.mouse_utilities.enabled,
             "crop_and_lock" => self.crop_and_lock.enabled,
+            "shortcut_guide" => self.shortcut_guide.enabled,
             _ => return None,
         })
     }
@@ -310,6 +318,7 @@ impl Config {
             "quick_accent" => &mut self.quick_accent.enabled,
             "mouse_utilities" => &mut self.mouse_utilities.enabled,
             "crop_and_lock" => &mut self.crop_and_lock.enabled,
+            "shortcut_guide" => &mut self.shortcut_guide.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -369,6 +378,7 @@ impl Config {
         config.quick_accent = section(&mut map, "quick_accent", &mut warnings);
         config.mouse_utilities = section(&mut map, "mouse_utilities", &mut warnings);
         config.crop_and_lock = section(&mut map, "crop_and_lock", &mut warnings);
+        config.shortcut_guide = section(&mut map, "shortcut_guide", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

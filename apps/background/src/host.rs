@@ -511,6 +511,7 @@ impl Host {
                     Some("quick_accent") => new.quick_accent = d.quick_accent,
                     Some("mouse_utilities") => new.mouse_utilities = d.mouse_utilities,
                     Some("crop_and_lock") => new.crop_and_lock = d.crop_and_lock,
+                    Some("shortcut_guide") => new.shortcut_guide = d.shortcut_guide,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);
