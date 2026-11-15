@@ -390,6 +390,7 @@ dependencies = [
  "powerkit-logging",
  "powerkit-platform",
  "powerkit-plugin-api",
+ "quick-accent",
  "serde_json",
  "tempfile",
  "tracing",
@@ -476,6 +477,21 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
+]
+
+[[package]]
+name = "quick-accent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]

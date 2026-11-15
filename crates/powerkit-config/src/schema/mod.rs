@@ -7,6 +7,7 @@ mod fancy_zones;
 mod keyboard;
 mod launcher;
 mod light_switch;
+mod quick_accent;
 mod rename;
 
 pub use awake::*;
@@ -15,6 +16,7 @@ pub use fancy_zones::*;
 pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
+pub use quick_accent::*;
 pub use rename::*;
 
 use powerkit_core::Shortcut;
@@ -119,6 +121,7 @@ pub struct Config {
     pub launcher: Launcher,
     pub awake: Awake,
     pub light_switch: LightSwitch,
+    pub quick_accent: QuickAccent,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -210,6 +213,7 @@ impl Config {
         self.launcher.sanitize(&mut w);
         self.awake.sanitize(&mut w);
         self.light_switch.sanitize(&mut w);
+        self.quick_accent.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -264,6 +268,7 @@ impl Config {
             "launcher" => self.launcher.enabled,
             "awake" => self.awake.enabled,
             "light_switch" => self.light_switch.enabled,
+            "quick_accent" => self.quick_accent.enabled,
             _ => return None,
         })
     }
@@ -278,6 +283,7 @@ impl Config {
             "launcher" => &mut self.launcher.enabled,
             "awake" => &mut self.awake.enabled,
             "light_switch" => &mut self.light_switch.enabled,
+            "quick_accent" => &mut self.quick_accent.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -334,6 +340,7 @@ impl Config {
         config.launcher = section(&mut map, "launcher", &mut warnings);
         config.awake = section(&mut map, "awake", &mut warnings);
         config.light_switch = section(&mut map, "light_switch", &mut warnings);
+        config.quick_accent = section(&mut map, "quick_accent", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

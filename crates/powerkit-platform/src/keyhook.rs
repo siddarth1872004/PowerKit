@@ -10,7 +10,7 @@ use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY,
-    KEYEVENTF_KEYUP, MAPVK_VK_TO_VSC_EX, VIRTUAL_KEY,
+    KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC_EX, VIRTUAL_KEY,
 };
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -29,8 +29,17 @@ pub enum KeyDecision {
 
 type Callback = Box<dyn FnMut(u32, bool) -> KeyDecision>;
 
+/// Several modules may hook the keyboard at once; they share one OS hook and are asked
+/// in installation order, the first that does not pass deciding.
+#[derive(Default)]
+struct Hooks {
+    os: Option<HHOOK>,
+    next_id: u64,
+    callbacks: Vec<(u64, Callback)>,
+}
+
 thread_local! {
-    static CALLBACK: RefCell<Option<Callback>> = const { RefCell::new(None) };
+    static HOOKS: RefCell<Hooks> = RefCell::new(Hooks::default());
 }
 
 unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -42,8 +51,13 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             // A panic must not unwind into the OS, and a busy callback (re-entered while
             // the thread pumped messages) means the key passes unchanged.
             let decision = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                CALLBACK.with(|c| match c.try_borrow_mut() {
-                    Ok(mut cb) => cb.as_mut().map_or(KeyDecision::Pass, |f| f(info.vkCode, down)),
+                HOOKS.with(|h| match h.try_borrow_mut() {
+                    Ok(mut h) => h
+                        .callbacks
+                        .iter_mut()
+                        .map(|(_, f)| f(info.vkCode, down))
+                        .find(|d| *d != KeyDecision::Pass)
+                        .unwrap_or(KeyDecision::Pass),
                     Err(_) => KeyDecision::Pass,
                 })
             }))
@@ -77,9 +91,6 @@ fn extended(vk: u32) -> bool {
 
 /// Send key strokes as if typed, marked so the hook ignores them.
 pub fn send_keys(strokes: &[Stroke]) -> Result<()> {
-    if strokes.is_empty() {
-        return Ok(());
-    }
     let inputs: Vec<INPUT> = strokes
         .iter()
         .map(|&(vk, down)| {
@@ -106,8 +117,37 @@ pub fn send_keys(strokes: &[Stroke]) -> Result<()> {
             }
         })
         .collect();
+    send(&inputs)
+}
+
+/// Type `text` into the focused application as Unicode characters, marked so the hook
+/// ignores them.
+pub fn send_text(text: &str) -> Result<()> {
+    let inputs: Vec<INPUT> = text
+        .encode_utf16()
+        .flat_map(|unit| [KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP].map(move |f| (unit, f)))
+        .map(|(unit, flags)| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: unit,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: MARKER,
+                },
+            },
+        })
+        .collect();
+    send(&inputs)
+}
+
+fn send(inputs: &[INPUT]) -> Result<()> {
+    if inputs.is_empty() {
+        return Ok(());
+    }
     // SAFETY: `inputs` is a valid slice of keyboard INPUT structures.
-    let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+    let sent = unsafe { SendInput(inputs, std::mem::size_of::<INPUT>() as i32) };
     if sent as usize != inputs.len() {
         return Err(Error::Os {
             context: format!("SendInput sent {sent} of {} keys", inputs.len()),
@@ -117,47 +157,54 @@ pub fn send_keys(strokes: &[Stroke]) -> Result<()> {
     Ok(())
 }
 
-/// Active while it exists; dropping it removes the hook and the callback.
+/// Active while it exists; dropping it removes the callback, and the OS hook with the
+/// last one.
 pub struct KeyboardHook {
-    hook: HHOOK,
+    id: u64,
     _not_send: PhantomData<*const ()>,
 }
 
 impl KeyboardHook {
     /// Must be called on the event-loop thread, whose message loop services the hook.
-    /// Only one hook may be installed per thread.
     pub fn install(callback: impl FnMut(u32, bool) -> KeyDecision + 'static) -> Result<KeyboardHook> {
         helper()?;
-        let busy = CALLBACK.with(|c| c.borrow().is_some());
-        if busy {
-            return Err(Error::Other("a keyboard remapping hook is already installed".into()));
-        }
-        CALLBACK.with(|c| *c.borrow_mut() = Some(Box::new(callback)));
-        // SAFETY: the procedure matches HOOKPROC and lives for the whole program.
-        let hook = unsafe {
-            let instance = GetModuleHandleW(None).context("GetModuleHandle")?;
-            SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_proc), Some(instance.into()), 0)
-        };
-        match hook {
-            Ok(hook) => Ok(KeyboardHook {
-                hook,
-                _not_send: PhantomData,
-            }),
-            Err(e) => {
-                CALLBACK.with(|c| *c.borrow_mut() = None);
-                Err(e).context("keyboard hook")
+        HOOKS.with(|h| {
+            let mut h = h
+                .try_borrow_mut()
+                .map_err(|_| Error::Other("keyboard hook installed from inside a key callback".into()))?;
+            if h.os.is_none() {
+                // SAFETY: the procedure matches HOOKPROC and lives for the whole program.
+                let hook = unsafe {
+                    let instance = GetModuleHandleW(None).context("GetModuleHandle")?;
+                    SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_proc), Some(instance.into()), 0)
+                }
+                .context("keyboard hook")?;
+                h.os = Some(hook);
             }
-        }
+            let id = h.next_id;
+            h.next_id += 1;
+            h.callbacks.push((id, Box::new(callback)));
+            Ok(KeyboardHook {
+                id,
+                _not_send: PhantomData,
+            })
+        })
     }
 }
 
 impl Drop for KeyboardHook {
     fn drop(&mut self) {
-        // SAFETY: the hook was installed by this object and is removed once.
-        let _ = unsafe { UnhookWindowsHookEx(self.hook) };
-        CALLBACK.with(|c| {
-            if let Ok(mut c) = c.try_borrow_mut() {
-                *c = None;
+        HOOKS.with(|h| {
+            let Ok(mut h) = h.try_borrow_mut() else {
+                tracing::warn!("keyboard hook dropped inside a key callback; it stays installed");
+                return;
+            };
+            h.callbacks.retain(|(id, _)| *id != self.id);
+            if h.callbacks.is_empty() {
+                if let Some(hook) = h.os.take() {
+                    // SAFETY: the hook was installed above and is removed once.
+                    let _ = unsafe { UnhookWindowsHookEx(hook) };
+                }
             }
         });
     }

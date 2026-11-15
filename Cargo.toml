@@ -10,6 +10,7 @@ members = [
     "modules/keyboard-manager",
     "modules/launcher",
     "modules/light-switch",
+    "modules/quick-accent",
     "modules/power-rename",
     "apps/background",
 ]
@@ -47,6 +48,7 @@ launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }
 awake = { path = "modules/awake" }
 light-switch = { path = "modules/light-switch" }
+quick-accent = { path = "modules/quick-accent" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

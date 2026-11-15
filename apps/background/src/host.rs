@@ -508,6 +508,7 @@ impl Host {
                     Some("launcher") => new.launcher = d.launcher,
                     Some("awake") => new.awake = d.awake,
                     Some("light_switch") => new.light_switch = d.light_switch,
+                    Some("quick_accent") => new.quick_accent = d.quick_accent,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

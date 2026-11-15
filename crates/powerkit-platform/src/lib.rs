@@ -9,6 +9,7 @@
 //! thread are deliberately `!Send`.
 #![cfg(windows)]
 
+pub mod accent_bar;
 pub mod clipboard;
 pub mod event_loop;
 pub mod frame;

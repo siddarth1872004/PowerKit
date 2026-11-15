@@ -32,6 +32,7 @@ keyboard-manager.workspace = true
 launcher.workspace = true
 awake.workspace = true
 light-switch.workspace = true
+quick-accent.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

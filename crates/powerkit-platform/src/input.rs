@@ -112,3 +112,11 @@ pub fn cursor_pos() -> Result<(i32, i32)> {
     unsafe { GetCursorPos(&mut pt) }.context("GetCursorPos")?;
     Ok((pt.x, pt.y))
 }
+
+/// Whether Caps Lock is toggled on.
+pub fn caps_lock_on() -> bool {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CAPITAL};
+    // SAFETY: plain value argument.
+    let state = unsafe { GetKeyState(VK_CAPITAL.0 as i32) };
+    state & 1 != 0
+}
