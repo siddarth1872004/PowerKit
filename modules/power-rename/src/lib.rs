@@ -11,7 +11,7 @@ mod shell_menu;
 use anyhow::{anyhow, bail, Result};
 use engine::{Clock, Move, Status};
 use powerkit_config::{PowerRename as Settings, Preset, RenameOptions, StateFile};
-use powerkit_plugin_api::{Action, CommandSpec, Ctx, Manifest, Module, Permission, API_VERSION};
+use powerkit_plugin_api::{CommandSpec, Ctx, Manifest, Module, Permission, API_VERSION};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -238,15 +238,11 @@ impl Module for PowerRename {
                 }
                 let a: OpenArgs = parse(args)?;
                 // Explorer starts one process per selected item, so these calls arrive in a
-                // burst; only the first one opens the window, the rest join the list.
-                let first = self.pending.is_empty();
+                // burst; the rename window takes each one from the list as it comes.
                 for p in a.paths {
                     if self.pending.len() < MAX_ITEMS && !self.pending.contains(&p) {
                         self.pending.push(p);
                     }
-                }
-                if first {
-                    ctx.actions.push(Action::OpenSettings { page: Some(ID.into()) });
                 }
                 ctx.emit("power_rename.pending", json!({ "count": self.pending.len() }));
                 Ok(json!({ "pending": self.pending.len() }))
@@ -299,6 +295,7 @@ impl Module for PowerRename {
 mod tests {
     use super::*;
     use powerkit_config::{Config, Paths, RenameOp};
+    use powerkit_plugin_api::Action;
 
     struct Fixture {
         config: Config,
@@ -409,12 +406,12 @@ mod tests {
             .unwrap();
         m.command("open", &json!({ "paths": ["C:\\b.txt", "C:\\a.txt"] }), &mut fx.ctx())
             .unwrap();
-        let opens = fx
+        let announced = fx
             .actions
             .iter()
-            .filter(|a| matches!(a, Action::OpenSettings { .. }))
+            .filter(|a| matches!(a, Action::Emit { event, .. } if event == "power_rename.pending"))
             .count();
-        assert_eq!(opens, 1);
+        assert_eq!(announced, 2);
         let pending = m.command("pending", &Value::Null, &mut fx.ctx()).unwrap();
         assert_eq!(pending["paths"].as_array().unwrap().len(), 2);
         assert_eq!(

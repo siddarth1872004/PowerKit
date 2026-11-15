@@ -10,6 +10,7 @@
 
 use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
+use powerkit_host::rename::RenameUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::update::{self, Release};
 use powerkit_host::{builtin_modules, Backend, Host, Output};
@@ -281,7 +282,8 @@ fn run(
     }
 
     let mut settings = SettingsUi::default();
-    let flush = |host: &mut Host, settings: &mut SettingsUi| -> bool {
+    let mut rename = RenameUi::default();
+    let flush = |host: &mut Host, settings: &mut SettingsUi, rename: &mut RenameUi| -> bool {
         let mut keep_running = true;
         for output in host.take_outputs() {
             match output {
@@ -291,6 +293,12 @@ fn run(
                     }
                 }
                 Output::Event { event, payload } => {
+                    if event == "power_rename.pending" {
+                        if let Err(e) = rename.open(host) {
+                            tracing::error!("{e}");
+                            let _ = tray.notify("PowerKit", &e);
+                        }
+                    }
                     let msg = powerkit_ipc::EventMessage { event, payload };
                     if let Ok(line) = serde_json::to_string(&msg) {
                         server.broadcast(&line);
@@ -307,7 +315,7 @@ fn run(
         }
         keep_running
     };
-    flush(&mut host, &mut settings);
+    flush(&mut host, &mut settings, &mut rename);
 
     event_loop.run(|event| {
         match event {
@@ -427,13 +435,14 @@ fn run(
                 }
             }
             Event::Settings(e) => settings.on_event(e, &mut host),
+            Event::Rename(e) => rename.on_event(e, &mut host),
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);
-        flush(&mut host, &mut settings)
+        flush(&mut host, &mut settings, &mut rename)
     });
 
     host.shutdown();
-    flush(&mut host, &mut settings);
+    flush(&mut host, &mut settings, &mut rename);
     Ok(())
 }

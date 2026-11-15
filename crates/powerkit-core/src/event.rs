@@ -56,6 +56,49 @@ pub enum SettingsEvent {
     Toggle(usize),
 }
 
+/// What is filled in on the PowerRename window.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenameForm {
+    pub search: String,
+    pub replace: String,
+    pub regex: bool,
+    pub match_case: bool,
+    pub all_occurrences: bool,
+    /// 0 the name without its extension, 1 only the extension, 2 both.
+    pub target: usize,
+    pub files: bool,
+    pub folders: bool,
+    /// 0 unchanged, then lowercase, UPPERCASE, Title Case and Sentence case.
+    pub case: usize,
+    pub enumerate: bool,
+}
+
+impl Default for RenameForm {
+    fn default() -> Self {
+        Self {
+            search: String::new(),
+            replace: String::new(),
+            regex: false,
+            match_case: false,
+            all_occurrences: true,
+            target: 0,
+            files: true,
+            folders: true,
+            case: 0,
+            enumerate: false,
+        }
+    }
+}
+
+/// What the user did in the PowerRename window.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RenameEvent {
+    Changed(RenameForm),
+    Apply,
+    Undo,
+    Closed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     /// A registered global hotkey fired (identifier assigned at registration).
@@ -77,6 +120,7 @@ pub enum Event {
     Tray(TrayEvent),
     Popup(PopupEvent),
     Settings(SettingsEvent),
+    Rename(RenameEvent),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.

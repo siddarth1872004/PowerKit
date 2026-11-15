@@ -25,7 +25,7 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | 🚀 | **PowerKit Run** | A launcher for apps, files, calculations and commands. | `Alt+Space` |
 | ⌨️ | **Keyboard Manager** | Remap keys and shortcuts, everywhere or only in chosen apps. | — |
 | 🎨 | **Color Picker** | Pick any color on screen and copy it as HEX, RGB, HSL and more. | `Win+Shift+C` |
-| ✏️ | **PowerRename** | Bulk rename with search and replace, regular expressions and a live preview. | Explorer menu |
+| ✏️ | **PowerRename** | Bulk rename with search and replace, regular expressions, case changes and numbering, with a live preview and undo. | Explorer menu |
 | 📌 | **Always On Top** | Pin a window above all others, with a colored border. | `Win+Ctrl+T` |
 | ☕ | **Awake** | Keep the PC awake indefinitely, for a while, or until a set time. | Tray |
 | 🌗 | **Light Switch** | Switch between light and dark mode on a schedule or by shortcut. | `Win+Ctrl+Shift+D` |
@@ -80,6 +80,7 @@ Invalid values are repaired, with a warning in the log, and the last good file i
 ```text
 powerkit               start, or open settings if it is already running
 powerkit --settings    start and open settings
+powerkit --rename P…   open PowerRename with these files and folders
 powerkit --quit        ask the running PowerKit to exit
 powerkit --version     print the version
 ```

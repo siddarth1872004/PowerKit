@@ -2,6 +2,7 @@
 //! tray icon or real global hotkeys.
 
 pub mod host;
+pub mod rename;
 pub mod settings;
 pub mod update;
 

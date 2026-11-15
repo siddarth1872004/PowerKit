@@ -28,6 +28,7 @@ pub mod pipe;
 pub mod popup;
 pub mod power;
 pub mod process;
+pub mod rename_window;
 pub mod settings_window;
 pub mod shell;
 pub mod taskbar;

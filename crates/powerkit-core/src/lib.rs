@@ -7,7 +7,7 @@ pub mod keys;
 pub mod lifecycle;
 pub mod shortcut;
 
-pub use event::{Event, MouseEvent, PopupEvent, SettingsEvent, TrayEvent, WindowEventKind};
+pub use event::{Event, MouseEvent, PopupEvent, RenameEvent, RenameForm, SettingsEvent, TrayEvent, WindowEventKind};
 pub use geometry::Rect;
 pub use lifecycle::{Lifecycle, State, Transition};
 pub use shortcut::{Mods, Shortcut, ShortcutError};
