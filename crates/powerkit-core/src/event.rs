@@ -99,6 +99,25 @@ pub enum RenameEvent {
     Closed,
 }
 
+/// The fields under the Hosts File Editor's list.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HostsFields {
+    pub address: String,
+    pub hosts: String,
+    pub comment: String,
+}
+
+/// What the user did in the Hosts File Editor; rows count the listed entries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HostsEvent {
+    Toggle { row: usize, on: bool },
+    Add(HostsFields),
+    Update { row: usize, fields: HostsFields },
+    Delete(usize),
+    Save,
+    Reload,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     /// A registered global hotkey fired (identifier assigned at registration).
@@ -121,6 +140,7 @@ pub enum Event {
     Popup(PopupEvent),
     Settings(SettingsEvent),
     Rename(RenameEvent),
+    Hosts(HostsEvent),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.

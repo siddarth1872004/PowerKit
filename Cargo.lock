@@ -255,6 +255,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
+name = "hosts-editor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-plugin-api",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -427,6 +439,7 @@ dependencies = [
  "crop-and-lock",
  "fancy-zones",
  "grab-and-move",
+ "hosts-editor",
  "keyboard-manager",
  "launcher",
  "light-switch",

@@ -16,6 +16,7 @@ pub mod crop;
 pub mod event_loop;
 pub mod frame;
 pub mod fs;
+pub mod hosts_window;
 pub mod hotkey;
 pub mod http;
 pub mod input;

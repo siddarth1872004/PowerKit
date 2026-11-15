@@ -204,6 +204,7 @@ fn describe(module: &str, action: &str) -> String {
         ("fancy_zones", "toggle_overlay") => "Show the zones",
         ("window_hopper", "next") => "Next window of this app",
         ("window_hopper", "previous") => "Previous window of this app",
+        ("hosts_editor", "open") => "Hosts File Editor",
         ("shortcut_guide", "toggle") => "This guide",
         _ => return format!("{module} {action}").replace('_', " "),
     };

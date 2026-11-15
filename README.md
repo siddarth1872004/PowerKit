@@ -35,13 +35,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | ❓ | **Shortcut Guide** | Hold the Windows key to see the shortcuts for Windows, PowerKit and the focused app, with numbers on the taskbar buttons. | Hold `Win`, or `Win+Shift+/` |
 | ✋ | **Grab and Move** | Hold `Win` (or `Alt`) and drag anywhere in a window to move it; drag with the right button to resize it. | `Win` + drag |
 | 🔀 | **Window Hopper** | Switch between the windows of the focused app, including minimized ones. | ``Alt+` ``, ``Alt+Shift+` `` |
+| 📝 | **Hosts File Editor** | Add, change, turn off and delete hosts file entries, with duplicates flagged. Saving asks for administrator permission and keeps a backup. | Tray menu, `powerkit --hosts` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Hosts File Editor · Environment Variables · Registry Preview ·
+Environment Variables · Registry Preview ·
 New+ · File Locksmith · Image Resizer · Text Extractor · Power Display · Screen Ruler · ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
@@ -81,6 +82,7 @@ Invalid values are repaired, with a warning in the log, and the last good file i
 powerkit               start, or open settings if it is already running
 powerkit --settings    start and open settings
 powerkit --rename P…   open PowerRename with these files and folders
+powerkit --hosts       open the Hosts File Editor
 powerkit --quit        ask the running PowerKit to exit
 powerkit --version     print the version
 ```

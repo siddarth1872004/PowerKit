@@ -6,6 +6,7 @@ mod color_picker;
 mod crop_and_lock;
 mod fancy_zones;
 mod grab_and_move;
+mod hosts_editor;
 mod keyboard;
 mod launcher;
 mod light_switch;
@@ -20,6 +21,7 @@ pub use color_picker::*;
 pub use crop_and_lock::*;
 pub use fancy_zones::*;
 pub use grab_and_move::*;
+pub use hosts_editor::*;
 pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
@@ -140,6 +142,7 @@ pub struct Config {
     pub shortcut_guide: ShortcutGuide,
     pub grab_and_move: GrabAndMove,
     pub window_hopper: WindowHopper,
+    pub hosts_editor: HostsEditor,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -237,6 +240,7 @@ impl Config {
         self.shortcut_guide.sanitize(&mut w);
         self.grab_and_move.sanitize(&mut w);
         self.window_hopper.sanitize(&mut w);
+        self.hosts_editor.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -269,6 +273,7 @@ impl Config {
         push("crop_and_lock", "reparent", &self.crop_and_lock.reparent_shortcut);
         push("window_hopper", "next", &self.window_hopper.next_shortcut);
         push("window_hopper", "previous", &self.window_hopper.previous_shortcut);
+        push("hosts_editor", "open", &self.hosts_editor.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -316,6 +321,7 @@ impl Config {
             "shortcut_guide" => self.shortcut_guide.enabled,
             "grab_and_move" => self.grab_and_move.enabled,
             "window_hopper" => self.window_hopper.enabled,
+            "hosts_editor" => self.hosts_editor.enabled,
             _ => return None,
         })
     }
@@ -336,6 +342,7 @@ impl Config {
             "shortcut_guide" => &mut self.shortcut_guide.enabled,
             "grab_and_move" => &mut self.grab_and_move.enabled,
             "window_hopper" => &mut self.window_hopper.enabled,
+            "hosts_editor" => &mut self.hosts_editor.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -398,6 +405,7 @@ impl Config {
         config.shortcut_guide = section(&mut map, "shortcut_guide", &mut warnings);
         config.grab_and_move = section(&mut map, "grab_and_move", &mut warnings);
         config.window_hopper = section(&mut map, "window_hopper", &mut warnings);
+        config.hosts_editor = section(&mut map, "hosts_editor", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

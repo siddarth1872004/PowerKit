@@ -4,12 +4,15 @@
 //! * `powerkit --settings`  start and open the settings window
 //! * `powerkit --quit`      ask the running instance to exit
 //! * `powerkit --rename P…` open PowerRename with the given paths (Explorer menu)
+//! * `powerkit --hosts`     open the Hosts File Editor
+//! * `powerkit --write-hosts F`  copy F over the hosts file (run elevated by the editor)
 //! * `powerkit --version`
 //! * `powerkit --after-update`  start once the previous version has exited
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use powerkit_config::{LogLevel, Paths};
 use powerkit_core::{Event, Shortcut, TrayEvent};
+use powerkit_host::hosts::HostsUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::update::{self, Release};
@@ -22,7 +25,7 @@ use powerkit_platform::pipe::{PipeServer, Reply};
 use powerkit_platform::shell::{self, SingleInstance};
 use powerkit_platform::tray::{MenuItem, Tray};
 use serde_json::{json, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -33,6 +36,7 @@ const MENU_SETTINGS: u32 = 1;
 const MENU_QUIT: u32 = 2;
 const MENU_CHECK_UPDATES: u32 = 3;
 const MENU_INSTALL_UPDATE: u32 = 4;
+const MENU_HOSTS: u32 = 5;
 /// The first automatic check waits so it does not slow down signing in.
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(120);
 const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -119,6 +123,14 @@ fn spawn_daily_check(
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let has = |flag: &str| args.iter().any(|a| a == flag);
+    if let Some(i) = args.iter().position(|a| a == "--write-hosts") {
+        use hosts_editor::hosts::{exit, install, system_path};
+        let code = match args.get(i + 1) {
+            Some(src) => install(Path::new(src), &system_path()).err().unwrap_or(exit::OK),
+            None => exit::USAGE,
+        };
+        return code.into();
+    }
     if has("--version") {
         println!("PowerKit {}", env!("CARGO_PKG_VERSION"));
         return 0.into();
@@ -137,8 +149,14 @@ fn main() -> std::process::ExitCode {
         Some(i) => args[i + 1..].to_vec(),
         None => Vec::new(),
     };
-    let rename_request =
-        (!rename.is_empty()).then(|| json!({ "id": power_rename::ID, "command": "open", "args": { "paths": rename } }));
+    // A module command asked for on the command line, run by this or the running instance.
+    let request = if !rename.is_empty() {
+        Some(json!({ "id": power_rename::ID, "command": "open", "args": { "paths": rename } }))
+    } else if has("--hosts") {
+        Some(json!({ "id": hosts_editor::ID, "command": "open" }))
+    } else {
+        None
+    };
 
     let pipe_name = powerkit_ipc::pipe_name();
     let lock = format!("{pipe_name}.lock");
@@ -155,11 +173,10 @@ fn main() -> std::process::ExitCode {
         Ok(Some(guard)) => guard,
         Ok(None) => {
             // Already running: starting PowerKit again opens the settings window.
-            let forwarded =
-                Client::connect_to(&pipe_name, Duration::from_secs(3)).and_then(|mut c| match &rename_request {
-                    Some(params) => c.call("module.command", params.clone()),
-                    None => c.call("app.open_settings", Value::Null),
-                });
+            let forwarded = Client::connect_to(&pipe_name, Duration::from_secs(3)).and_then(|mut c| match &request {
+                Some(params) => c.call("module.command", params.clone()),
+                None => c.call("app.open_settings", Value::Null),
+            });
             return match forwarded {
                 Ok(_) => 0.into(),
                 Err(e) => {
@@ -192,7 +209,7 @@ fn main() -> std::process::ExitCode {
         &pipe_name,
         has("--settings"),
         has("--after-update"),
-        rename_request,
+        request,
     ) {
         Ok(()) => 0,
         Err(e) => {
@@ -206,13 +223,20 @@ fn main() -> std::process::ExitCode {
     code.into()
 }
 
+/// The windows the host shows, opened by module outputs and fed their own events.
+struct Windows {
+    settings: SettingsUi,
+    rename: RenameUi,
+    hosts: HostsUi,
+}
+
 fn run(
     paths: Paths,
     log: Option<LogHandle>,
     pipe_name: &str,
     show_settings: bool,
     after_update: bool,
-    rename_request: Option<Value>,
+    request: Option<Value>,
 ) -> anyhow::Result<()> {
     let mut event_loop = EventLoop::new()?;
     let waker = event_loop.waker();
@@ -271,19 +295,22 @@ fn run(
     spawn_daily_check(update_tx.clone(), event_loop.waker(), Arc::clone(&auto_check));
     let mut available: Option<Release> = None;
     let mut update_busy = false;
-    if let Some(params) = rename_request {
-        // The command opens the PowerRename page itself.
+    if let Some(params) = request {
+        // The command opens its window itself.
         if let Err(e) = host.handle_request("module.command", &params) {
-            tracing::error!("--rename: {e}");
-            let _ = tray.notify("PowerRename", &e.to_string());
+            tracing::error!("command line: {e}");
+            let _ = tray.notify("PowerKit", &e.to_string());
         }
     } else if show_settings || !host.config().general.start_minimized {
         host.handle_request("app.open_settings", &Value::Null).ok();
     }
 
-    let mut settings = SettingsUi::default();
-    let mut rename = RenameUi::default();
-    let flush = |host: &mut Host, settings: &mut SettingsUi, rename: &mut RenameUi| -> bool {
+    let mut ui = Windows {
+        settings: SettingsUi::default(),
+        rename: RenameUi::default(),
+        hosts: HostsUi::new(event_loop.waker()),
+    };
+    let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
         for output in host.take_outputs() {
             match output {
@@ -293,11 +320,14 @@ fn run(
                     }
                 }
                 Output::Event { event, payload } => {
-                    if event == "power_rename.pending" {
-                        if let Err(e) = rename.open(host) {
-                            tracing::error!("{e}");
-                            let _ = tray.notify("PowerKit", &e);
-                        }
+                    let opened = match event.as_str() {
+                        "power_rename.pending" => ui.rename.open(host),
+                        hosts_editor::OPEN_EVENT => ui.hosts.open(),
+                        _ => Ok(()),
+                    };
+                    if let Err(e) = opened {
+                        tracing::error!("{e}");
+                        let _ = tray.notify("PowerKit", &e);
                     }
                     let msg = powerkit_ipc::EventMessage { event, payload };
                     if let Ok(line) = serde_json::to_string(&msg) {
@@ -305,7 +335,7 @@ fn run(
                     }
                 }
                 Output::OpenSettings { page } => {
-                    if let Err(e) = settings.open(host, page.as_deref()) {
+                    if let Err(e) = ui.settings.open(host, page.as_deref()) {
                         tracing::error!("{e}");
                         let _ = tray.notify("PowerKit", &e);
                     }
@@ -315,12 +345,13 @@ fn run(
         }
         keep_running
     };
-    flush(&mut host, &mut settings, &mut rename);
+    flush(&mut host, &mut ui);
 
     event_loop.run(|event| {
         match event {
             Event::Quit => return false,
             Event::Wake => {
+                ui.hosts.poll();
                 while let Ok((request, reply)) = rx.try_recv() {
                     let response = match host.handle_request(&request.method, &request.params) {
                         Ok(v) => Response::ok(request.id, v),
@@ -386,6 +417,9 @@ fn run(
                 let status = host.status();
                 let modules = status["modules"].as_array().cloned().unwrap_or_default();
                 let mut items = vec![MenuItem::new(MENU_SETTINGS, "Open settings")];
+                if host.config().hosts_editor.enabled {
+                    items.push(MenuItem::new(MENU_HOSTS, "Hosts File Editor"));
+                }
                 items.push(match &available {
                     Some(r) => MenuItem::new(MENU_INSTALL_UPDATE, format!("Install update {}", r.version)),
                     None => MenuItem::new(MENU_CHECK_UPDATES, "Check for updates"),
@@ -403,6 +437,12 @@ fn run(
                 match tray.show_menu(&items) {
                     Ok(Some(MENU_SETTINGS)) => {
                         host.handle_request("app.open_settings", &Value::Null).ok();
+                    }
+                    Ok(Some(MENU_HOSTS)) => {
+                        let params = json!({ "id": hosts_editor::ID, "command": "open" });
+                        if let Err(e) = host.handle_request("module.command", &params) {
+                            let _ = tray.notify("PowerKit", &e);
+                        }
                     }
                     Ok(Some(MENU_QUIT)) => return false,
                     Ok(Some(MENU_CHECK_UPDATES | MENU_INSTALL_UPDATE)) if update_busy => {
@@ -434,15 +474,16 @@ fn run(
                     Err(e) => tracing::warn!("tray menu: {e}"),
                 }
             }
-            Event::Settings(e) => settings.on_event(e, &mut host),
-            Event::Rename(e) => rename.on_event(e, &mut host),
+            Event::Settings(e) => ui.settings.on_event(e, &mut host),
+            Event::Rename(e) => ui.rename.on_event(e, &mut host),
+            Event::Hosts(e) => ui.hosts.on_event(e, &host),
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);
-        flush(&mut host, &mut settings, &mut rename)
+        flush(&mut host, &mut ui)
     });
 
     host.shutdown();
-    flush(&mut host, &mut settings, &mut rename);
+    flush(&mut host, &mut ui);
     Ok(())
 }

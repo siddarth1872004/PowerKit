@@ -2,15 +2,19 @@
 
 use crate::util::{from_wide, pcwstr, wide};
 use crate::{Context, Error, Result};
-use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, HANDLE};
+use windows::Win32::Foundation::{
+    CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, ERROR_CANCELLED, ERROR_FILE_NOT_FOUND, HANDLE,
+};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegCreateKeyExW, RegDeleteTreeW, RegDeleteValueW, RegGetValueW, RegSetValueExW, HKEY,
     HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_DWORD,
     RRF_RT_REG_SZ,
 };
-use windows::Win32::System::Threading::CreateMutexW;
-use windows::Win32::UI::Shell::ShellExecuteW;
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+use windows::Win32::System::Threading::{CreateMutexW, GetExitCodeProcess, WaitForSingleObject, INFINITE};
+use windows::Win32::UI::Shell::{
+    ShellExecuteExW, ShellExecuteW, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
+};
+use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
 /// Open a program, document, folder or URI with its default handler, the same way a
 /// double-click in Explorer would. `target` and `args` are passed to the shell as-is;
@@ -47,6 +51,44 @@ pub fn open(target: &str, args: Option<&str>) -> Result<()> {
             other => format!("could not open {target:?} (shell error {other})"),
         }))
     }
+}
+
+/// Run `exe` with `args` as administrator (Windows asks the user first), wait for it
+/// to finish and return its exit code. Blocks, so call it off the event loop thread.
+pub fn run_elevated(exe: &std::path::Path, args: &str) -> Result<u32> {
+    let wexe = wide(&exe.to_string_lossy());
+    let wargs = wide(args);
+    let mut info = SHELLEXECUTEINFOW {
+        cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+        fMask: SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC,
+        lpVerb: windows::core::w!("runas"),
+        lpFile: pcwstr(&wexe),
+        lpParameters: pcwstr(&wargs),
+        nShow: SW_HIDE.0,
+        ..Default::default()
+    };
+    // SAFETY: the strings outlive the call; `info` is a valid in/out structure.
+    if let Err(e) = unsafe { ShellExecuteExW(&mut info) } {
+        return Err(if e.code() == ERROR_CANCELLED.to_hresult() {
+            Error::Other("administrator permission was not given".into())
+        } else {
+            Error::Other(format!("could not start {} as administrator: {e}", exe.display()))
+        });
+    }
+    let process = info.hProcess;
+    if process.is_invalid() {
+        return Err(Error::Other("the elevated process handle is missing".into()));
+    }
+    let mut code = 0u32;
+    // SAFETY: `process` was returned open by ShellExecuteEx and is closed once here.
+    let got = unsafe {
+        WaitForSingleObject(process, INFINITE);
+        let got = GetExitCodeProcess(process, &mut code);
+        let _ = CloseHandle(process);
+        got
+    };
+    got.context("GetExitCodeProcess")?;
+    Ok(code)
 }
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";

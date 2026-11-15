@@ -2,6 +2,7 @@
 //! tray icon or real global hotkeys.
 
 pub mod host;
+pub mod hosts;
 pub mod rename;
 pub mod settings;
 pub mod update;
@@ -27,5 +28,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(shortcut_guide::ShortcutGuide::new()),
         Box::new(grab_and_move::GrabAndMove::new()),
         Box::new(window_hopper::WindowHopper::new()),
+        Box::new(hosts_editor::HostsEditor::new()),
     ]
 }
