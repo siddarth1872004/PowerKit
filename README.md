@@ -48,13 +48,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | <img src="assets/modules/screen_ruler.png" width="24" alt=""> | **Screen Ruler** | Measure the pixels between edges on screen: the lines stop where the color changes. Turn the wheel to measure across, down, both, or a box you drag; click to copy the size. Inches, centimeters or millimeters can be shown as well. | `Win+Ctrl+Shift+M` |
 | <img src="assets/modules/zoom_it.png" width="24" alt=""> | **ZoomIt** | For presenting: zoom in on the screen around the cursor with the wheel, then click to draw on it (Shift for a line, Ctrl for a box, both for an arrow; R, G, B, Y, O, P change the color, Ctrl+Z undoes, W and K give a white or black board). Also draw straight onto the screen, live zoom, and a break countdown. | `Ctrl+1` to `Ctrl+4` |
 | <img src="assets/modules/workspaces.png" width="24" alt=""> | **Workspaces** | Arrange your windows, give them a name and click Capture; later click Launch (or run `powerkit --workspace NAME`) and the programs start again with every window back on its monitor, size and maximized or minimized. Windows of programs already open are moved instead. | `Win+Ctrl+Backtick` |
+| <img src="assets/modules/peek.png" width="24" alt=""> | **Peek** | Select a file in File Explorer or on the desktop and press the shortcut to see it without opening it: pictures, text and code, or a file's or folder's details. The arrow keys browse the folder (or just the selected files), Enter opens the file and Escape closes. The shortcut is only taken while File Explorer is in front. | `Ctrl+Space` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Peek · Advanced Paste · Command Not Found
+Power Plan Switcher · Advanced Paste · Command Not Found
 
 ## Install
 

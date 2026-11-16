@@ -127,6 +127,17 @@ pub enum TableEvent {
     Choice(usize),
 }
 
+/// What the user did in the Peek window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PeekEvent {
+    Previous,
+    Next,
+    /// Open the file shown with its program.
+    Open,
+    /// The window was closed.
+    Closed,
+}
+
 /// What the user did in Registry Preview; rows count the listed keys and values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryEvent {
@@ -178,6 +189,7 @@ pub enum Event {
         event: TableEvent,
     },
     Registry(RegistryEvent),
+    Peek(PeekEvent),
     PowerDisplay(PowerDisplayEvent),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,

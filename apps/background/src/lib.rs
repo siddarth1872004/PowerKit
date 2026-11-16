@@ -8,6 +8,7 @@ pub mod hosts;
 pub mod icons;
 pub mod locksmith;
 pub mod new_menu;
+pub mod peek_view;
 pub mod registry;
 pub mod rename;
 pub mod resizer;
@@ -25,6 +26,7 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(power_rename::PowerRename::new()),
         Box::new(zoom_it::ZoomIt::new()),
         Box::new(workspaces::Workspaces::new()),
+        Box::new(peek::Peek::new()),
         Box::new(always_on_top::AlwaysOnTop::new()),
         Box::new(color_picker::ColorPicker::new()),
         Box::new(fancy_zones::FancyZones::new()),

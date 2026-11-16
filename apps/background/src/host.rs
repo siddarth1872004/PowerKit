@@ -3,7 +3,7 @@
 //! marked `Failed` and the rest keep running).
 
 use powerkit_config::{Config, ConfigStore, LoadReport, LoadSource, LogLevel, Paths};
-use powerkit_core::{keys, Event, Lifecycle, Shortcut, State, Transition};
+use powerkit_core::{keys, Event, Lifecycle, Shortcut, State, Transition, WindowEventKind};
 use powerkit_plugin_api::{Action, Ctx, HotkeyBinding, Manifest, Module};
 use serde_json::{json, Value};
 use std::collections::VecDeque;
@@ -433,6 +433,20 @@ impl Host {
                     Err(p) => self.fail(i, format!("crashed handling an event: {p}")),
                 }
             }
+            // Some modules hold a shortcut only while certain windows are in front.
+            if matches!(
+                event,
+                Event::Window {
+                    kind: WindowEventKind::Foreground,
+                    ..
+                }
+            ) {
+                for i in 0..self.slots.len() {
+                    if self.slots[i].life.state() == State::Running {
+                        self.bind_hotkeys(i);
+                    }
+                }
+            }
         }
         self.process_actions();
     }
@@ -531,6 +545,7 @@ impl Host {
                     Some("screen_ruler") => new.screen_ruler = d.screen_ruler,
                     Some("zoom_it") => new.zoom_it = d.zoom_it,
                     Some("workspaces") => new.workspaces = d.workspaces,
+                    Some("peek") => new.peek = d.peek,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

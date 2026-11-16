@@ -892,6 +892,15 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 )],
             ),
         ],
+        "peek" => vec![(
+            "Activation",
+            vec![s(
+                "shortcut",
+                "Activation shortcut",
+                "Taken only while File Explorer or the desktop is in front",
+                Shortcut,
+            )],
+        )],
         "zoom_it" => vec![
             (
                 "Shortcuts",
@@ -952,6 +961,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "shortcut_guide",
             "text_extractor",
             "zoom_it",
+            "peek",
         ],
     ),
     (

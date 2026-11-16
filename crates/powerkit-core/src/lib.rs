@@ -8,7 +8,7 @@ pub mod lifecycle;
 pub mod shortcut;
 
 pub use event::{
-    Event, MouseEvent, PopupEvent, PowerDisplayEvent, RegistryEvent, RenameEvent, RenameForm, SettingValue,
+    Event, MouseEvent, PeekEvent, PopupEvent, PowerDisplayEvent, RegistryEvent, RenameEvent, RenameForm, SettingValue,
     SettingsEvent, TableEvent, TrayEvent, WindowEventKind,
 };
 pub use geometry::Rect;
@@ -16,7 +16,7 @@ pub use lifecycle::{Lifecycle, State, Transition};
 pub use shortcut::{Mods, Shortcut, ShortcutError};
 
 /// Identifiers of the built-in utilities, in display order.
-pub const MODULE_IDS: [&str; 25] = [
+pub const MODULE_IDS: [&str; 26] = [
     "fancy_zones",
     "power_rename",
     "color_picker",
@@ -42,4 +42,5 @@ pub const MODULE_IDS: [&str; 25] = [
     "screen_ruler",
     "zoom_it",
     "workspaces",
+    "peek",
 ];

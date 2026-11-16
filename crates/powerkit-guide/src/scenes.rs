@@ -33,6 +33,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("screen_ruler", 9.0, screen_ruler),
     ("zoom_it", 10.0, zoom_it),
     ("workspaces", 9.0, workspaces),
+    ("peek", 9.0, peek),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1685,6 +1686,58 @@ fn workspaces(c: &mut Canvas, t: f32, cfg: &Config) {
             (3.4, "Later, with the programs closed, click Launch"),
             (5.2, "They start again and every window goes back in its place"),
             (7.0, "powerkit --workspace Morning does the same from a shortcut"),
+        ],
+    );
+}
+
+fn peek(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.peek;
+    c.desktop();
+    // File Explorer with a picture selected; the arrow moves on to a text file.
+    let top = c.window(12.0, 12.0, 200.0, 170.0, "Explorer");
+    let files = ["beach.jpg", "notes.txt", "report.pdf"];
+    let at = if t >= 5.0 { 1 } else { 0 };
+    for (i, name) in files.iter().enumerate() {
+        let y = top + 6.0 + i as f32 * 20.0;
+        if i == at {
+            c.rect(16.0, y - 2.0, 192.0, 18.0, 3.0, ACCENT_SOFT);
+        }
+        c.text(24.0, y, name, 9.0, TEXT);
+    }
+    press(c, t, 1.0, 1.6, &s.shortcut);
+    if (1.7..7.4).contains(&t) {
+        let title = files[at];
+        let wt = c.window(150.0, 30.0, 300.0, 180.0, title);
+        if at == 0 {
+            let (x, y, w, h) = (190.0, wt + 10.0, 220.0, 120.0);
+            c.rect(x, y, w, h * 0.6, 0.0, Color::rgb(120, 190, 240));
+            c.rect(x, y + h * 0.6, w, h * 0.4, 0.0, Color::rgb(235, 210, 150));
+            c.circle(x + w * 0.78, y + h * 0.22, 12.0, YELLOW);
+        } else {
+            scribble(c, 162.0, wt + 10.0, 276.0, 10, LINE);
+        }
+        let foot = if at == 0 {
+            "1 of 3  \u{b7}  1920 \u{d7} 1080"
+        } else {
+            "2 of 3  \u{b7}  14 lines"
+        };
+        c.text_box(150.0, wt + 140.0, 300.0, 14.0, foot, 8.0, MUTED, Align::Center);
+    }
+    if (4.4..5.0).contains(&t) {
+        c.keys(WIDTH / 2.0, KEYS_Y, "Right", true);
+    }
+    if (6.8..7.4).contains(&t) {
+        c.keys(WIDTH / 2.0, KEYS_Y, "Esc", true);
+    }
+    c.cursor(110.0, 240.0);
+    let start = format!("Select a file in File Explorer and press {}", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (2.0, "The file shows without opening it"),
+            (4.2, "The arrow keys go to the next or previous file"),
+            (6.0, "Enter opens the file; Escape closes Peek"),
         ],
     );
 }

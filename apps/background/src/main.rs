@@ -25,6 +25,7 @@ use powerkit_host::env::EnvUi;
 use powerkit_host::explorer_menu;
 use powerkit_host::hosts::HostsUi;
 use powerkit_host::locksmith::LocksmithUi;
+use powerkit_host::peek_view::PeekUi;
 use powerkit_host::registry::RegistryUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::resizer::ResizerUi;
@@ -335,6 +336,7 @@ struct Windows {
     locksmith: LocksmithUi,
     resizer: ResizerUi,
     workspaces: WorkspacesUi,
+    peek: PeekUi,
 }
 
 fn run(
@@ -435,6 +437,7 @@ fn run(
         locksmith: LocksmithUi::new(event_loop.waker()),
         resizer: ResizerUi::new(event_loop.waker()),
         workspaces: WorkspacesUi::new(event_loop.waker()),
+        peek: PeekUi::new(event_loop.waker()),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -480,6 +483,7 @@ fn run(
                         workspaces::LAUNCH_EVENT => {
                             ui.workspaces.launch(payload["name"].as_str().unwrap_or_default(), host)
                         }
+                        peek::OPEN_EVENT => ui.peek.open(payload["hwnd"].as_i64().unwrap_or_default() as isize),
                         _ => Ok(()),
                     };
                     if let Err(e) = opened {
@@ -513,6 +517,7 @@ fn run(
                 ui.registry.poll();
                 ui.locksmith.poll();
                 ui.resizer.poll();
+                ui.peek.poll();
                 if let Some(outcome) = ui.workspaces.poll() {
                     if let Err(e) = tray.notify("Workspaces", &outcome) {
                         tracing::warn!("notification not shown: {e}");
@@ -670,6 +675,11 @@ fn run(
                 ui.workspaces.on_event(event, &mut host)
             }
             Event::Registry(e) => ui.registry.on_event(e, &host.paths().root),
+            Event::Peek(e) => {
+                if let Err(e) = ui.peek.on_event(e) {
+                    let _ = tray.notify("Peek", &e);
+                }
+            }
             other => host.dispatch(&other),
         }
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);

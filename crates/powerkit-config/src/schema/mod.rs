@@ -15,6 +15,7 @@ mod launcher;
 mod light_switch;
 mod mouse;
 mod new_plus;
+mod peek;
 mod power_display;
 mod quick_accent;
 mod registry_preview;
@@ -40,6 +41,7 @@ pub use launcher::*;
 pub use light_switch::*;
 pub use mouse::*;
 pub use new_plus::*;
+pub use peek::*;
 pub use power_display::*;
 pub use quick_accent::*;
 pub use registry_preview::*;
@@ -178,6 +180,7 @@ pub struct Config {
     pub screen_ruler: ScreenRuler,
     pub zoom_it: ZoomIt,
     pub workspaces: Workspaces,
+    pub peek: Peek,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -285,6 +288,7 @@ impl Config {
         self.screen_ruler.sanitize(&mut w);
         self.zoom_it.sanitize(&mut w);
         self.workspaces.sanitize(&mut w);
+        self.peek.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -328,6 +332,7 @@ impl Config {
         push("zoom_it", "break", &self.zoom_it.break_shortcut);
         push("zoom_it", "live_zoom", &self.zoom_it.live_zoom_shortcut);
         push("workspaces", "open", &self.workspaces.shortcut);
+        push("peek", "open", &self.peek.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -386,6 +391,7 @@ impl Config {
             "screen_ruler" => self.screen_ruler.enabled,
             "zoom_it" => self.zoom_it.enabled,
             "workspaces" => self.workspaces.enabled,
+            "peek" => self.peek.enabled,
             _ => return None,
         })
     }
@@ -417,6 +423,7 @@ impl Config {
             "screen_ruler" => &mut self.screen_ruler.enabled,
             "zoom_it" => &mut self.zoom_it.enabled,
             "workspaces" => &mut self.workspaces.enabled,
+            "peek" => &mut self.peek.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -490,6 +497,7 @@ impl Config {
         config.screen_ruler = section(&mut map, "screen_ruler", &mut warnings);
         config.zoom_it = section(&mut map, "zoom_it", &mut warnings);
         config.workspaces = section(&mut map, "workspaces", &mut warnings);
+        config.peek = section(&mut map, "peek", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

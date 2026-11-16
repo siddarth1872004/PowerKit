@@ -123,6 +123,37 @@ fn temp_path(dst: &Path) -> PathBuf {
 }
 
 impl Picture {
+    /// The first frame as premultiplied BGRA pixels, row by row, at `size`.
+    pub fn pixels(&self, size: (u32, u32)) -> Result<Vec<u32>> {
+        let (w, h) = (size.0.max(1), size.1.max(1));
+        // SAFETY: each call is on an interface created just before; the buffer's
+        // length in bytes is passed with it.
+        unsafe {
+            let frame = self.decoder.GetFrame(0).context("reading the picture")?;
+            let pbgra = self.factory.CreateFormatConverter().context("converting the picture")?;
+            pbgra
+                .Initialize(
+                    &frame,
+                    &GUID_WICPixelFormat32bppPBGRA,
+                    WICBitmapDitherTypeNone,
+                    None,
+                    0.0,
+                    WICBitmapPaletteTypeCustom,
+                )
+                .context("converting the picture")?;
+            let scaler = self.factory.CreateBitmapScaler().context("scaling the picture")?;
+            scaler
+                .Initialize(&pbgra, w, h, WICBitmapInterpolationModeHighQualityCubic)
+                .context("scaling the picture")?;
+            let mut pixels = vec![0u32; (w * h) as usize];
+            let bytes = std::slice::from_raw_parts_mut(pixels.as_mut_ptr().cast::<u8>(), pixels.len() * 4);
+            scaler
+                .CopyPixels(std::ptr::null(), w * 4, bytes)
+                .context("reading the picture's pixels")?;
+            Ok(pixels)
+        }
+    }
+
     /// Save the resized picture as `dst`, replacing any file there (the picture itself
     /// included).
     pub fn save(self, dst: &Path, options: &SaveOptions) -> Result<()> {

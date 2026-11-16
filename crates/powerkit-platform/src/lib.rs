@@ -19,6 +19,7 @@ pub mod display_window;
 
 pub mod env;
 pub mod event_loop;
+pub mod explorer;
 pub mod frame;
 pub mod fs;
 pub mod guide_view;
@@ -34,6 +35,7 @@ pub mod mousehook;
 pub mod ocr;
 pub mod overlay;
 pub mod package;
+pub mod peek_window;
 pub mod pipe;
 pub mod popup;
 pub mod power;

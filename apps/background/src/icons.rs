@@ -30,6 +30,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "screen_ruler" => include_bytes!("../../../assets/modules/screen_ruler.ico"),
         "zoom_it" => include_bytes!("../../../assets/modules/zoom_it.ico"),
         "workspaces" => include_bytes!("../../../assets/modules/workspaces.ico"),
+        "peek" => include_bytes!("../../../assets/modules/peek.ico"),
         _ => return None,
     })
 }

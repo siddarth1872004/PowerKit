@@ -30,6 +30,7 @@ always-on-top.workspace = true
 power-rename.workspace = true
 zoom-it.workspace = true
 workspaces.workspace = true
+peek.workspace = true
 color-picker.workspace = true
 fancy-zones.workspace = true
 keyboard-manager.workspace = true
