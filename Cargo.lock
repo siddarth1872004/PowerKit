@@ -257,6 +257,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 
 [[package]]
+name = "file-explorer"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "powerkit-preview",
+ "serde_json",
+ "tracing",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "file-locksmith"
 version = "0.2.0"
 dependencies = [
@@ -579,6 +595,7 @@ dependencies = [
  "crop-and-lock",
  "environment-variables",
  "fancy-zones",
+ "file-explorer",
  "file-locksmith",
  "grab-and-move",
  "hosts-editor",
@@ -665,6 +682,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "powerkit-preview"
+version = "0.2.0"
+dependencies = [
+ "windows",
+ "windows-core",
 ]
 
 [[package]]

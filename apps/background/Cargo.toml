@@ -34,6 +34,7 @@ peek.workspace = true
 power-plan.workspace = true
 advanced-paste.workspace = true
 command-not-found.workspace = true
+file-explorer.workspace = true
 color-picker.workspace = true
 fancy-zones.workspace = true
 keyboard-manager.workspace = true

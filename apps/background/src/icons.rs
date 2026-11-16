@@ -34,6 +34,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "power_plan" => include_bytes!("../../../assets/modules/power_plan.ico"),
         "advanced_paste" => include_bytes!("../../../assets/modules/advanced_paste.ico"),
         "command_not_found" => include_bytes!("../../../assets/modules/command_not_found.ico"),
+        "file_explorer" => include_bytes!("../../../assets/modules/file_explorer.ico"),
         _ => return None,
     })
 }

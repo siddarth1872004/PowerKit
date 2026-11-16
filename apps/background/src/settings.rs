@@ -892,6 +892,39 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 )],
             ),
         ],
+        "file_explorer" => vec![
+            (
+                "Preview pane",
+                vec![
+                    s("markdown_preview", "Markdown", ".md and .markdown files", Toggle),
+                    s(
+                        "code_preview",
+                        "Source code",
+                        "Colored source and configuration files: .rs, .py, .js, .json, .yaml, ...",
+                        Toggle,
+                    ),
+                    s("svg_preview", "SVG pictures", "", Toggle),
+                    s(
+                        "pdf_preview",
+                        "PDF documents",
+                        "Replaces the PDF preview of Windows or a PDF reader, which comes back when this is off",
+                        Toggle,
+                    ),
+                    s("qoi_preview", "QOI pictures", "", Toggle),
+                    s("gcode_preview", "G-code", "The picture of the print that the slicer put in the file", Toggle),
+                ],
+            ),
+            (
+                "Thumbnails",
+                vec![
+                    s("svg_thumbnails", "SVG pictures", "", Toggle),
+                    s("pdf_thumbnails", "PDF documents", "The first page", Toggle),
+                    s("qoi_thumbnails", "QOI pictures", "", Toggle),
+                    s("gcode_thumbnails", "G-code", "", Toggle),
+                    s("stl_thumbnails", "STL 3D models", "", Toggle),
+                ],
+            ),
+        ],
         "peek" => vec![(
             "Activation",
             vec![s(
@@ -1028,7 +1061,13 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     (
         "File Management",
         '\u{E8B7}',
-        &["file_locksmith", "image_resizer", "new_plus", "power_rename"],
+        &[
+            "file_explorer",
+            "file_locksmith",
+            "image_resizer",
+            "new_plus",
+            "power_rename",
+        ],
     ),
     (
         "Advanced",

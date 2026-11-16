@@ -359,6 +359,14 @@ pub fn select_to_rename(path: &std::path::Path) -> Result<()> {
     }
 }
 
+/// Tell Explorer that file type registrations changed, so it picks up new or removed
+/// preview handlers and thumbnail providers without a restart.
+pub fn file_types_changed() {
+    use windows::Win32::UI::Shell::{SHChangeNotify, SHCNE_ASSOCCHANGED, SHCNF_IDLIST};
+    // SAFETY: the notification takes no items.
+    unsafe { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None) };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

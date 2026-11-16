@@ -37,6 +37,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("power_plan", 8.0, power_plan),
     ("advanced_paste", 9.0, advanced_paste),
     ("command_not_found", 8.0, command_not_found),
+    ("file_explorer", 10.0, file_explorer),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1893,6 +1894,107 @@ fn command_not_found(c: &mut Canvas, t: f32, _cfg: &Config) {
             ),
             (2.8, "PowerShell suggests the winget package that provides it"),
             (5.0, "Run the line it shows to install the package"),
+        ],
+    );
+}
+
+fn file_explorer(c: &mut Canvas, t: f32, _cfg: &Config) {
+    c.desktop();
+    let top = c.window(30.0, 20.0, 420.0, 180.0, "Explorer");
+    let thumbnails = t >= 6.5;
+    if !thumbnails {
+        // Details view with the preview pane on the right.
+        let files = ["README.md", "main.rs", "logo.svg"];
+        let at = if t >= 3.4 { 1 } else { 0 };
+        for (i, name) in files.iter().enumerate() {
+            file_row(c, 36.0, top + 6.0 + i as f32 * 20.0, 170.0, name, false, i == at);
+        }
+        click(c, t, 3.2, 90.0, top + 35.0);
+        let (px, py, pw) = (220.0, top + 4.0, 224.0);
+        c.rect(px, py, pw, 150.0, 2.0, WHITE);
+        c.line(px - 4.0, py, px - 4.0, py + 150.0, LINE, 1.0);
+        if (1.0..3.4).contains(&t) {
+            c.bold(px + 10.0, py + 16.0, "PowerKit", 13.0, TEXT);
+            scribble(c, px + 10.0, py + 34.0, pw - 20.0, 3, LINE);
+            for i in 0..3 {
+                let y = py + 74.0 + i as f32 * 14.0;
+                c.circle(px + 14.0, y + 2.0, 2.0, TEXT);
+                c.rect(px + 22.0, y, [120.0, 90.0, 140.0][i], 4.0, 2.0, LINE);
+            }
+            c.text(px + 10.0, py + 126.0, "github.com/...", 8.0, ACCENT);
+        } else if t >= 3.6 {
+            let colors = [ACCENT, Color::rgb(163, 21, 21), Color::rgb(0, 128, 0), MUTED];
+            for i in 0..9 {
+                let y = py + 10.0 + i as f32 * 14.0;
+                let indent = [0.0, 12.0, 12.0, 24.0, 24.0, 12.0, 0.0, 0.0, 12.0][i];
+                c.rect(px + 10.0 + indent, y, 26.0, 4.0, 2.0, colors[i % 4]);
+                c.rect(
+                    px + 40.0 + indent,
+                    y,
+                    [80.0, 60.0, 110.0, 50.0][i % 4],
+                    4.0,
+                    2.0,
+                    colors[(i + 2) % 4],
+                );
+            }
+        }
+        if (0.2..0.9).contains(&t) {
+            c.keys(WIDTH / 2.0, KEYS_Y, "Alt+P", true);
+        }
+        c.cursor(90.0, top + 35.0);
+    } else {
+        // Large icons: the pictures drawn from the files themselves.
+        let names = ["logo.svg", "bracket.stl", "benchy.gcode", "sprite.qoi"];
+        for (i, name) in names.iter().enumerate() {
+            let x = 52.0 + i as f32 * 100.0;
+            let y = top + 14.0;
+            c.rect(x, y, 76.0, 76.0, 4.0, WHITE);
+            c.outline(x, y, 76.0, 76.0, 4.0, LINE, 1.0);
+            match i {
+                0 => {
+                    c.circle(x + 38.0, y + 38.0, 24.0, ACCENT);
+                    c.polygon(
+                        vec![(x + 26.0, y + 50.0), (x + 38.0, y + 22.0), (x + 50.0, y + 50.0)],
+                        YELLOW,
+                        None,
+                    );
+                }
+                1 => c.polygon(
+                    vec![
+                        (x + 14.0, y + 56.0),
+                        (x + 38.0, y + 18.0),
+                        (x + 62.0, y + 56.0),
+                        (x + 38.0, y + 64.0),
+                    ],
+                    Color::rgb(150, 160, 175),
+                    Some((Color::rgb(90, 100, 115), 1.0)),
+                ),
+                2 => {
+                    c.rect(x + 18.0, y + 40.0, 40.0, 18.0, 3.0, Color::rgb(240, 120, 40));
+                    c.rect(x + 30.0, y + 24.0, 18.0, 16.0, 2.0, Color::rgb(240, 120, 40));
+                }
+                _ => {
+                    for k in 0..16 {
+                        let (gx, gy) = ((k % 4) as f32, (k / 4) as f32);
+                        let color = if (k + k / 4) % 2 == 0 {
+                            Color::rgb(90, 200, 120)
+                        } else {
+                            Color::rgb(40, 120, 70)
+                        };
+                        c.rect(x + 14.0 + gx * 12.0, y + 14.0 + gy * 12.0, 12.0, 12.0, 0.0, color);
+                    }
+                }
+            }
+            c.text_box(x - 12.0, y + 82.0, 100.0, 12.0, name, 8.0, TEXT, Align::Center);
+        }
+    }
+    c.steps(
+        t,
+        &[
+            (0.0, "In File Explorer, press Alt+P to show the preview pane"),
+            (1.0, "Markdown shows formatted, with links you can click"),
+            (3.6, "Source code shows with its colors"),
+            (6.5, "Thumbnails show SVG, STL, G-code and QOI files as pictures"),
         ],
     );
 }

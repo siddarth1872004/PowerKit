@@ -8,6 +8,7 @@ mod command_not_found;
 mod crop_and_lock;
 mod environment_variables;
 mod fancy_zones;
+mod file_explorer;
 mod file_locksmith;
 mod grab_and_move;
 mod hosts_editor;
@@ -37,6 +38,7 @@ pub use command_not_found::*;
 pub use crop_and_lock::*;
 pub use environment_variables::*;
 pub use fancy_zones::*;
+pub use file_explorer::*;
 pub use file_locksmith::*;
 pub use grab_and_move::*;
 pub use hosts_editor::*;
@@ -190,6 +192,7 @@ pub struct Config {
     pub power_plan: PowerPlan,
     pub advanced_paste: AdvancedPaste,
     pub command_not_found: CommandNotFound,
+    pub file_explorer: FileExplorer,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -301,6 +304,7 @@ impl Config {
         self.power_plan.sanitize(&mut w);
         self.advanced_paste.sanitize(&mut w);
         self.command_not_found.sanitize(&mut w);
+        self.file_explorer.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -413,6 +417,7 @@ impl Config {
             "power_plan" => self.power_plan.enabled,
             "advanced_paste" => self.advanced_paste.enabled,
             "command_not_found" => self.command_not_found.enabled,
+            "file_explorer" => self.file_explorer.enabled,
             _ => return None,
         })
     }
@@ -448,6 +453,7 @@ impl Config {
             "power_plan" => &mut self.power_plan.enabled,
             "advanced_paste" => &mut self.advanced_paste.enabled,
             "command_not_found" => &mut self.command_not_found.enabled,
+            "file_explorer" => &mut self.file_explorer.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -525,6 +531,7 @@ impl Config {
         config.power_plan = section(&mut map, "power_plan", &mut warnings);
         config.advanced_paste = section(&mut map, "advanced_paste", &mut warnings);
         config.command_not_found = section(&mut map, "command_not_found", &mut warnings);
+        config.file_explorer = section(&mut map, "file_explorer", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

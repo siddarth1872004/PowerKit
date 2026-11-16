@@ -549,6 +549,7 @@ impl Host {
                     Some("power_plan") => new.power_plan = d.power_plan,
                     Some("advanced_paste") => new.advanced_paste = d.advanced_paste,
                     Some("command_not_found") => new.command_not_found = d.command_not_found,
+                    Some("file_explorer") => new.file_explorer = d.file_explorer,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

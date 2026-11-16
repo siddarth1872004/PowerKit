@@ -32,6 +32,7 @@ members = [
     "modules/power-plan",
     "modules/advanced-paste",
     "modules/command-not-found",
+    "modules/file-explorer",
     "apps/background",
 ]
 
@@ -61,6 +62,7 @@ powerkit-ipc = { path = "crates/powerkit-ipc" }
 powerkit-logging = { path = "crates/powerkit-logging" }
 powerkit-platform = { path = "crates/powerkit-platform" }
 powerkit-menu = { path = "crates/powerkit-menu" }
+powerkit-preview = { path = "crates/powerkit-preview" }
 powerkit-plugin-api = { path = "crates/powerkit-plugin-api" }
 always-on-top = { path = "modules/always-on-top" }
 color-picker = { path = "modules/color-picker" }
@@ -71,6 +73,7 @@ peek = { path = "modules/peek" }
 power-plan = { path = "modules/power-plan" }
 advanced-paste = { path = "modules/advanced-paste" }
 command-not-found = { path = "modules/command-not-found" }
+file-explorer = { path = "modules/file-explorer" }
 fancy-zones = { path = "modules/fancy-zones" }
 launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }
