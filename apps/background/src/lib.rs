@@ -43,5 +43,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(image_resizer::ImageResizer::new()),
         Box::new(text_extractor::TextExtractor::new()),
         Box::new(power_display::PowerDisplay::new()),
+        Box::new(screen_ruler::ScreenRuler::new()),
     ]
 }

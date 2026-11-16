@@ -542,6 +542,7 @@ dependencies = [
  "powerkit-plugin-api",
  "quick-accent",
  "registry-preview",
+ "screen-ruler",
  "serde_json",
  "shortcut-guide",
  "tempfile",
@@ -769,6 +770,20 @@ dependencies = [
  "quick-error",
  "tempfile",
  "wait-timeout",
+]
+
+[[package]]
+name = "screen-ruler"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

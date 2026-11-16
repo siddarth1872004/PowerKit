@@ -27,6 +27,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "image_resizer" => include_bytes!("../../../assets/modules/image_resizer.ico"),
         "text_extractor" => include_bytes!("../../../assets/modules/text_extractor.ico"),
         "power_display" => include_bytes!("../../../assets/modules/power_display.ico"),
+        "screen_ruler" => include_bytes!("../../../assets/modules/screen_ruler.ico"),
         _ => return None,
     })
 }

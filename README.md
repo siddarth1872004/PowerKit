@@ -45,13 +45,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | <img src="assets/modules/image_resizer.png" width="24" alt=""> | **Image Resizer** | Right-click pictures and choose Resize with PowerKit, then pick a saved size or type one in pixels, percent, centimeters or inches. Fit, fill (cropping the middle) or stretch; save copies named from a pattern like `%1 (%2)` or replace the originals; never enlarge, keep metadata and dates, set the JPEG quality. Pictures Windows can read but not write, such as HEIC and WebP, are saved as JPEG or another format you choose. | Explorer menu, `powerkit --resize P…` |
 | <img src="assets/modules/text_extractor.png" width="24" alt=""> | **Text Extractor** | Drag a box over any part of the screen and the text in it is read by the OCR built into Windows and copied, line by line or as one line. Reads the Windows display languages, or any language you name whose OCR is installed. | `Win+Shift+T` |
 | <img src="assets/modules/power_display.png" width="24" alt=""> | **Power Display** | Set the brightness, contrast and volume of external monitors from one window, with a slider for each monitor, over DDC/CI. Input source, color preset and power can be added in the settings; each change to them asks first. Built-in laptop screens are not supported. | `Win+Alt+M` |
+| <img src="assets/modules/screen_ruler.png" width="24" alt=""> | **Screen Ruler** | Measure the pixels between edges on screen: the lines stop where the color changes. Turn the wheel to measure across, down, both, or a box you drag; click to copy the size. Inches, centimeters or millimeters can be shown as well. | `Win+Ctrl+Shift+M` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Screen Ruler · ZoomIt ·
+ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
 ## Install

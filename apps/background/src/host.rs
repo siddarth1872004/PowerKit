@@ -528,6 +528,7 @@ impl Host {
                     Some("image_resizer") => new.image_resizer = d.image_resizer,
                     Some("text_extractor") => new.text_extractor = d.text_extractor,
                     Some("power_display") => new.power_display = d.power_display,
+                    Some("screen_ruler") => new.screen_ruler = d.screen_ruler,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

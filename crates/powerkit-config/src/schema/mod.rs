@@ -19,6 +19,7 @@ mod power_display;
 mod quick_accent;
 mod registry_preview;
 mod rename;
+mod screen_ruler;
 mod shortcut_guide;
 mod text_extractor;
 mod window_hopper;
@@ -41,6 +42,7 @@ pub use power_display::*;
 pub use quick_accent::*;
 pub use registry_preview::*;
 pub use rename::*;
+pub use screen_ruler::*;
 pub use shortcut_guide::*;
 pub use text_extractor::*;
 pub use window_hopper::*;
@@ -169,6 +171,7 @@ pub struct Config {
     pub image_resizer: ImageResizer,
     pub text_extractor: TextExtractor,
     pub power_display: PowerDisplay,
+    pub screen_ruler: ScreenRuler,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -273,6 +276,7 @@ impl Config {
         self.image_resizer.sanitize(&mut w);
         self.text_extractor.sanitize(&mut w);
         self.power_display.sanitize(&mut w);
+        self.screen_ruler.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -310,6 +314,7 @@ impl Config {
         push("registry_preview", "open", &self.registry_preview.shortcut);
         push("text_extractor", "extract", &self.text_extractor.shortcut);
         push("power_display", "open", &self.power_display.shortcut);
+        push("screen_ruler", "measure", &self.screen_ruler.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -365,6 +370,7 @@ impl Config {
             "image_resizer" => self.image_resizer.enabled,
             "text_extractor" => self.text_extractor.enabled,
             "power_display" => self.power_display.enabled,
+            "screen_ruler" => self.screen_ruler.enabled,
             _ => return None,
         })
     }
@@ -393,6 +399,7 @@ impl Config {
             "image_resizer" => &mut self.image_resizer.enabled,
             "text_extractor" => &mut self.text_extractor.enabled,
             "power_display" => &mut self.power_display.enabled,
+            "screen_ruler" => &mut self.screen_ruler.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -463,6 +470,7 @@ impl Config {
         config.image_resizer = section(&mut map, "image_resizer", &mut warnings);
         config.text_extractor = section(&mut map, "text_extractor", &mut warnings);
         config.power_display = section(&mut map, "power_display", &mut warnings);
+        config.screen_ruler = section(&mut map, "screen_ruler", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

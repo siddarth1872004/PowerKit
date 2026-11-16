@@ -30,6 +30,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("image_resizer", 9.0, image_resizer),
     ("text_extractor", 9.0, text_extractor),
     ("power_display", 9.0, power_display),
+    ("screen_ruler", 9.0, screen_ruler),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1501,6 +1502,49 @@ fn power_display(c: &mut Canvas, t: f32, cfg: &Config) {
             (1.4, "Each monitor gets its own sliders"),
             (3.2, "Drag to set the monitor's own brightness"),
             (6.0, "Input and power can be added in the settings"),
+        ],
+    );
+}
+
+fn screen_ruler(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.screen_ruler;
+    let color = hex(&s.line_color, Color::rgb(255, 69, 0));
+    c.desktop();
+    let top = c.window(20.0, 20.0, 280.0, 160.0, "Design mockup");
+    let (bx, by, bw, bh) = (70.0, top + 24.0, 150.0, 70.0);
+    c.rect(bx, by, bw, bh, 0.0, Color::rgb(120, 170, 230));
+    press(c, t, 0.5, 1.1, &s.shortcut);
+    let (x, y) = path(t, &[(0.0, 330.0, 220.0), (1.4, 150.0, by + 40.0)]);
+    // The mode the wheel turned to at 4.2 seconds.
+    let both = t < 4.2;
+    if (1.4..7.6).contains(&t) {
+        let foot = if s.draw_feet { 4.0 } else { 0.0 };
+        c.line(bx, y, bx + bw, y, color, 1.5);
+        if foot > 0.0 {
+            c.line(bx, y - foot, bx, y + foot, color, 1.5);
+            c.line(bx + bw, y - foot, bx + bw, y + foot, color, 1.5);
+        }
+        if both {
+            c.line(x, by, x, by + bh, color, 1.5);
+            if foot > 0.0 {
+                c.line(x - foot, by, x + foot, by, color, 1.5);
+                c.line(x - foot, by + bh, x + foot, by + bh, color, 1.5);
+            }
+        }
+        let label = if both { "150 \u{00D7} 70 px" } else { "150 px" };
+        c.rect(x + 10.0, y + 10.0, 78.0, 20.0, 3.0, Color::rgb(32, 32, 32));
+        c.text(x + 16.0, y + 15.0, label, 8.0, WHITE);
+    }
+    click(c, t, 5.4, x, y);
+    c.cursor(x, y);
+    let start = format!("Press {}", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.6, "The lines stop where the color changes"),
+            (3.6, "Turn the wheel to measure only across or down"),
+            (5.2, "Click to copy the size; Escape stops"),
         ],
     );
 }

@@ -842,6 +842,41 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 ],
             ),
         ],
+        "screen_ruler" => vec![
+            (
+                "Activation",
+                vec![s(
+                    "shortcut",
+                    "Activation shortcut",
+                    "The wheel switches what is measured; a click copies it; Escape stops",
+                    Shortcut,
+                )],
+            ),
+            (
+                "Measuring",
+                vec![
+                    s(
+                        "tolerance",
+                        "Edge tolerance",
+                        "0 to 255; how much a color may change before it counts as an edge",
+                        Number,
+                    ),
+                    s("draw_feet", "Draw feet", "Short bars across the ends of each line", Toggle),
+                    s("line_color", "Line color", "", Color),
+                    s(
+                        "extra_unit",
+                        "Also show",
+                        "Worked out from the Windows scaling, not the panel's real size",
+                        Choice(&[
+                            ("none", "Pixels only"),
+                            ("inches", "Inches"),
+                            ("centimeters", "Centimeters"),
+                            ("millimeters", "Millimeters"),
+                        ]),
+                    ),
+                ],
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -857,6 +892,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "light_switch",
             "launcher",
             "power_display",
+            "screen_ruler",
             "shortcut_guide",
             "text_extractor",
         ],
