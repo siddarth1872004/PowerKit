@@ -469,6 +469,35 @@ pub fn restore(hwnd: Hwnd) {
     let _ = unsafe { ShowWindow(hwnd.raw(), SW_SHOWNOACTIVATE) };
 }
 
+/// Where a window goes when it is restored from maximized or minimized, as its outer
+/// rectangle in screen coordinates.
+pub fn restored_rect(hwnd: Hwnd) -> Result<Rect> {
+    let mut p = WINDOWPLACEMENT {
+        length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
+        ..Default::default()
+    };
+    // SAFETY: `p` is a valid in/out structure with its length set.
+    unsafe { GetWindowPlacement(hwnd.raw(), &mut p) }.context("GetWindowPlacement")?;
+    let r = to_rect(p.rcNormalPosition);
+    // Placement is relative to the work area unless the window is a tool window.
+    if info(hwnd)?.has_ex_style(WS_EX_TOOLWINDOW_BITS) {
+        return Ok(r);
+    }
+    let m = crate::monitor::from_window(hwnd).ok_or_else(|| Error::Other("the window has no monitor".into()))?;
+    let (dx, dy) = (m.work_area.left - m.rect.left, m.work_area.top - m.rect.top);
+    Ok(Rect::new(r.left + dx, r.top + dy, r.right + dx, r.bottom + dy))
+}
+
+pub fn maximize(hwnd: Hwnd) {
+    // SAFETY: plain value arguments; the result is the previous visibility.
+    let _ = unsafe { ShowWindow(hwnd.raw(), SW_MAXIMIZE) };
+}
+
+pub fn minimize(hwnd: Hwnd) {
+    // SAFETY: plain value arguments; the result is the previous visibility.
+    let _ = unsafe { ShowWindow(hwnd.raw(), SW_SHOWMINNOACTIVE) };
+}
+
 /// Bring a window to the foreground (restoring it if minimized). Windows may refuse
 /// focus changes from background processes; that is reported as an error.
 pub fn activate(hwnd: Hwnd) -> Result<()> {

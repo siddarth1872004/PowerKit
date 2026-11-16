@@ -23,6 +23,7 @@ mod screen_ruler;
 mod shortcut_guide;
 mod text_extractor;
 mod window_hopper;
+mod workspaces;
 mod zoom_it;
 
 pub use awake::*;
@@ -47,6 +48,7 @@ pub use screen_ruler::*;
 pub use shortcut_guide::*;
 pub use text_extractor::*;
 pub use window_hopper::*;
+pub use workspaces::*;
 pub use zoom_it::*;
 
 use powerkit_core::Shortcut;
@@ -175,6 +177,7 @@ pub struct Config {
     pub power_display: PowerDisplay,
     pub screen_ruler: ScreenRuler,
     pub zoom_it: ZoomIt,
+    pub workspaces: Workspaces,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -281,6 +284,7 @@ impl Config {
         self.power_display.sanitize(&mut w);
         self.screen_ruler.sanitize(&mut w);
         self.zoom_it.sanitize(&mut w);
+        self.workspaces.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -323,6 +327,7 @@ impl Config {
         push("zoom_it", "draw", &self.zoom_it.draw_shortcut);
         push("zoom_it", "break", &self.zoom_it.break_shortcut);
         push("zoom_it", "live_zoom", &self.zoom_it.live_zoom_shortcut);
+        push("workspaces", "open", &self.workspaces.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -380,6 +385,7 @@ impl Config {
             "power_display" => self.power_display.enabled,
             "screen_ruler" => self.screen_ruler.enabled,
             "zoom_it" => self.zoom_it.enabled,
+            "workspaces" => self.workspaces.enabled,
             _ => return None,
         })
     }
@@ -410,6 +416,7 @@ impl Config {
             "power_display" => &mut self.power_display.enabled,
             "screen_ruler" => &mut self.screen_ruler.enabled,
             "zoom_it" => &mut self.zoom_it.enabled,
+            "workspaces" => &mut self.workspaces.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -482,6 +489,7 @@ impl Config {
         config.power_display = section(&mut map, "power_display", &mut warnings);
         config.screen_ruler = section(&mut map, "screen_ruler", &mut warnings);
         config.zoom_it = section(&mut map, "zoom_it", &mut warnings);
+        config.workspaces = section(&mut map, "workspaces", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

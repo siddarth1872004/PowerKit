@@ -32,6 +32,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("power_display", 9.0, power_display),
     ("screen_ruler", 9.0, screen_ruler),
     ("zoom_it", 10.0, zoom_it),
+    ("workspaces", 9.0, workspaces),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1609,6 +1610,81 @@ fn zoom_it(c: &mut Canvas, t: f32, cfg: &Config) {
             (1.4, "Turn the wheel to zoom further in or out"),
             (3.0, "Click to draw on what is shown"),
             (6.4, "Right-click to zoom again; Escape ends"),
+        ],
+    );
+}
+
+fn workspaces(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.workspaces;
+    c.desktop();
+    // The windows go when the programs are closed and come back one by one.
+    let apps = [
+        (12.0, 12.0, 220.0, 150.0, "Code", 5.2),
+        (240.0, 12.0, 228.0, 150.0, "Browser", 5.7),
+        (12.0, 170.0, 300.0, 40.0, "Terminal", 6.2),
+    ];
+    for (x, y, w, h, title, back) in apps {
+        if t < 3.8 || t >= back {
+            let top = c.window(x, y, w, h, title);
+            scribble(c, x + 10.0, top + 8.0, w - 20.0, ((h - 30.0) / 10.0) as usize, LINE);
+        }
+    }
+    press(c, t, 0.5, 1.1, &s.shortcut);
+    let fy = 150.0;
+    if (1.2..5.0).contains(&t) {
+        let top = c.window(90.0, 40.0, 300.0, 150.0, "Workspaces");
+        let rows = if t >= 2.8 {
+            vec![vec![
+                "Morning".to_string(),
+                "Code, Browser, Terminal".into(),
+                "3".into(),
+            ]]
+        } else {
+            vec![]
+        };
+        table(
+            c,
+            98.0,
+            top + 6.0,
+            284.0,
+            &[0.0, 70.0, 250.0],
+            &["Name", "Programs", ""],
+            &rows,
+            (t >= 2.8).then_some(0),
+        );
+        let name = if t < 2.8 {
+            typed("Morning", t, 1.5, 0.1)
+        } else {
+            "Morning"
+        };
+        c.field(98.0, fy, 120.0, name, t < 2.8);
+        c.button(224.0, fy, 50.0, "Capture", (2.5..2.8).contains(&t));
+        c.button(280.0, fy, 50.0, "Launch", (4.6..4.9).contains(&t));
+    }
+    let (x, y) = path(
+        t,
+        &[
+            (0.0, 300.0, 230.0),
+            (2.0, 300.0, 230.0),
+            (2.4, 249.0, fy + 8.0),
+            (3.2, 249.0, fy + 8.0),
+            (4.3, 305.0, fy + 8.0),
+            (5.0, 305.0, fy + 8.0),
+            (5.6, 420.0, 240.0),
+        ],
+    );
+    click(c, t, 2.5, x, y);
+    click(c, t, 4.6, x, y);
+    c.cursor(x, y);
+    let start = format!("Arrange your windows and press {}", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.4, "Name the workspace and click Capture"),
+            (3.4, "Later, with the programs closed, click Launch"),
+            (5.2, "They start again and every window goes back in its place"),
+            (7.0, "powerkit --workspace Morning does the same from a shortcut"),
         ],
     );
 }

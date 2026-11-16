@@ -530,6 +530,7 @@ impl Host {
                     Some("power_display") => new.power_display = d.power_display,
                     Some("screen_ruler") => new.screen_ruler = d.screen_ruler,
                     Some("zoom_it") => new.zoom_it = d.zoom_it,
+                    Some("workspaces") => new.workspaces = d.workspaces,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

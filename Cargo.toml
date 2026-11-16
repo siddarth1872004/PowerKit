@@ -27,6 +27,7 @@ members = [
     "modules/screen-ruler",
     "modules/power-rename",
     "modules/zoom-it",
+    "modules/workspaces",
     "apps/background",
 ]
 
@@ -61,6 +62,7 @@ always-on-top = { path = "modules/always-on-top" }
 color-picker = { path = "modules/color-picker" }
 power-rename = { path = "modules/power-rename" }
 zoom-it = { path = "modules/zoom-it" }
+workspaces = { path = "modules/workspaces" }
 fancy-zones = { path = "modules/fancy-zones" }
 launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }

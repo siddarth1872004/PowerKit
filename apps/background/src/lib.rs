@@ -13,6 +13,7 @@ pub mod rename;
 pub mod resizer;
 pub mod settings;
 pub mod update;
+pub mod workspace_editor;
 
 pub use host::{Backend, Host, Output};
 
@@ -23,6 +24,7 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
     vec![
         Box::new(power_rename::PowerRename::new()),
         Box::new(zoom_it::ZoomIt::new()),
+        Box::new(workspaces::Workspaces::new()),
         Box::new(always_on_top::AlwaysOnTop::new()),
         Box::new(color_picker::ColorPicker::new()),
         Box::new(fancy_zones::FancyZones::new()),

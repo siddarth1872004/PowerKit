@@ -12,6 +12,7 @@
 //! * `powerkit --new DIR`   show the New+ template menu for folder DIR (Explorer menu)
 //! * `powerkit --unlock P…` show which processes use the given files (Explorer menu)
 //! * `powerkit --resize P…` resize the given pictures (Explorer menu)
+//! * `powerkit --workspace NAME`  launch the saved workspace NAME
 //! * `powerkit --trust-menu-cert HEX`  trust the Explorer menu's signing certificate
 //!   for the machine (run elevated)
 //! * `powerkit --version`
@@ -29,6 +30,7 @@ use powerkit_host::rename::RenameUi;
 use powerkit_host::resizer::ResizerUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::update::{self, Release};
+use powerkit_host::workspace_editor::WorkspacesUi;
 use powerkit_host::{builtin_modules, Backend, Host, Output};
 use powerkit_ipc::{Client, Request, Response};
 use powerkit_logging::LogHandle;
@@ -233,6 +235,12 @@ fn main() -> std::process::ExitCode {
         Some(json!({ "id": file_locksmith::ID, "command": "open", "args": { "paths": unlock } }))
     } else if !resize.is_empty() {
         Some(json!({ "id": image_resizer::ID, "command": "open", "args": { "paths": resize } }))
+    } else if let Some(name) = args
+        .iter()
+        .position(|a| a == "--workspace")
+        .and_then(|i| args.get(i + 1))
+    {
+        Some(json!({ "id": workspaces::ID, "command": "launch", "args": { "name": name } }))
     } else if has("--hosts") {
         Some(json!({ "id": hosts_editor::ID, "command": "open" }))
     } else if has("--env") {
@@ -326,6 +334,7 @@ struct Windows {
     registry: RegistryUi,
     locksmith: LocksmithUi,
     resizer: ResizerUi,
+    workspaces: WorkspacesUi,
 }
 
 fn run(
@@ -425,6 +434,7 @@ fn run(
         registry: RegistryUi::new(event_loop.waker()),
         locksmith: LocksmithUi::new(event_loop.waker()),
         resizer: ResizerUi::new(event_loop.waker()),
+        workspaces: WorkspacesUi::new(event_loop.waker()),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -466,6 +476,10 @@ fn run(
                                 .collect(),
                             host,
                         ),
+                        workspaces::OPEN_EVENT => ui.workspaces.open(host),
+                        workspaces::LAUNCH_EVENT => {
+                            ui.workspaces.launch(payload["name"].as_str().unwrap_or_default(), host)
+                        }
                         _ => Ok(()),
                     };
                     if let Err(e) = opened {
@@ -499,6 +513,11 @@ fn run(
                 ui.registry.poll();
                 ui.locksmith.poll();
                 ui.resizer.poll();
+                if let Some(outcome) = ui.workspaces.poll() {
+                    if let Err(e) = tray.notify("Workspaces", &outcome) {
+                        tracing::warn!("notification not shown: {e}");
+                    }
+                }
                 while let Ok((request, reply)) = rx.try_recv() {
                     let response = match host.handle_request(&request.method, &request.params) {
                         Ok(v) => Response::ok(request.id, v),
@@ -647,6 +666,9 @@ fn run(
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::locksmith::TABLE => ui.locksmith.on_event(event),
             Event::Table { table, event } if table == powerkit_host::resizer::TABLE => ui.resizer.on_event(event, &mut host),
+            Event::Table { table, event } if table == powerkit_host::workspace_editor::TABLE => {
+                ui.workspaces.on_event(event, &mut host)
+            }
             Event::Registry(e) => ui.registry.on_event(e, &host.paths().root),
             other => host.dispatch(&other),
         }

@@ -550,6 +550,7 @@ dependencies = [
  "tracing",
  "window-hopper",
  "winresource",
+ "workspaces",
  "zoom-it",
 ]
 
@@ -1213,6 +1214,20 @@ checksum = "a2bc6d36480b829272a5bdabf08e6dca8004761c1da7e35efef800540c66221b"
 dependencies = [
  "toml",
  "version_check",
+]
+
+[[package]]
+name = "workspaces"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

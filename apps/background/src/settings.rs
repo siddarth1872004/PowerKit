@@ -877,6 +877,21 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 ],
             ),
         ],
+        "workspaces" => vec![
+            (
+                "Activation",
+                vec![s("shortcut", "Activation shortcut", "Open the editor", Shortcut)],
+            ),
+            (
+                "Behavior",
+                vec![s(
+                    "move_existing",
+                    "Move windows that are already open",
+                    "Instead of starting their programs again",
+                    Toggle,
+                )],
+            ),
+        ],
         "zoom_it" => vec![
             (
                 "Shortcuts",
@@ -948,6 +963,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "fancy_zones",
             "grab_and_move",
             "window_hopper",
+            "workspaces",
         ],
     ),
     (
@@ -967,8 +983,8 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     ),
 ];
 
-/// Configuration kept by PowerKit itself, not shown.
-const HIDDEN: &[&str] = &["general.recent_modules"];
+/// Configuration kept by PowerKit itself or edited in its own window, not shown.
+const HIDDEN: &[&str] = &["general.recent_modules", "workspaces.workspaces"];
 
 /// The value at the dotted `key` inside `root`.
 fn at<'a>(root: &'a Value, key: &str) -> &'a Value {
