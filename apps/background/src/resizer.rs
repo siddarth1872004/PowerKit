@@ -31,37 +31,46 @@ const FITS: [(ResizeFit, &str); 3] = [
     (ResizeFit::Stretch, "Stretch"),
 ];
 
+/// The columns and boxes of a list of sizes, here and in the settings.
+pub const COLUMNS: &[(&str, i32)] = &[("Size", 170), ("Width", 80), ("Height", 80), ("Unit", 100), ("Fit", 90)];
+pub const FIELDS: &[Field] = &[
+    Field {
+        label: "Size",
+        label_width: 30,
+        width: 0,
+        capture: false,
+    },
+    Field {
+        label: "W",
+        label_width: 16,
+        width: 60,
+        capture: false,
+    },
+    Field {
+        label: "H",
+        label_width: 14,
+        width: 60,
+        capture: false,
+    },
+    Field {
+        label: "Unit",
+        label_width: 28,
+        width: 90,
+        capture: false,
+    },
+    Field {
+        label: "Fit",
+        label_width: 20,
+        width: 70,
+        capture: false,
+    },
+];
+
 static SPEC: TableSpec = TableSpec {
     id: TABLE,
     title: "Image Resizer",
-    columns: &[("Size", 170), ("Width", 80), ("Height", 80), ("Unit", 100), ("Fit", 90)],
-    fields: &[
-        Field {
-            label: "Size",
-            label_width: 30,
-            width: 0,
-        },
-        Field {
-            label: "W",
-            label_width: 16,
-            width: 60,
-        },
-        Field {
-            label: "H",
-            label_width: 14,
-            width: 60,
-        },
-        Field {
-            label: "Unit",
-            label_width: 28,
-            width: 90,
-        },
-        Field {
-            label: "Fit",
-            label_width: 20,
-            width: 70,
-        },
-    ],
+    columns: COLUMNS,
+    fields: FIELDS,
     checks: false,
     choices: &[
         "Save resized copies",

@@ -2,10 +2,11 @@
 //! per utility, built from the configuration and saved through `config.set` like
 //! any IPC client would.
 
+use crate::lists::Lists;
 use crate::Host;
 use powerkit_config::Config;
 use powerkit_config::Layout as FzLayout;
-use powerkit_core::{SettingValue, SettingsEvent, ZoneLayout};
+use powerkit_core::{SettingValue, SettingsEvent, TableEvent, ZoneLayout};
 use powerkit_platform::guide_view::Scene;
 use powerkit_platform::settings_window::{
     Control, Group, Item, LayoutChoice, NavEntry, Page, SettingsWindow, Severity,
@@ -35,6 +36,10 @@ pub enum Kind {
     MonitorLayouts,
     /// A button that opens a window editing the value.
     Editor(&'static str),
+    /// A Keyboard Manager profile, by name.
+    ProfilePick,
+    /// A text recognition language tag; empty for the Windows display languages.
+    OcrLanguage,
 }
 
 /// One setting of a utility: `key` is its path under the utility's section, with
@@ -323,7 +328,12 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                     Toggle,
                 ),
                 s("undo_limit", "Renames kept for undo", "0 to 200", Number),
-                s("presets", "Saved presets", "Search and replace presets, as JSON", Json),
+                s(
+                    "presets",
+                    "Saved presets",
+                    "Search and replace presets for renaming",
+                    Editor("Edit presets"),
+                ),
             ],
         )],
         "keyboard_manager" => vec![(
@@ -332,14 +342,14 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 s(
                     "active_profile",
                     "Active profile",
-                    "The name of the profile in use",
-                    Text("Default"),
+                    "The remappings in use",
+                    ProfilePick,
                 ),
                 s(
                     "profiles",
-                    "Profiles",
-                    "Key and shortcut remappings of each profile, as JSON",
-                    Json,
+                    "Remappings",
+                    "Keys and shortcuts of the active profile, and the profiles",
+                    Editor("Edit remappings"),
                 ),
             ],
         )],
@@ -407,8 +417,8 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                     s("providers.commands", "Custom commands", "Commands of your own", Toggle).with(vec![s(
                         "custom_commands",
                         "Commands",
-                        "Name, command line and arguments of each, as JSON",
-                        Json,
+                        "A keyword typed in PowerKit Run that opens a program, document or web address",
+                        Editor("Edit commands"),
                     )]),
                 ],
             ),
@@ -763,8 +773,8 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                     s(
                         "sizes",
                         "Sizes",
-                        "Offered in the Image Resizer window, as JSON; a width or height of 0 follows the other",
-                        Json,
+                        "Offered in the Image Resizer window; a width or height of auto follows the other",
+                        Editor("Edit sizes"),
                     ),
                     s(
                         "shrink_only",
@@ -825,8 +835,8 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 s(
                     "language",
                     "Language",
-                    "A language tag such as en-US or de-DE; empty uses the Windows display languages",
-                    Text(""),
+                    "Languages Windows can recognize text in; add more under Language settings",
+                    OcrLanguage,
                 ),
                 s("single_line", "Copy as one line", "Join the lines with spaces", Toggle),
             ],
@@ -1001,8 +1011,8 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 vec![s(
                     "ocr_language",
                     "Language",
-                    "A language tag such as en-US or de-DE; empty uses the Windows display languages",
-                    Text(""),
+                    "Languages Windows can recognize text in; add more under Language settings",
+                    OcrLanguage,
                 )],
             ),
         ],
@@ -1267,8 +1277,8 @@ fn control(kind: Kind, v: &Value, default: &Value) -> Control {
             lines: 8,
             wide: true,
         },
-        // Built by `item`, which has the layouts.
-        LayoutPick | MonitorLayouts => Control::None,
+        // Built by `item`, which has the configuration.
+        LayoutPick | MonitorLayouts | ProfilePick | OcrLanguage => Control::None,
         Editor(label) => Control::Button {
             label: label.into(),
             accent: false,
@@ -1358,6 +1368,24 @@ fn monitor_items(config: &Value, enabled: bool) -> Vec<Item> {
         .collect()
 }
 
+/// The languages text can be recognized in, after the Windows display languages, and
+/// `current` even when it is not installed any more.
+fn ocr_languages(current: &str) -> Vec<(String, String)> {
+    let mut out = vec![(String::new(), "Windows display languages".to_string())];
+    match powerkit_platform::ocr::languages() {
+        Ok(langs) => out.extend(
+            langs
+                .into_iter()
+                .map(|(tag, name)| (tag.clone(), format!("{name} ({tag})"))),
+        ),
+        Err(e) => tracing::warn!("could not list the text recognition languages: {e}"),
+    }
+    if !out.iter().any(|(t, _)| t == current) {
+        out.push((current.to_string(), format!("{current} (not installed)")));
+    }
+    out
+}
+
 /// The card for `spec` in the section `section` of `config`.
 fn item(
     section: &str,
@@ -1373,6 +1401,22 @@ fn item(
     let control = match spec.kind {
         LayoutPick => Control::Layouts {
             options: layout_choices(config),
+            selected: v.as_str().unwrap_or_default().into(),
+        },
+        ProfilePick => Control::Choice {
+            options: config["keyboard_manager"]["profiles"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|p| p["name"].as_str())
+                        .map(|n| (n.to_string(), n.to_string()))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            selected: v.as_str().unwrap_or_default().into(),
+        },
+        OcrLanguage => Control::Choice {
+            options: ocr_languages(v.as_str().unwrap_or_default()),
             selected: v.as_str().unwrap_or_default().into(),
         },
         _ => control(spec.kind, v, at(defaults, &key)),
@@ -1551,6 +1595,7 @@ pub struct SettingsUi {
     /// How each setting on the page is edited, by dotted key.
     kinds: HashMap<String, Kind>,
     zones: Option<ZoneEditor>,
+    lists: Lists,
 }
 
 /// The templates of the FancyZones layout editor, for one to eight zones.
@@ -1714,6 +1759,13 @@ impl SettingsUi {
                     }
                 }
             }
+            SettingsEvent::Action(key) if Lists::edits(&key) => {
+                if let Err(e) = self.lists.open_for(&key, host) {
+                    if let Some(w) = self.window.as_mut() {
+                        w.set_info(Some((Severity::Error, e)));
+                    }
+                }
+            }
             SettingsEvent::Action(key) => {
                 // Dashboard cards: open the utility's page.
                 let id = key.strip_suffix(".enabled").unwrap_or(&key);
@@ -1747,6 +1799,13 @@ impl SettingsUi {
         }
         w.show();
         Ok(())
+    }
+
+    /// What the user did in one of the list editors opened from the settings.
+    pub fn on_table(&mut self, table: &str, event: TableEvent, host: &mut Host) {
+        if self.lists.on_event(table, event, host) {
+            self.refresh(host);
+        }
     }
 
     /// Save what the layout editor reported.
@@ -1823,6 +1882,7 @@ impl SettingsUi {
             self.read_modules(host);
         }
         self.refresh(host);
+        self.lists.refresh(host);
         if let Some(w) = self.window.as_mut() {
             w.set_info(info);
         }
@@ -1865,7 +1925,7 @@ mod tests {
                 Number => assert!(v.is_number(), "{key}"),
                 Shortcut | Color | Text(_) | Choice(_) => assert!(v.is_string(), "{key}"),
                 Lines(_) => assert!(is_string_list(v), "{key}"),
-                LayoutPick => assert!(v.is_string(), "{key}"),
+                LayoutPick | ProfilePick | OcrLanguage => assert!(v.is_string(), "{key}"),
                 MonitorLayouts => assert!(v.is_object(), "{key}"),
                 Json | Editor(_) => {}
             }

@@ -24,11 +24,13 @@ static SPEC: TableSpec = TableSpec {
             label: "Name",
             label_width: 45,
             width: 220,
+            capture: false,
         },
         Field {
             label: "Value",
             label_width: 45,
             width: 0,
+            capture: false,
         },
     ],
     checks: false,

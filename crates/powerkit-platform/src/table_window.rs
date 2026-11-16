@@ -9,7 +9,8 @@
 use crate::event_loop::push;
 use crate::util::{pcwstr, wide};
 use crate::{Context, Error, Result};
-use powerkit_core::{Event, TableEvent};
+use powerkit_core::{keys, Event, Mods, Shortcut, TableEvent};
+use std::cell::Cell;
 use std::marker::PhantomData;
 use windows::core::PWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
@@ -17,6 +18,7 @@ use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Controls::*;
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetFocus, SetFocus, VK_BACK, VK_TAB};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 const CLASS_NAME: &str = "PowerKit.Table";
@@ -46,6 +48,13 @@ const LINE: i32 = 26;
 const BUTTON_W: i32 = 90;
 const CHOICE_W: i32 = 260;
 const FONT_PT: i32 = 10;
+/// A key the capture hook took: `wparam` is the key message, `lparam` the key.
+const WM_APP_KEY: u32 = WM_APP + 40;
+
+thread_local! {
+    /// The table window whose capture box has the focus; 0 when none has.
+    static CAPTURING: Cell<isize> = const { Cell::new(0) };
+}
 
 /// An edit box under the list, filled from the column with the same index.
 pub struct Field {
@@ -53,6 +62,10 @@ pub struct Field {
     pub label_width: i32,
     /// Box width in 96-DPI pixels; 0 shares out the width left over.
     pub width: i32,
+    /// The box takes the key or shortcut pressed instead of typed text: a modifier
+    /// alone gives its name (`LCtrl`), a key with modifiers held the shortcut
+    /// (`Ctrl+K`). Backspace empties a box that is not empty; Tab and Shift+Tab move on.
+    pub capture: bool,
 }
 
 pub struct TableSpec {
@@ -91,6 +104,10 @@ struct State {
     rows: Vec<Vec<String>>,
     /// Set while the owner fills the list, so check boxes set then are not reported.
     quiet: bool,
+    /// Installed while a capture box has the focus.
+    hook: Option<HHOOK>,
+    /// Modifiers held down while capturing.
+    held: Mods,
 }
 
 fn scale(v: i32, dpi: u32) -> i32 {
@@ -238,6 +255,77 @@ fn selected_row(hwnd: HWND) -> Option<usize> {
     usize::try_from(i).ok()
 }
 
+/// While a capture box has the focus, keys go to it instead of Windows, so that
+/// shortcuts such as Win+E can be captured. Alt+Tab is left alone so windows can
+/// still be switched.
+unsafe extern "system" fn capture_hook(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    let owner = CAPTURING.get();
+    // SAFETY: called by Windows with a KBDLLHOOKSTRUCT for HC_ACTION.
+    unsafe {
+        if code == HC_ACTION as i32 && owner != 0 && GetForegroundWindow().0 as isize == owner {
+            let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+            let vk = kb.vkCode;
+            if vk != u32::from(VK_TAB.0) || kb.flags.0 & LLKHF_ALTDOWN.0 == 0 {
+                let _ = PostMessageW(
+                    Some(HWND(owner as *mut _)),
+                    WM_APP_KEY,
+                    WPARAM(wparam.0),
+                    LPARAM(vk as isize),
+                );
+                return LRESULT(1);
+            }
+        }
+        CallNextHookEx(None, code, wparam, lparam)
+    }
+}
+
+fn capture_field(spec: &TableSpec, id: i32) -> bool {
+    (0..spec.fields.len()).any(|i| field_id(i) == id && spec.fields[i].capture)
+}
+
+fn start_capture(hwnd: HWND, st: &mut State) {
+    st.held = Mods::NONE;
+    CAPTURING.set(hwnd.0 as isize);
+    if st.hook.is_none() {
+        // SAFETY: the procedure lives for the whole program and only posts to this
+        // window; the hook is removed in `stop_capture`, also when the window goes.
+        let hook = unsafe {
+            GetModuleHandleW(None)
+                .and_then(|m| SetWindowsHookExW(WH_KEYBOARD_LL, Some(capture_hook), Some(m.into()), 0))
+        };
+        match hook {
+            Ok(h) => st.hook = Some(h),
+            Err(e) => tracing::warn!("cannot capture keys in the table window: {e}"),
+        }
+    }
+}
+
+fn stop_capture(hwnd: HWND, st: &mut State) {
+    if let Some(h) = st.hook.take() {
+        // SAFETY: a hook this window installed.
+        let _ = unsafe { UnhookWindowsHookEx(h) };
+    }
+    if CAPTURING.get() == hwnd.0 as isize {
+        CAPTURING.set(0);
+    }
+}
+
+/// What a capture box shows after the key message `msg` for `vk`, if it changes.
+fn captured_text(held: &mut Mods, msg: u32, vk: u32, current: &str) -> Option<String> {
+    let down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
+    if let Some(m) = Mods::from_vk(vk) {
+        *held = if down { held.union(m) } else { held.without(m) };
+        return if down { keys::name(vk) } else { None };
+    }
+    if !down {
+        return None;
+    }
+    if held.is_empty() && vk == u32::from(VK_BACK.0) && !current.is_empty() {
+        return Some(String::new());
+    }
+    keys::name(vk).map(|_| Shortcut::new(*held, vk).to_string())
+}
+
 fn check_state(state: u32) -> u32 {
     (state & LVIS_STATEIMAGEMASK.0) >> 12
 }
@@ -268,8 +356,40 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             };
             LRESULT(0)
         }
+        (WM_APP_KEY, Some(st)) => {
+            // SAFETY: plain query on the window's own thread.
+            let focus = unsafe { GetFocus() };
+            if let Some(i) = (0..st.spec.fields.len()).find(|&i| item(hwnd, field_id(i)) == focus) {
+                let (msg, vk) = (wparam.0 as u32, lparam.0 as u32);
+                if vk == u32::from(VK_TAB.0) && st.held.without(Mods::SHIFT).is_empty() {
+                    if msg == WM_KEYDOWN {
+                        let back = st.held.contains(Mods::SHIFT);
+                        // SAFETY: own window and child.
+                        unsafe {
+                            if let Ok(next) = GetNextDlgTabItem(hwnd, Some(focus), back) {
+                                let _ = SetFocus(Some(next));
+                            }
+                        }
+                    }
+                    return LRESULT(0);
+                }
+                let current = text_of(focus);
+                if let Some(t) = captured_text(&mut st.held, msg, vk, &current) {
+                    set_text(item(hwnd, field_id(i)), &t);
+                }
+            }
+            LRESULT(0)
+        }
         (WM_COMMAND, Some(st)) => {
             let (id, code) = ((wparam.0 & 0xFFFF) as i32, ((wparam.0 >> 16) & 0xFFFF) as u32);
+            if capture_field(st.spec, id) {
+                match code {
+                    EN_SETFOCUS => start_capture(hwnd, st),
+                    EN_KILLFOCUS => stop_capture(hwnd, st),
+                    _ => {}
+                }
+                return LRESULT(0);
+            }
             let event = if id == ID_CHOICE && code == CBN_SELCHANGE {
                 usize::try_from(send(item(hwnd, ID_CHOICE), CB_GETCURSEL, 0, 0))
                     .ok()
@@ -478,6 +598,8 @@ impl TableWindow {
                 font: make_font(dpi),
                 rows: Vec::new(),
                 quiet: false,
+                hook: None,
+                held: Mods::NONE,
             });
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut *state as *mut State as isize);
             let dpi = GetDpiForWindow(hwnd).max(96);
@@ -583,6 +705,7 @@ impl Drop for TableWindow {
         // SAFETY: own window, on the thread that created it; the state pointer is
         // cleared before the box is freed.
         unsafe {
+            stop_capture(self.hwnd, &mut self.state);
             SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, 0);
             let _ = DestroyWindow(self.hwnd);
             let _ = DeleteObject(self.state.font.into());
@@ -603,17 +726,35 @@ mod tests {
                 label: "A",
                 label_width: 30,
                 width: 120,
+                capture: false,
             },
             Field {
                 label: "B",
                 label_width: 30,
                 width: 0,
+                capture: false,
             },
         ],
         checks: true,
         choices: &["One", "Two"],
         buttons: ["", "", "End", "Refresh", ""],
     };
+
+    #[test]
+    fn capture_boxes_take_modifiers_and_shortcuts() {
+        let mut held = Mods::NONE;
+        let mut press = |msg, vk| captured_text(&mut held, msg, vk, "x");
+        assert_eq!(press(WM_KEYDOWN, keys::VK_LCONTROL).as_deref(), Some("LCtrl"));
+        assert_eq!(press(WM_KEYDOWN, 0x4B).as_deref(), Some("Ctrl+K"));
+        assert_eq!(press(WM_KEYUP, 0x4B), None);
+        assert_eq!(press(WM_KEYUP, keys::VK_LCONTROL), None);
+        assert_eq!(press(WM_KEYDOWN, 0x14).as_deref(), Some("CapsLock"));
+        assert_eq!(press(WM_KEYDOWN, u32::from(VK_BACK.0)).as_deref(), Some(""));
+        assert_eq!(
+            captured_text(&mut held, WM_KEYDOWN, u32::from(VK_BACK.0), "").as_deref(),
+            Some("Backspace")
+        );
+    }
 
     #[test]
     fn rows_fill_the_list_with_check_boxes() {

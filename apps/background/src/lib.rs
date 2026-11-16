@@ -6,6 +6,7 @@ pub mod explorer_menu;
 pub mod host;
 pub mod hosts;
 pub mod icons;
+pub mod lists;
 pub mod locksmith;
 pub mod new_menu;
 pub mod peek_view;

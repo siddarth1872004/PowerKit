@@ -745,6 +745,9 @@ fn run(
             Event::ZoneLayouts(l) => ui.settings.on_zone_layouts(l, &mut host),
             Event::Rename(e) => ui.rename.on_event(e, &mut host),
             Event::Table { table, event } if table == powerkit_host::hosts::TABLE => ui.hosts.on_event(event, &host),
+            Event::Table { table, event } if powerkit_host::lists::Lists::owns(table) => {
+                ui.settings.on_table(table, event, &mut host)
+            }
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::locksmith::TABLE => ui.locksmith.on_event(event),
             Event::Table { table, event } if table == powerkit_host::resizer::TABLE => ui.resizer.on_event(event, &mut host),

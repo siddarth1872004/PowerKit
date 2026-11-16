@@ -20,6 +20,7 @@ static SPEC: TableSpec = TableSpec {
         label: "Name",
         label_width: 50,
         width: 0,
+        capture: false,
     }],
     checks: false,
     choices: &[],
