@@ -80,7 +80,7 @@ impl Measuring {
             overlay: Overlay::new()?,
             label: Canvas::new()?,
             timer: event_loop::set_timer(FRAME_MS)?,
-            _capture: InputCapture::new()?,
+            _capture: InputCapture::with_keys(&['1' as u32, '2' as u32, '3' as u32, '4' as u32])?,
         })
     }
 
@@ -133,7 +133,7 @@ impl Measuring {
             }
         }
         rows.push((
-            format!("{} \u{00B7} wheel to change", self.mode.label()),
+            format!("{} \u{00B7} wheel or 1-4 to change", self.mode.label()),
             Font::Body,
             HINT,
         ));
@@ -240,6 +240,10 @@ impl Live {
                 m.start = None;
             }
             Event::Key(VK_RETURN) => Self::copy(m, ctx),
+            Event::Key(k) if Mode::for_key(k).is_some() => {
+                m.mode = Mode::for_key(k).unwrap_or(m.mode);
+                m.start = None;
+            }
             Event::Mouse(MouseEvent::RightUp { .. }) | Event::Key(VK_ESCAPE) | Event::DisplayChanged => {
                 self.measuring = None
             }

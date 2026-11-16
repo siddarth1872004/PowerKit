@@ -848,7 +848,7 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 vec![s(
                     "shortcut",
                     "Activation shortcut",
-                    "The wheel switches what is measured; a click copies it; Escape stops",
+                    "The wheel or 1-4 switches what is measured; a click copies it; Escape stops",
                     Shortcut,
                 )],
             ),

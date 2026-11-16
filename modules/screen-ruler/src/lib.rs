@@ -1,6 +1,6 @@
 //! Screen Ruler: press the shortcut and the distance between the edges around the
 //! cursor is shown, found where the color changes. The wheel switches between
-//! measuring across, down, both, or a dragged box; a click copies the measurement.
+//! measuring across, down, both, or a dragged box (or keys 1-4); a click copies the measurement.
 
 #[cfg(windows)]
 mod live;
@@ -30,6 +30,18 @@ impl Mode {
         let i = Mode::ALL.iter().position(|m| *m == self).unwrap_or(0) as i32;
         let step = if wheel_delta < 0 { 1 } else { -1 };
         Mode::ALL[(i + step).rem_euclid(Mode::ALL.len() as i32) as usize]
+    }
+
+    /// The mode for a number key: 1 bounds, 2 spacing, 3 horizontal, 4 vertical, as in
+    /// the PowerToys toolbar.
+    pub fn for_key(vk: u32) -> Option<Mode> {
+        Some(match char::from_u32(vk)? {
+            '1' => Mode::Bounds,
+            '2' => Mode::Spacing,
+            '3' => Mode::Horizontal,
+            '4' => Mode::Vertical,
+            _ => return None,
+        })
     }
 
     pub fn label(self) -> &'static str {
@@ -321,6 +333,9 @@ mod tests {
         assert_eq!(Mode::Spacing.turn(-120), Mode::Horizontal);
         assert_eq!(Mode::Bounds.turn(-120), Mode::Spacing);
         assert_eq!(Mode::Spacing.turn(120), Mode::Bounds);
+        assert_eq!(Mode::for_key('1' as u32), Some(Mode::Bounds));
+        assert_eq!(Mode::for_key('4' as u32), Some(Mode::Vertical));
+        assert_eq!(Mode::for_key('5' as u32), None);
     }
 
     #[test]
