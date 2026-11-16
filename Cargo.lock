@@ -476,6 +476,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "power-plan"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "power-rename"
 version = "0.2.0"
 dependencies = [
@@ -546,6 +560,7 @@ dependencies = [
  "new-plus",
  "peek",
  "power-display",
+ "power-plan",
  "power-rename",
  "powerkit-config",
  "powerkit-core",

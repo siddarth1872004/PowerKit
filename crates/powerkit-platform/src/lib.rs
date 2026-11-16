@@ -39,6 +39,7 @@ pub mod peek_window;
 pub mod pipe;
 pub mod popup;
 pub mod power;
+pub mod power_scheme;
 pub mod process;
 pub mod registry_window;
 pub mod rename_window;

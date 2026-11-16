@@ -27,6 +27,7 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(zoom_it::ZoomIt::new()),
         Box::new(workspaces::Workspaces::new()),
         Box::new(peek::Peek::new()),
+        Box::new(power_plan::PowerPlan::new()),
         Box::new(always_on_top::AlwaysOnTop::new()),
         Box::new(color_picker::ColorPicker::new()),
         Box::new(fancy_zones::FancyZones::new()),

@@ -34,6 +34,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("zoom_it", 10.0, zoom_it),
     ("workspaces", 9.0, workspaces),
     ("peek", 9.0, peek),
+    ("power_plan", 8.0, power_plan),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1738,6 +1739,47 @@ fn peek(c: &mut Canvas, t: f32, cfg: &Config) {
             (2.0, "The file shows without opening it"),
             (4.2, "The arrow keys go to the next or previous file"),
             (6.0, "Enter opens the file; Escape closes Peek"),
+        ],
+    );
+}
+
+fn power_plan(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.power_plan;
+    c.desktop();
+    press(c, t, 0.6, 1.2, &s.shortcut);
+    let (x, y) = path(
+        t,
+        &[
+            (0.0, 300.0, 200.0),
+            (1.6, 300.0, 200.0),
+            (2.6, 330.0, 118.0),
+            (6.0, 330.0, 118.0),
+        ],
+    );
+    let high = t >= 3.0;
+    if (1.3..3.2).contains(&t) {
+        let hot = if t >= 2.4 { Some(1) } else { None };
+        let items = [
+            if high { "  Balanced" } else { "\u{2713} Balanced" },
+            "  High performance",
+            "  Power saver",
+        ];
+        c.menu(300.0, 90.0, 140.0, &items, hot);
+    }
+    click(c, t, 2.9, x, y);
+    c.toast("High performance is on.", span(t, 3.2, 6.0));
+    c.cursor(x, y);
+    let start = format!("Press {}", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.4, "The power plans show at the cursor; the one on is ticked"),
+            (
+                3.2,
+                "Click one to switch; with Balanced on, the power modes are listed too",
+            ),
+            (5.6, "The tray menu has Power plan as well"),
         ],
     );
 }

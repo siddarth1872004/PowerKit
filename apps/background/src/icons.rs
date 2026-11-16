@@ -31,6 +31,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "zoom_it" => include_bytes!("../../../assets/modules/zoom_it.ico"),
         "workspaces" => include_bytes!("../../../assets/modules/workspaces.ico"),
         "peek" => include_bytes!("../../../assets/modules/peek.ico"),
+        "power_plan" => include_bytes!("../../../assets/modules/power_plan.ico"),
         _ => return None,
     })
 }

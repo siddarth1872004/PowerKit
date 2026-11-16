@@ -546,6 +546,7 @@ impl Host {
                     Some("zoom_it") => new.zoom_it = d.zoom_it,
                     Some("workspaces") => new.workspaces = d.workspaces,
                     Some("peek") => new.peek = d.peek,
+                    Some("power_plan") => new.power_plan = d.power_plan,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

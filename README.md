@@ -49,13 +49,14 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | <img src="assets/modules/zoom_it.png" width="24" alt=""> | **ZoomIt** | For presenting: zoom in on the screen around the cursor with the wheel, then click to draw on it (Shift for a line, Ctrl for a box, both for an arrow; R, G, B, Y, O, P change the color, Ctrl+Z undoes, W and K give a white or black board). Also draw straight onto the screen, live zoom, and a break countdown. | `Ctrl+1` to `Ctrl+4` |
 | <img src="assets/modules/workspaces.png" width="24" alt=""> | **Workspaces** | Arrange your windows, give them a name and click Capture; later click Launch (or run `powerkit --workspace NAME`) and the programs start again with every window back on its monitor, size and maximized or minimized. Windows of programs already open are moved instead. | `Win+Ctrl+Backtick` |
 | <img src="assets/modules/peek.png" width="24" alt=""> | **Peek** | Select a file in File Explorer or on the desktop and press the shortcut to see it without opening it: pictures, text and code, or a file's or folder's details. The arrow keys browse the folder (or just the selected files), Enter opens the file and Escape closes. The shortcut is only taken while File Explorer is in front. | `Ctrl+Space` |
+| <img src="assets/modules/power_plan.png" width="24" alt=""> | **Power Plan Switcher** | Press the shortcut (or pick Power plan in the tray menu) for a menu of the Windows power plans at the cursor, with the power mode (best power efficiency, balanced, best performance) while Balanced is on; click one to switch. An optional second shortcut steps to the next plan. | `Win+Ctrl+Alt+P` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-Power Plan Switcher · Advanced Paste · Command Not Found
+Advanced Paste · Command Not Found
 
 ## Install
 

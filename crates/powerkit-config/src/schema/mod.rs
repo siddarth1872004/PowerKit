@@ -17,6 +17,7 @@ mod mouse;
 mod new_plus;
 mod peek;
 mod power_display;
+mod power_plan;
 mod quick_accent;
 mod registry_preview;
 mod rename;
@@ -43,6 +44,7 @@ pub use mouse::*;
 pub use new_plus::*;
 pub use peek::*;
 pub use power_display::*;
+pub use power_plan::*;
 pub use quick_accent::*;
 pub use registry_preview::*;
 pub use rename::*;
@@ -181,6 +183,7 @@ pub struct Config {
     pub zoom_it: ZoomIt,
     pub workspaces: Workspaces,
     pub peek: Peek,
+    pub power_plan: PowerPlan,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -289,6 +292,7 @@ impl Config {
         self.zoom_it.sanitize(&mut w);
         self.workspaces.sanitize(&mut w);
         self.peek.sanitize(&mut w);
+        self.power_plan.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -333,6 +337,8 @@ impl Config {
         push("zoom_it", "live_zoom", &self.zoom_it.live_zoom_shortcut);
         push("workspaces", "open", &self.workspaces.shortcut);
         push("peek", "open", &self.peek.shortcut);
+        push("power_plan", "open", &self.power_plan.shortcut);
+        push("power_plan", "next", &self.power_plan.next_shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -392,6 +398,7 @@ impl Config {
             "zoom_it" => self.zoom_it.enabled,
             "workspaces" => self.workspaces.enabled,
             "peek" => self.peek.enabled,
+            "power_plan" => self.power_plan.enabled,
             _ => return None,
         })
     }
@@ -424,6 +431,7 @@ impl Config {
             "zoom_it" => &mut self.zoom_it.enabled,
             "workspaces" => &mut self.workspaces.enabled,
             "peek" => &mut self.peek.enabled,
+            "power_plan" => &mut self.power_plan.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -498,6 +506,7 @@ impl Config {
         config.zoom_it = section(&mut map, "zoom_it", &mut warnings);
         config.workspaces = section(&mut map, "workspaces", &mut warnings);
         config.peek = section(&mut map, "peek", &mut warnings);
+        config.power_plan = section(&mut map, "power_plan", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

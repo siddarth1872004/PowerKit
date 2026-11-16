@@ -55,6 +55,7 @@ const MENU_INSTALL_UPDATE: u32 = 4;
 const MENU_HOSTS: u32 = 5;
 const MENU_ENV: u32 = 6;
 const MENU_REGISTRY: u32 = 7;
+const MENU_POWER_PLAN: u32 = 8;
 /// The first automatic check waits so it does not slow down signing in.
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(120);
 const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -326,6 +327,45 @@ fn main() -> std::process::ExitCode {
     code.into()
 }
 
+/// Show the power plans (and power modes) at the cursor and switch to the one chosen.
+fn power_plan_menu(tray: &Tray, notify: bool) -> Result<(), String> {
+    let state = power_plan::state().map_err(|e| format!("Power Plan Switcher: {e:#}"))?;
+    let (plans, modes) = state.menu();
+    let mut items: Vec<MenuItem> = plans
+        .iter()
+        .enumerate()
+        .map(|(i, e)| MenuItem::checked(1 + i as u32, &e.label, e.checked))
+        .collect();
+    if !modes.is_empty() {
+        items.push(MenuItem::Separator);
+    }
+    items.extend(
+        modes
+            .iter()
+            .enumerate()
+            .map(|(i, e)| MenuItem::checked(1000 + i as u32, &e.label, e.checked)),
+    );
+    let chosen = match tray
+        .show_menu(&items)
+        .map_err(|e| format!("Power Plan Switcher: {e}"))?
+    {
+        Some(id) if id >= 1000 => modes.get((id - 1000) as usize),
+        Some(id) => plans.get(id as usize - 1),
+        None => None,
+    };
+    let Some(entry) = chosen else { return Ok(()) };
+    if entry.checked {
+        return Ok(());
+    }
+    let now = power_plan::apply(&entry.choice).map_err(|e| format!("Power Plan Switcher: {e:#}"))?;
+    if notify {
+        if let Err(e) = tray.notify("Power plan", &now.describe()) {
+            tracing::warn!("notification not shown: {e}");
+        }
+    }
+    Ok(())
+}
+
 /// The windows the host shows, opened by module outputs and fed their own events.
 struct Windows {
     settings: SettingsUi,
@@ -483,6 +523,7 @@ fn run(
                         workspaces::LAUNCH_EVENT => {
                             ui.workspaces.launch(payload["name"].as_str().unwrap_or_default(), host)
                         }
+                        power_plan::OPEN_EVENT => power_plan_menu(&tray, host.config().power_plan.notify),
                         peek::OPEN_EVENT => ui.peek.open(payload["hwnd"].as_i64().unwrap_or_default() as isize),
                         _ => Ok(()),
                     };
@@ -606,6 +647,9 @@ fn run(
                 if host.config().registry_preview.enabled {
                     items.push(MenuItem::new(MENU_REGISTRY, "Registry Preview"));
                 }
+                if host.config().power_plan.enabled {
+                    items.push(MenuItem::new(MENU_POWER_PLAN, "Power plan"));
+                }
                 items.push(match &available {
                     Some(r) => MenuItem::new(MENU_INSTALL_UPDATE, format!("Install update {}", r.version)),
                     None => MenuItem::new(MENU_CHECK_UPDATES, "Check for updates"),
@@ -624,10 +668,11 @@ fn run(
                     Ok(Some(MENU_SETTINGS)) => {
                         host.handle_request("app.open_settings", &Value::Null).ok();
                     }
-                    Ok(Some(id @ (MENU_HOSTS | MENU_ENV | MENU_REGISTRY))) => {
+                    Ok(Some(id @ (MENU_HOSTS | MENU_ENV | MENU_REGISTRY | MENU_POWER_PLAN))) => {
                         let module = match id {
                             MENU_HOSTS => hosts_editor::ID,
                             MENU_ENV => environment_variables::ID,
+                            MENU_POWER_PLAN => power_plan::ID,
                             _ => registry_preview::ID,
                         };
                         let params = json!({ "id": module, "command": "open" });

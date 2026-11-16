@@ -901,6 +901,19 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 Shortcut,
             )],
         )],
+        "power_plan" => vec![
+            (
+                "Shortcuts",
+                vec![
+                    s("shortcut", "Show the power plans", "A menu at the cursor; also in the tray menu", Shortcut),
+                    s("next_shortcut", "Next power plan", "Switches without a menu", Shortcut),
+                ],
+            ),
+            (
+                "Behavior",
+                vec![s("notify", "Say which plan is on after switching", "", Toggle)],
+            ),
+        ],
         "zoom_it" => vec![
             (
                 "Shortcuts",
@@ -962,6 +975,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "text_extractor",
             "zoom_it",
             "peek",
+            "power_plan",
         ],
     ),
     (
