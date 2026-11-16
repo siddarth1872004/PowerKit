@@ -17,6 +17,7 @@ mod keyboard;
 mod launcher;
 mod light_switch;
 mod mouse;
+mod mouse_without_borders;
 mod new_plus;
 mod peek;
 mod power_display;
@@ -47,6 +48,7 @@ pub use keyboard::*;
 pub use launcher::*;
 pub use light_switch::*;
 pub use mouse::*;
+pub use mouse_without_borders::*;
 pub use new_plus::*;
 pub use peek::*;
 pub use power_display::*;
@@ -193,6 +195,7 @@ pub struct Config {
     pub advanced_paste: AdvancedPaste,
     pub command_not_found: CommandNotFound,
     pub file_explorer: FileExplorer,
+    pub mouse_without_borders: MouseWithoutBorders,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -305,6 +308,7 @@ impl Config {
         self.advanced_paste.sanitize(&mut w);
         self.command_not_found.sanitize(&mut w);
         self.file_explorer.sanitize(&mut w);
+        self.mouse_without_borders.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -418,6 +422,7 @@ impl Config {
             "advanced_paste" => self.advanced_paste.enabled,
             "command_not_found" => self.command_not_found.enabled,
             "file_explorer" => self.file_explorer.enabled,
+            "mouse_without_borders" => self.mouse_without_borders.enabled,
             _ => return None,
         })
     }
@@ -454,6 +459,7 @@ impl Config {
             "advanced_paste" => &mut self.advanced_paste.enabled,
             "command_not_found" => &mut self.command_not_found.enabled,
             "file_explorer" => &mut self.file_explorer.enabled,
+            "mouse_without_borders" => &mut self.mouse_without_borders.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -532,6 +538,7 @@ impl Config {
         config.advanced_paste = section(&mut map, "advanced_paste", &mut warnings);
         config.command_not_found = section(&mut map, "command_not_found", &mut warnings);
         config.file_explorer = section(&mut map, "file_explorer", &mut warnings);
+        config.mouse_without_borders = section(&mut map, "mouse_without_borders", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

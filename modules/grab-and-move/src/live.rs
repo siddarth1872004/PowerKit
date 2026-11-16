@@ -108,11 +108,12 @@ impl Live {
                 }
                 None => false,
             },
+            MouseInput::Wheel { .. } => false,
         }
     }
 
     fn grab(&mut self, button: Button, at: (i32, i32)) -> bool {
-        if button == Button::Middle || !self.modifier_held() {
+        if !matches!(button, Button::Left | Button::Right) || !self.modifier_held() {
             return false;
         }
         let Some(hwnd) = window::at_point(at.0, at.1) else {

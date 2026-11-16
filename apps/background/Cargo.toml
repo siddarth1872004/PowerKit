@@ -14,6 +14,11 @@ path = "src/main.rs"
 name = "powerkit_host"
 path = "src/lib.rs"
 
+[features]
+# Left out of releases: Windows Defender's machine-learning scan flags builds with it
+# (Trojan:Win32/Bearfoos.A!ml) until Microsoft reviews it as a false positive.
+mouse-without-borders = ["dep:mouse-without-borders"]
+
 [dependencies]
 anyhow.workspace = true
 serde_json.workspace = true
@@ -35,6 +40,7 @@ power-plan.workspace = true
 advanced-paste.workspace = true
 command-not-found.workspace = true
 file-explorer.workspace = true
+mouse-without-borders = { workspace = true, optional = true }
 color-picker.workspace = true
 fancy-zones.workspace = true
 keyboard-manager.workspace = true

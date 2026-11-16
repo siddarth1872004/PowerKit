@@ -141,6 +141,8 @@ pub fn button_down(button: crate::mousehook::Button) -> bool {
         (Button::Left, false) | (Button::Right, true) => 0x01,
         (Button::Right, false) | (Button::Left, true) => 0x02,
         (Button::Middle, _) => 0x04,
+        (Button::X1, _) => 0x05,
+        (Button::X2, _) => 0x06,
     };
     key_down(vk)
 }
@@ -182,6 +184,77 @@ pub fn click_left() -> Result<()> {
         },
     };
     crate::keyhook::send(&[button(MOUSEEVENTF_LEFTDOWN), button(MOUSEEVENTF_LEFTUP)])
+}
+
+fn mouse(
+    dx: i32,
+    dy: i32,
+    data: i32,
+    flags: windows::Win32::UI::Input::KeyboardAndMouse::MOUSE_EVENT_FLAGS,
+) -> Result<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{INPUT, INPUT_0, INPUT_MOUSE, MOUSEINPUT};
+    crate::keyhook::send(&[INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: INPUT_0 {
+            mi: MOUSEINPUT {
+                dx,
+                dy,
+                mouseData: data as u32,
+                dwFlags: flags,
+                ..Default::default()
+            },
+        },
+    }])
+}
+
+/// Move the pointer as the mouse would, to a point in physical virtual-desktop
+/// pixels; unlike [`set_cursor_pos`] this wakes the screen and shows hover effects.
+pub fn send_move(x: i32, y: i32) -> Result<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK,
+    };
+    let v = crate::monitor::virtual_screen();
+    let scale = |p: i32, lo: i32, size: i32| ((i64::from(p - lo) * 65535) / i64::from((size - 1).max(1))) as i32;
+    mouse(
+        scale(x, v.left, v.width()),
+        scale(y, v.top, v.height()),
+        0,
+        MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+    )
+}
+
+/// Press or release a mouse button as the mouse would.
+pub fn send_button(button: crate::mousehook::Button, down: bool) -> Result<()> {
+    use crate::mousehook::Button;
+    use windows::Win32::UI::Input::KeyboardAndMouse::*;
+    let (flags, data) = match (button, down) {
+        (Button::Left, true) => (MOUSEEVENTF_LEFTDOWN, 0),
+        (Button::Left, false) => (MOUSEEVENTF_LEFTUP, 0),
+        (Button::Right, true) => (MOUSEEVENTF_RIGHTDOWN, 0),
+        (Button::Right, false) => (MOUSEEVENTF_RIGHTUP, 0),
+        (Button::Middle, true) => (MOUSEEVENTF_MIDDLEDOWN, 0),
+        (Button::Middle, false) => (MOUSEEVENTF_MIDDLEUP, 0),
+        (Button::X1, true) => (MOUSEEVENTF_XDOWN, 1),
+        (Button::X1, false) => (MOUSEEVENTF_XUP, 1),
+        (Button::X2, true) => (MOUSEEVENTF_XDOWN, 2),
+        (Button::X2, false) => (MOUSEEVENTF_XUP, 2),
+    };
+    mouse(0, 0, data, flags)
+}
+
+/// Turn the wheel; 120 is one notch.
+pub fn send_wheel(delta: i32, horizontal: bool) -> Result<()> {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{MOUSEEVENTF_HWHEEL, MOUSEEVENTF_WHEEL};
+    mouse(
+        0,
+        0,
+        delta,
+        if horizontal {
+            MOUSEEVENTF_HWHEEL
+        } else {
+            MOUSEEVENTF_WHEEL
+        },
+    )
 }
 
 /// Whether the pointer is drawn; applications hide it while typing or playing video.

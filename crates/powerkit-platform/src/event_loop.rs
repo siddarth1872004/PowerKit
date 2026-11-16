@@ -39,7 +39,17 @@ pub(crate) fn push(event: Event) {
         if coalesce && q.back() == Some(&event) {
             return;
         }
+        let was_empty = q.is_empty();
         q.push_back(event);
+        // Low-level hooks run inside GetMessage without making it return, so an event
+        // they queue would wait for the next unrelated message.
+        let helper = HELPER.with(Cell::get);
+        if was_empty && helper != 0 {
+            // SAFETY: posting to this thread's own helper window; WM_NULL does nothing.
+            if let Err(e) = unsafe { PostMessageW(Some(HWND(helper as *mut _)), WM_NULL, WPARAM(0), LPARAM(0)) } {
+                tracing::debug!(error = %e, "event loop not woken");
+            }
+        }
     });
 }
 
@@ -236,17 +246,25 @@ pub fn kill_timer(id: usize) {
     }
 }
 
-/// Subscribe to / unsubscribe from clipboard change notifications.
+thread_local! {
+    static CLIPBOARD_LISTENERS: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// Subscribe to / unsubscribe from clipboard change notifications. Counted, so
+/// several modules can listen at once: each `true` needs its own `false`.
 pub fn listen_clipboard(enable: bool) -> Result<()> {
     let hwnd = helper()?;
-    // SAFETY: the helper window belongs to this thread.
-    unsafe {
-        if enable {
-            AddClipboardFormatListener(hwnd).context("AddClipboardFormatListener")
-        } else {
-            RemoveClipboardFormatListener(hwnd).context("RemoveClipboardFormatListener")
-        }
+    let count = CLIPBOARD_LISTENERS.get();
+    match (enable, count) {
+        (false, 0) => return Ok(()),
+        (true, 1..) | (false, 2..) => {}
+        // SAFETY: the helper window belongs to this thread.
+        (true, 0) => unsafe { AddClipboardFormatListener(hwnd) }.context("AddClipboardFormatListener")?,
+        // SAFETY: as above.
+        (false, 1) => unsafe { RemoveClipboardFormatListener(hwnd) }.context("RemoveClipboardFormatListener")?,
     }
+    CLIPBOARD_LISTENERS.set(if enable { count + 1 } else { count - 1 });
+    Ok(())
 }
 
 const EVENT_SYSTEM_FOREGROUND: u32 = 0x0003;

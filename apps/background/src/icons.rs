@@ -35,6 +35,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "advanced_paste" => include_bytes!("../../../assets/modules/advanced_paste.ico"),
         "command_not_found" => include_bytes!("../../../assets/modules/command_not_found.ico"),
         "file_explorer" => include_bytes!("../../../assets/modules/file_explorer.ico"),
+        "mouse_without_borders" => include_bytes!("../../../assets/modules/mouse_without_borders.ico"),
         _ => return None,
     })
 }

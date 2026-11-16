@@ -33,6 +33,7 @@ members = [
     "modules/advanced-paste",
     "modules/command-not-found",
     "modules/file-explorer",
+    "modules/mouse-without-borders",
     "apps/background",
 ]
 
@@ -74,6 +75,7 @@ power-plan = { path = "modules/power-plan" }
 advanced-paste = { path = "modules/advanced-paste" }
 command-not-found = { path = "modules/command-not-found" }
 file-explorer = { path = "modules/file-explorer" }
+mouse-without-borders = { path = "modules/mouse-without-borders" }
 fancy-zones = { path = "modules/fancy-zones" }
 launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }

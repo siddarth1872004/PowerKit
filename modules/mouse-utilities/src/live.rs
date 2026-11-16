@@ -377,7 +377,7 @@ impl Live {
             MouseInput::Down { button, x, y } => {
                 self.double_ctrl.interrupt();
                 self.spotlight = None;
-                if self.highlighter && button != Button::Middle {
+                if self.highlighter && matches!(button, Button::Left | Button::Right) {
                     if self.spots.len() >= MAX_SPOTS {
                         self.spots.remove(0);
                     }
@@ -399,6 +399,7 @@ impl Live {
                     s.released_at = Some(now);
                 }
             }
+            MouseInput::Wheel { .. } => {}
         }
         Ok(())
     }

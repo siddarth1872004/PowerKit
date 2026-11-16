@@ -16,7 +16,7 @@ pub use lifecycle::{Lifecycle, State, Transition};
 pub use shortcut::{Mods, Shortcut, ShortcutError};
 
 /// Identifiers of the built-in utilities, in display order.
-pub const MODULE_IDS: [&str; 30] = [
+pub const MODULE_IDS: [&str; 31] = [
     "fancy_zones",
     "power_rename",
     "color_picker",
@@ -47,4 +47,5 @@ pub const MODULE_IDS: [&str; 30] = [
     "advanced_paste",
     "command_not_found",
     "file_explorer",
+    "mouse_without_borders",
 ];

@@ -57,10 +57,6 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
-### Coming next
-
-Advanced Paste · Command Not Found
-
 ## Install
 
 1. Download `powerkit.exe` from the [latest release](https://github.com/siddarth1872004/PowerKit/releases/latest).

@@ -15,13 +15,31 @@ pub enum Button {
     Left,
     Right,
     Middle,
+    X1,
+    X2,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseInput {
-    Move { x: i32, y: i32 },
-    Down { button: Button, x: i32, y: i32 },
-    Up { button: Button, x: i32, y: i32 },
+    Move {
+        x: i32,
+        y: i32,
+    },
+    Down {
+        button: Button,
+        x: i32,
+        y: i32,
+    },
+    Up {
+        button: Button,
+        x: i32,
+        y: i32,
+    },
+    /// One notch is 120; positive is away from the user, or right when `horizontal`.
+    Wheel {
+        delta: i32,
+        horizontal: bool,
+    },
 }
 
 /// Returns whether to swallow the input.
@@ -43,6 +61,8 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
         // SAFETY: for HC_ACTION, `lparam` points to an MSLLHOOKSTRUCT.
         let info = unsafe { &*(lparam.0 as *const MSLLHOOKSTRUCT) };
         let (x, y) = (info.pt.x, info.pt.y);
+        let high = (info.mouseData >> 16) as u16;
+        let xbutton = if high == 2 { Button::X2 } else { Button::X1 };
         let input = match wparam.0 as u32 {
             WM_MOUSEMOVE => Some(MouseInput::Move { x, y }),
             WM_LBUTTONDOWN => Some(MouseInput::Down {
@@ -74,6 +94,12 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
                 button: Button::Middle,
                 x,
                 y,
+            }),
+            WM_XBUTTONDOWN => Some(MouseInput::Down { button: xbutton, x, y }),
+            WM_XBUTTONUP => Some(MouseInput::Up { button: xbutton, x, y }),
+            WM_MOUSEWHEEL | WM_MOUSEHWHEEL => Some(MouseInput::Wheel {
+                delta: high as i16 as i32,
+                horizontal: wparam.0 as u32 == WM_MOUSEHWHEEL,
             }),
             _ => None,
         };

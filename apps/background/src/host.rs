@@ -414,10 +414,13 @@ impl Host {
                     self.touch_recent(&id);
                     match self.guarded(i, |m, ctx| m.on_hotkey(&action, ctx)) {
                         Ok(Ok(())) => {}
-                        Ok(Err(e)) => self.outbox.push(Output::Notify {
-                            title: self.slots[i].manifest.name.clone(),
-                            message: format!("{e:#}"),
-                        }),
+                        Ok(Err(e)) => {
+                            tracing::warn!(module = %id, "shortcut failed: {e:#}");
+                            self.outbox.push(Output::Notify {
+                                title: self.slots[i].manifest.name.clone(),
+                                message: format!("{e:#}"),
+                            })
+                        }
                         Err(p) => self.fail(i, format!("crashed handling a shortcut: {p}")),
                     }
                 }
@@ -550,6 +553,7 @@ impl Host {
                     Some("advanced_paste") => new.advanced_paste = d.advanced_paste,
                     Some("command_not_found") => new.command_not_found = d.command_not_found,
                     Some("file_explorer") => new.file_explorer = d.file_explorer,
+                    Some("mouse_without_borders") => new.mouse_without_borders = d.mouse_without_borders,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

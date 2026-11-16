@@ -106,6 +106,21 @@ pub fn from_window(hwnd: Hwnd) -> Option<Monitor> {
     describe(unsafe { MonitorFromWindow(hwnd.raw(), MONITOR_DEFAULTTONEAREST) })
 }
 
+/// The rectangle around every monitor, in physical pixels.
+pub fn virtual_screen() -> Rect {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    };
+    // SAFETY: plain value arguments.
+    let m = |i| unsafe { GetSystemMetrics(i) };
+    Rect::from_size(
+        m(SM_XVIRTUALSCREEN),
+        m(SM_YVIRTUALSCREEN),
+        m(SM_CXVIRTUALSCREEN),
+        m(SM_CYVIRTUALSCREEN),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,6 +140,10 @@ mod tests {
         let p = &monitors[0];
         let (cx, cy) = p.rect.center();
         assert_eq!(from_point(cx, cy).unwrap().id, p.id);
+        let all = virtual_screen();
+        for m in &monitors {
+            assert_eq!(all.intersect(&m.rect), Some(m.rect));
+        }
     }
 
     #[test]

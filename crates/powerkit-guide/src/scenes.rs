@@ -38,6 +38,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("advanced_paste", 9.0, advanced_paste),
     ("command_not_found", 8.0, command_not_found),
     ("file_explorer", 10.0, file_explorer),
+    ("mouse_without_borders", 9.0, mouse_without_borders),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1995,6 +1996,68 @@ fn file_explorer(c: &mut Canvas, t: f32, _cfg: &Config) {
             (1.0, "Markdown shows formatted, with links you can click"),
             (3.6, "Source code shows with its colors"),
             (6.5, "Thumbnails show SVG, STL, G-code and QOI files as pictures"),
+        ],
+    );
+}
+
+/// A monitor on a desk, with its name under it; returns the screen's top left.
+fn monitor(c: &mut Canvas, x: f32, name: &str) -> (f32, f32) {
+    let (y, w, h) = (36.0, 190.0, 116.0);
+    c.rect(x - 6.0, y - 6.0, w + 12.0, h + 12.0, 6.0, DARK_TITLE);
+    let bands = 6;
+    for i in 0..bands {
+        let col = WALL_TOP.mix(WALL_BOTTOM, i as f32 / (bands - 1) as f32);
+        c.rect(x, y + i as f32 * h / bands as f32, w, h / bands as f32 + 0.5, 0.0, col);
+    }
+    c.rect(x + w / 2.0 - 12.0, y + h + 6.0, 24.0, 14.0, 0.0, DARK_TITLE);
+    c.rect(x + w / 2.0 - 34.0, y + h + 18.0, 68.0, 6.0, 3.0, DARK_TITLE);
+    c.text_box(x, y + h + 26.0, w, 14.0, name, 9.0, WHITE, Align::Center);
+    (x, y)
+}
+
+fn mouse_without_borders(c: &mut Canvas, t: f32, cfg: &Config) {
+    c.rect(0.0, 0.0, WIDTH, HEIGHT, 0.0, Color::rgb(34, 38, 48));
+    let (lx, ly) = monitor(c, 30.0, "LAPTOP");
+    let (rx, ry) = monitor(c, 260.0, "DESK-PC");
+    let top = c.window(rx + 40.0, ry + 20.0, 130.0, 80.0, "Notepad");
+    let text = typed("Hello from the laptop", t, 3.0, 0.08);
+    c.text(rx + 46.0, top + 10.0, text, 7.0, TEXT);
+    let back = cfg.mouse_without_borders.switch_keys && t >= 6.4;
+    if (5.9..6.9).contains(&t) && cfg.mouse_without_borders.switch_keys {
+        c.keys(WIDTH / 2.0, KEYS_Y, "Ctrl+Alt+F1", t >= 6.1);
+    }
+    let (x, y) = if back {
+        (lx + 95.0, ly + 58.0)
+    } else {
+        path(
+            t,
+            &[
+                (0.0, lx + 60.0, ly + 80.0),
+                (1.0, lx + 150.0, ly + 50.0),
+                (1.8, rx + 40.0, ry + 50.0),
+                (2.6, rx + 60.0, top + 14.0),
+            ],
+        )
+    };
+    // The pointer is drawn only on the screen it is on; the gap between them is
+    // not part of either.
+    if x <= lx + 190.0 || x >= rx {
+        c.cursor(x, y);
+    }
+    c.steps(
+        t,
+        &[
+            (0.0, "List the PCs from left to right and give them all the same key"),
+            (1.4, "Move the pointer past the edge into the next PC"),
+            (3.0, "The keyboard and the clipboard follow it"),
+            (
+                if cfg.mouse_without_borders.switch_keys {
+                    5.9
+                } else {
+                    99.0
+                },
+                "Ctrl+Alt+F1 to F4 jump to the first to fourth PC",
+            ),
         ],
     );
 }

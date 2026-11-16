@@ -13,6 +13,7 @@ pub mod accent_bar;
 pub mod canvas;
 pub mod clipboard;
 pub mod crop;
+pub mod crypto;
 pub mod ddc;
 pub mod dialog;
 pub mod display_window;

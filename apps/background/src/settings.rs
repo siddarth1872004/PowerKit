@@ -892,6 +892,33 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 )],
             ),
         ],
+        "mouse_without_borders" => vec![
+            (
+                "Machines",
+                vec![
+                    s(
+                        "machines",
+                        "Computers",
+                        "Their names from left to right, this PC included; after a name, a space and an address if the name is not found on the network",
+                        Lines("LAPTOP\nDESK-PC 192.168.1.20"),
+                    ),
+                    s(
+                        "security_key",
+                        "Security key",
+                        "The same on every computer; at least 16 characters",
+                        Text(""),
+                    ),
+                    s("port", "Port", "The same on every computer; 1024 to 65535", Number),
+                ],
+            ),
+            (
+                "Behavior",
+                vec![
+                    s("share_clipboard", "Share the clipboard", "Copied text can be pasted on the other computers", Toggle),
+                    s("switch_keys", "Ctrl+Alt+F1 to F4", "Move control to the first to fourth computer", Toggle),
+                ],
+            ),
+        ],
         "file_explorer" => vec![
             (
                 "Preview pane",
@@ -1056,7 +1083,14 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     (
         "Input / Output",
         '\u{E765}',
-        &["keyboard_manager", "mouse_utilities", "quick_accent", "advanced_paste"],
+        &[
+            "keyboard_manager",
+            "mouse_utilities",
+            #[cfg(feature = "mouse-without-borders")]
+            "mouse_without_borders",
+            "quick_accent",
+            "advanced_paste",
+        ],
     ),
     (
         "File Management",

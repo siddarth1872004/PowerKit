@@ -31,6 +31,8 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(advanced_paste::AdvancedPaste::new()),
         Box::new(command_not_found::CommandNotFound::new()),
         Box::new(file_explorer::FileExplorer::new()),
+        #[cfg(feature = "mouse-without-borders")]
+        Box::new(mouse_without_borders::MouseWithoutBorders::new()),
         Box::new(always_on_top::AlwaysOnTop::new()),
         Box::new(color_picker::ColorPicker::new()),
         Box::new(fancy_zones::FancyZones::new()),
