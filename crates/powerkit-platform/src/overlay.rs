@@ -211,6 +211,13 @@ impl Overlay {
         Ok(())
     }
 
+    /// Leave this window out of screen captures, so a live view of the screen can be
+    /// shown on top of it without showing itself (Windows 10 2004 and later).
+    pub fn exclude_from_capture(&self) -> Result<()> {
+        // SAFETY: own window.
+        unsafe { SetWindowDisplayAffinity(self.hwnd, WDA_EXCLUDEFROMCAPTURE) }.context("SetWindowDisplayAffinity")
+    }
+
     pub fn hide(&mut self) {
         if self.shown.take().is_some() {
             // SAFETY: own window. The return value is the previous visibility.

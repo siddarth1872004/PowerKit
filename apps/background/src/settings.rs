@@ -877,6 +877,47 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 ],
             ),
         ],
+        "zoom_it" => vec![
+            (
+                "Shortcuts",
+                vec![
+                    s(
+                        "zoom_shortcut",
+                        "Zoom",
+                        "The wheel zooms; a click draws on what is shown; Escape stops",
+                        Shortcut,
+                    ),
+                    s("draw_shortcut", "Draw", "Draw on the screen as it is", Shortcut),
+                    s("break_shortcut", "Break timer", "A countdown across the screen", Shortcut),
+                    s(
+                        "live_zoom_shortcut",
+                        "Live zoom",
+                        "Zoom while the screen keeps changing underneath",
+                        Shortcut,
+                    ),
+                ],
+            ),
+            (
+                "Zoom",
+                vec![s("zoom_percent", "First zoom", "125 to 800 percent", Number)],
+            ),
+            (
+                "Draw",
+                vec![
+                    s("pen_color", "Pen color", "R, G, B, Y, O and P change it while drawing", Color),
+                    s(
+                        "pen_width",
+                        "Pen width",
+                        "1 to 40 pixels; the wheel changes it while drawing",
+                        Number,
+                    ),
+                ],
+            ),
+            (
+                "Break",
+                vec![s("break_minutes", "Break length", "1 to 99 minutes", Number)],
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -895,6 +936,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "screen_ruler",
             "shortcut_guide",
             "text_extractor",
+            "zoom_it",
         ],
     ),
     (

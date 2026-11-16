@@ -7,6 +7,7 @@ use crate::event_loop::{helper, push};
 use crate::{Context, Result};
 use powerkit_core::{Event, MouseEvent};
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicU64, Ordering};
 use windows::Win32::Foundation::{LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{VK_ESCAPE, VK_RETURN};
@@ -38,11 +39,19 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
     unsafe { CallNextHookEx(None, code, wparam, lparam) }
 }
 
+/// Keys, besides Escape and Enter, that the current capture takes: one bit per
+/// virtual-key code.
+static TAKEN: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
+
+fn taken(vk: u32) -> bool {
+    vk < 256 && TAKEN[(vk / 64) as usize].load(Ordering::Relaxed) & (1 << (vk % 64)) != 0
+}
+
 unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code == HC_ACTION as i32 {
         // SAFETY: for HC_ACTION, `lparam` points to a KBDLLHOOKSTRUCT.
         let vk = unsafe { (*(lparam.0 as *const KBDLLHOOKSTRUCT)).vkCode };
-        if vk == VK_ESCAPE.0 as u32 || vk == VK_RETURN.0 as u32 {
+        if vk == VK_ESCAPE.0 as u32 || vk == VK_RETURN.0 as u32 || taken(vk) {
             if matches!(wparam.0 as u32, WM_KEYDOWN | WM_SYSKEYDOWN) {
                 push(Event::Key(vk));
             }
@@ -64,7 +73,20 @@ impl InputCapture {
     /// Must be called on the event-loop thread: low-level hooks are serviced by its
     /// message loop, which must keep running for input to stay responsive.
     pub fn new() -> Result<InputCapture> {
+        Self::with_keys(&[])
+    }
+
+    /// Also takes `keys` (virtual-key codes, any modifiers) and reports them as
+    /// [`Event::Key`]. Only one capture is active at a time.
+    pub fn with_keys(keys: &[u32]) -> Result<InputCapture> {
         helper()?;
+        for (i, slot) in TAKEN.iter().enumerate() {
+            let bits = keys
+                .iter()
+                .filter(|k| (**k / 64) as usize == i)
+                .fold(0u64, |b, k| b | 1 << (k % 64));
+            slot.store(bits, Ordering::Relaxed);
+        }
         // SAFETY: both procedures match HOOKPROC and live for the whole program; the
         // first hook is removed if the second cannot be installed.
         unsafe {
@@ -89,6 +111,9 @@ impl InputCapture {
 
 impl Drop for InputCapture {
     fn drop(&mut self) {
+        for slot in &TAKEN {
+            slot.store(0, Ordering::Relaxed);
+        }
         // SAFETY: both hooks were installed by this object and are removed once.
         unsafe {
             let _ = UnhookWindowsHookEx(self.mouse);

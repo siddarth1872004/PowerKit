@@ -28,6 +28,7 @@ powerkit-menu.workspace = true
 powerkit-plugin-api.workspace = true
 always-on-top.workspace = true
 power-rename.workspace = true
+zoom-it.workspace = true
 color-picker.workspace = true
 fancy-zones.workspace = true
 keyboard-manager.workspace = true

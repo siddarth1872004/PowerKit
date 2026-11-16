@@ -22,6 +22,7 @@ use powerkit_plugin_api::Module;
 pub fn builtin_modules() -> Vec<Box<dyn Module>> {
     vec![
         Box::new(power_rename::PowerRename::new()),
+        Box::new(zoom_it::ZoomIt::new()),
         Box::new(always_on_top::AlwaysOnTop::new()),
         Box::new(color_picker::ColorPicker::new()),
         Box::new(fancy_zones::FancyZones::new()),

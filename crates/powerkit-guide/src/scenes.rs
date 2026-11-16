@@ -31,6 +31,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("text_extractor", 9.0, text_extractor),
     ("power_display", 9.0, power_display),
     ("screen_ruler", 9.0, screen_ruler),
+    ("zoom_it", 10.0, zoom_it),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1545,6 +1546,69 @@ fn screen_ruler(c: &mut Canvas, t: f32, cfg: &Config) {
             (1.6, "The lines stop where the color changes"),
             (3.6, "Turn the wheel to measure only across or down"),
             (5.2, "Click to copy the size; Escape stops"),
+        ],
+    );
+}
+
+fn zoom_it(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.zoom_it;
+    let pen = hex(&s.pen_color, Color::rgb(255, 0, 0));
+    let zoom = 1.0 + (s.zoom_percent as f32 / 100.0 - 1.0) * ease(span(t, 1.2, 2.2));
+    c.desktop();
+    // Zooming enlarges the window around the point the cursor rests on.
+    let (fx, fy) = (150.0, 90.0);
+    let at = |x: f32, y: f32| (fx + (x - fx) * zoom, fy + (y - fy) * zoom);
+    let (wx, wy) = at(40.0, 40.0);
+    let top = c.window(wx, wy, 220.0 * zoom, 120.0 * zoom, "Quarterly results");
+    let bar = |c: &mut Canvas, x: f32, h: f32, col: Color| {
+        let (bx, by) = at(x, 150.0 - h);
+        c.rect(bx, by.max(top), 18.0 * zoom, h * zoom, 0.0, col);
+    };
+    bar(c, 70.0, 40.0, Color::rgb(120, 170, 230));
+    bar(c, 100.0, 60.0, Color::rgb(120, 170, 230));
+    bar(c, 130.0, 80.0, Color::rgb(120, 170, 230));
+    bar(c, 160.0, 55.0, Color::rgb(230, 140, 120));
+    press(c, t, 0.5, 1.0, &s.zoom_shortcut);
+    // Circling the odd bar once drawing starts.
+    let (cx, cy) = at(169.0, 120.0);
+    let r = 22.0;
+    let p = span(t, 4.0, 6.0);
+    if t >= 3.4 {
+        let steps = (p * 32.0) as usize;
+        for i in 0..steps {
+            let (a0, a1) = (
+                i as f32 / 32.0 * std::f32::consts::TAU,
+                (i + 1) as f32 / 32.0 * std::f32::consts::TAU,
+            );
+            c.line(
+                cx + r * a0.cos(),
+                cy + r * a0.sin(),
+                cx + r * a1.cos(),
+                cy + r * a1.sin(),
+                pen,
+                3.0,
+            );
+        }
+    }
+    let (x, y) = if t < 4.0 {
+        path(
+            t,
+            &[(0.0, 300.0, 220.0), (1.0, fx, fy), (3.0, fx, fy), (3.8, cx + r, cy)],
+        )
+    } else {
+        let a = p * std::f32::consts::TAU;
+        (cx + r * a.cos(), cy + r * a.sin())
+    };
+    click(c, t, 3.2, x, y);
+    c.cursor(x, y);
+    let start = format!("Press {}", named(&s.zoom_shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.4, "Turn the wheel to zoom further in or out"),
+            (3.0, "Click to draw on what is shown"),
+            (6.4, "Right-click to zoom again; Escape ends"),
         ],
     );
 }

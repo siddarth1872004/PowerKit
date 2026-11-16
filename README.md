@@ -46,13 +46,13 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 | <img src="assets/modules/text_extractor.png" width="24" alt=""> | **Text Extractor** | Drag a box over any part of the screen and the text in it is read by the OCR built into Windows and copied, line by line or as one line. Reads the Windows display languages, or any language you name whose OCR is installed. | `Win+Shift+T` |
 | <img src="assets/modules/power_display.png" width="24" alt=""> | **Power Display** | Set the brightness, contrast and volume of external monitors from one window, with a slider for each monitor, over DDC/CI. Input source, color preset and power can be added in the settings; each change to them asks first. Built-in laptop screens are not supported. | `Win+Alt+M` |
 | <img src="assets/modules/screen_ruler.png" width="24" alt=""> | **Screen Ruler** | Measure the pixels between edges on screen: the lines stop where the color changes. Turn the wheel to measure across, down, both, or a box you drag; click to copy the size. Inches, centimeters or millimeters can be shown as well. | `Win+Ctrl+Shift+M` |
+| <img src="assets/modules/zoom_it.png" width="24" alt=""> | **ZoomIt** | For presenting: zoom in on the screen around the cursor with the wheel, then click to draw on it (Shift for a line, Ctrl for a box, both for an arrow; R, G, B, Y, O, P change the color, Ctrl+Z undoes, W and K give a white or black board). Also draw straight onto the screen, live zoom, and a break countdown. | `Ctrl+1` to `Ctrl+4` |
 
 Every shortcut can be changed or removed in the configuration, and each utility can be
 turned on or off from the tray icon.
 
 ### Coming next
 
-ZoomIt ·
 Workspaces · Peek · Advanced Paste · Command Not Found
 
 ## Install

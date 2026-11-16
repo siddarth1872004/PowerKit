@@ -26,6 +26,7 @@ members = [
     "modules/power-display",
     "modules/screen-ruler",
     "modules/power-rename",
+    "modules/zoom-it",
     "apps/background",
 ]
 
@@ -59,6 +60,7 @@ powerkit-plugin-api = { path = "crates/powerkit-plugin-api" }
 always-on-top = { path = "modules/always-on-top" }
 color-picker = { path = "modules/color-picker" }
 power-rename = { path = "modules/power-rename" }
+zoom-it = { path = "modules/zoom-it" }
 fancy-zones = { path = "modules/fancy-zones" }
 launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }

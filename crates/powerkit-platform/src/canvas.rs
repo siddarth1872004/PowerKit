@@ -18,6 +18,8 @@ pub enum Font {
     Title,
     Body,
     Key,
+    /// Large numbers, such as a countdown across a screen.
+    Huge,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,12 +34,13 @@ fn spec(font: Font) -> (u32, i32) {
         Font::Title => (18, FW_SEMIBOLD.0 as i32),
         Font::Body => (14, FW_NORMAL.0 as i32),
         Font::Key => (13, FW_SEMIBOLD.0 as i32),
+        Font::Huge => (160, FW_LIGHT.0 as i32),
     }
 }
 
 struct Fonts {
     dpi: u32,
-    fonts: [HFONT; 3],
+    fonts: [HFONT; 4],
 }
 
 impl Fonts {
@@ -68,7 +71,7 @@ impl Fonts {
         };
         Fonts {
             dpi,
-            fonts: [make(Font::Title), make(Font::Body), make(Font::Key)],
+            fonts: [make(Font::Title), make(Font::Body), make(Font::Key), make(Font::Huge)],
         }
     }
 

@@ -23,6 +23,7 @@ mod screen_ruler;
 mod shortcut_guide;
 mod text_extractor;
 mod window_hopper;
+mod zoom_it;
 
 pub use awake::*;
 pub use color_picker::*;
@@ -46,6 +47,7 @@ pub use screen_ruler::*;
 pub use shortcut_guide::*;
 pub use text_extractor::*;
 pub use window_hopper::*;
+pub use zoom_it::*;
 
 use powerkit_core::Shortcut;
 use serde::{Deserialize, Serialize};
@@ -172,6 +174,7 @@ pub struct Config {
     pub text_extractor: TextExtractor,
     pub power_display: PowerDisplay,
     pub screen_ruler: ScreenRuler,
+    pub zoom_it: ZoomIt,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -277,6 +280,7 @@ impl Config {
         self.text_extractor.sanitize(&mut w);
         self.power_display.sanitize(&mut w);
         self.screen_ruler.sanitize(&mut w);
+        self.zoom_it.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -315,6 +319,10 @@ impl Config {
         push("text_extractor", "extract", &self.text_extractor.shortcut);
         push("power_display", "open", &self.power_display.shortcut);
         push("screen_ruler", "measure", &self.screen_ruler.shortcut);
+        push("zoom_it", "zoom", &self.zoom_it.zoom_shortcut);
+        push("zoom_it", "draw", &self.zoom_it.draw_shortcut);
+        push("zoom_it", "break", &self.zoom_it.break_shortcut);
+        push("zoom_it", "live_zoom", &self.zoom_it.live_zoom_shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -371,6 +379,7 @@ impl Config {
             "text_extractor" => self.text_extractor.enabled,
             "power_display" => self.power_display.enabled,
             "screen_ruler" => self.screen_ruler.enabled,
+            "zoom_it" => self.zoom_it.enabled,
             _ => return None,
         })
     }
@@ -400,6 +409,7 @@ impl Config {
             "text_extractor" => &mut self.text_extractor.enabled,
             "power_display" => &mut self.power_display.enabled,
             "screen_ruler" => &mut self.screen_ruler.enabled,
+            "zoom_it" => &mut self.zoom_it.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -471,6 +481,7 @@ impl Config {
         config.text_extractor = section(&mut map, "text_extractor", &mut warnings);
         config.power_display = section(&mut map, "power_display", &mut warnings);
         config.screen_ruler = section(&mut map, "screen_ruler", &mut warnings);
+        config.zoom_it = section(&mut map, "zoom_it", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

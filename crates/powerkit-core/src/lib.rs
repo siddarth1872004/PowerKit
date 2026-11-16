@@ -16,7 +16,7 @@ pub use lifecycle::{Lifecycle, State, Transition};
 pub use shortcut::{Mods, Shortcut, ShortcutError};
 
 /// Identifiers of the built-in utilities, in display order.
-pub const MODULE_IDS: [&str; 23] = [
+pub const MODULE_IDS: [&str; 24] = [
     "fancy_zones",
     "power_rename",
     "color_picker",
@@ -40,4 +40,5 @@ pub const MODULE_IDS: [&str; 23] = [
     "text_extractor",
     "power_display",
     "screen_ruler",
+    "zoom_it",
 ];
