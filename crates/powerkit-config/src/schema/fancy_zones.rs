@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 
 /// Zone coordinates are expressed in this many units per monitor work-area dimension,
 /// which makes layouts independent of resolution and DPI.
-pub const UNITS: u32 = 10_000;
+pub const UNITS: u32 = powerkit_core::zone_layout::ZONE_UNITS;
 /// Smallest zone edge, in units (2% of the work area).
-pub const MIN_ZONE_UNITS: u32 = 200;
-pub const MAX_ZONES: usize = 40;
+pub const MIN_ZONE_UNITS: u32 = powerkit_core::zone_layout::MIN_ZONE;
+pub const MAX_ZONES: usize = powerkit_core::zone_layout::MAX_ZONES;
 pub const MAX_LAYOUTS: usize = 64;
 
 /// One zone of a layout, in [`UNITS`] relative to the monitor work area.
@@ -64,6 +64,7 @@ pub enum LayoutKind {
     Rows,
     Grid,
     Priority,
+    Focus,
     #[default]
     Custom,
 }
@@ -176,6 +177,70 @@ impl Layout {
             LayoutKind::Priority,
             zones,
         )
+    }
+
+    /// `n` overlapping zones, each a step down and to the right of the one before.
+    pub fn focus(n: u32) -> Layout {
+        let n = n.clamp(1, 8);
+        let size = 6_000;
+        let step = if n > 1 { (UNITS - size) / (n - 1) } else { 0 };
+        let start = if n > 1 { 0 } else { (UNITS - size) / 2 };
+        let zones = (0..n)
+            .map(|i| Zone::new(start + i * step, start + i * step, size, size))
+            .collect();
+        Self::template(
+            &format!("focus-{n}"),
+            &format!("Focus ({n} zones)"),
+            LayoutKind::Focus,
+            zones,
+        )
+    }
+
+    /// As the layout editor shows it.
+    pub fn to_editor(&self) -> powerkit_core::ZoneLayout {
+        powerkit_core::ZoneLayout {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            zones: self.zones.iter().map(|z| [z.x, z.y, z.w, z.h]).collect(),
+            spacing: self.spacing,
+            margin: self.margin,
+        }
+    }
+
+    /// The layouts the editor saved. A layout keeps its kind and zone names while its
+    /// zones are unchanged; changed zones make it a custom layout.
+    pub fn from_editor(edited: &[powerkit_core::ZoneLayout], before: &[Layout]) -> Vec<Layout> {
+        edited
+            .iter()
+            .map(|e| {
+                let old = before.iter().find(|l| l.id == e.id);
+                let zones: Vec<Zone> = e
+                    .zones
+                    .iter()
+                    .enumerate()
+                    .map(|(i, z)| Zone {
+                        name: old
+                            .and_then(|l| l.zones.get(i))
+                            .filter(|o| [o.x, o.y, o.w, o.h] == *z)
+                            .map(|o| o.name.clone())
+                            .unwrap_or_default(),
+                        ..Zone::new(z[0], z[1], z[2], z[3])
+                    })
+                    .collect();
+                let kind = match old {
+                    Some(l) if l.zones.iter().map(|z| [z.x, z.y, z.w, z.h]).eq(e.zones.iter().copied()) => l.kind,
+                    _ => LayoutKind::Custom,
+                };
+                Layout {
+                    id: e.id.clone(),
+                    name: e.name.clone(),
+                    kind,
+                    zones,
+                    spacing: e.spacing,
+                    margin: e.margin,
+                }
+            })
+            .collect()
     }
 
     /// Layouts shipped with a fresh configuration.
@@ -393,6 +458,34 @@ mod tests {
                 .all(|b| a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y)
         });
         inside && disjoint && area == UNITS as u64 * UNITS as u64
+    }
+
+    #[test]
+    fn focus_zones_stay_inside_and_step_down() {
+        for n in 1..=8 {
+            let l = Layout::focus(n);
+            assert_eq!(l.zones.len(), n as usize);
+            assert!(l.zones.iter().all(|z| z.x + z.w <= UNITS && z.y + z.h <= UNITS), "{n}");
+        }
+        assert_eq!(Layout::focus(3).zones[2].x, UNITS - 6_000);
+    }
+
+    #[test]
+    fn editor_round_trip_keeps_kind_until_zones_change() {
+        let mut before = Layout::columns(2);
+        before.zones[0].name = "left".into();
+        let mut edited = before.to_editor();
+        edited.name = "Two".into();
+        let same = Layout::from_editor(std::slice::from_ref(&edited), std::slice::from_ref(&before));
+        assert_eq!(same[0].kind, LayoutKind::Columns);
+        assert_eq!(same[0].zones[0].name, "left");
+        assert_eq!(same[0].name, "Two");
+        edited.zones[0][2] = 4_000;
+        edited.zones[1] = [4_000, 0, 6_000, UNITS];
+        let changed = Layout::from_editor(&[edited], &[before]);
+        assert_eq!(changed[0].kind, LayoutKind::Custom);
+        assert_eq!(changed[0].zones[0].name, "");
+        assert_eq!(changed[0].zones[1], Zone::new(4_000, 0, 6_000, UNITS));
     }
 
     #[test]

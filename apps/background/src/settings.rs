@@ -4,9 +4,13 @@
 
 use crate::Host;
 use powerkit_config::Config;
-use powerkit_core::{SettingValue, SettingsEvent};
+use powerkit_config::Layout as FzLayout;
+use powerkit_core::{SettingValue, SettingsEvent, ZoneLayout};
 use powerkit_platform::guide_view::Scene;
-use powerkit_platform::settings_window::{Control, Group, Item, NavEntry, Page, SettingsWindow, Severity};
+use powerkit_platform::settings_window::{
+    Control, Group, Item, LayoutChoice, NavEntry, Page, SettingsWindow, Severity,
+};
+use powerkit_platform::zone_editor::{ZoneEditor, ZoneTemplate};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 
@@ -25,6 +29,12 @@ pub enum Kind {
     Lines(&'static str),
     /// A value with structure of its own, edited as JSON.
     Json,
+    /// A FancyZones layout id, picked from pictures of the layouts.
+    LayoutPick,
+    /// The FancyZones layout of each monitor, one drop-down per monitor.
+    MonitorLayouts,
+    /// A button that opens a window editing the value.
+    Editor(&'static str),
 }
 
 /// One setting of a utility: `key` is its path under the utility's section, with
@@ -225,15 +235,20 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                     s(
                         "default_layout",
                         "Default layout",
-                        "The id of the layout used on monitors without one",
-                        Text(""),
+                        "Used on every monitor that has no layout of its own",
+                        LayoutPick,
                     ),
-                    s("layouts", "Layouts", "Each layout's zones, as JSON", Json),
+                    s(
+                        "layouts",
+                        "Layout editor",
+                        "Make layouts from templates, drag the lines between zones, split and remove zones",
+                        Editor("Edit layouts"),
+                    ),
                     s(
                         "monitor_layouts",
-                        "Layouts per monitor",
-                        "Monitor name to layout id, as JSON",
-                        Json,
+                        "Layout of each monitor",
+                        "Expand to give a monitor a layout of its own",
+                        MonitorLayouts,
                     ),
                 ],
             ),
@@ -1252,7 +1267,95 @@ fn control(kind: Kind, v: &Value, default: &Value) -> Control {
             lines: 8,
             wide: true,
         },
+        // Built by `item`, which has the layouts.
+        LayoutPick | MonitorLayouts => Control::None,
+        Editor(label) => Control::Button {
+            label: label.into(),
+            accent: false,
+        },
     }
+}
+
+/// Prefix of the keys of the per-monitor layout drop-downs; the monitor id follows.
+/// Monitor ids contain dots, so these are not dotted paths.
+const MONITOR_KEY: &str = "fancy_zones.monitor:";
+
+/// The FancyZones layouts in `config` as pictures.
+fn layout_choices(config: &Value) -> Vec<LayoutChoice> {
+    let units = powerkit_config::UNITS as f32;
+    config["fancy_zones"]["layouts"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .map(|l| LayoutChoice {
+                    id: l["id"].as_str().unwrap_or_default().into(),
+                    name: l["name"].as_str().unwrap_or_default().into(),
+                    zones: l["zones"]
+                        .as_array()
+                        .map(|zs| {
+                            zs.iter()
+                                .map(|z| ["x", "y", "w", "h"].map(|c| z[c].as_f64().unwrap_or(0.0) as f32 / units))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// One drop-down per connected monitor, and per monitor that has a layout but is
+/// not connected now.
+fn monitor_items(config: &Value, enabled: bool) -> Vec<Item> {
+    let assigned = config["fancy_zones"]["monitor_layouts"]
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    let mut options = vec![(String::new(), "Default layout".to_string())];
+    options.extend(layout_choices(config).into_iter().map(|l| (l.id, l.name)));
+    let mut monitors: Vec<(String, String)> = match powerkit_platform::monitor::enumerate() {
+        Ok(ms) => ms
+            .iter()
+            .map(|m| {
+                let mut d = format!("{} x {}", m.rect.right - m.rect.left, m.rect.bottom - m.rect.top);
+                if m.primary {
+                    d.push_str(", main display");
+                }
+                (m.id.clone(), d)
+            })
+            .collect(),
+        Err(e) => {
+            tracing::warn!("could not list monitors: {e}");
+            Vec::new()
+        }
+    };
+    for id in assigned.keys() {
+        if !monitors.iter().any(|(m, _)| m == id) {
+            monitors.push((id.clone(), "Not connected".into()));
+        }
+    }
+    monitors
+        .into_iter()
+        .map(|(id, description)| {
+            let selected = assigned
+                .get(&id)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let title = id.trim_start_matches(['\\', '.']).to_string();
+            let mut it = Item::new(
+                format!("{MONITOR_KEY}{id}"),
+                title,
+                Control::Choice {
+                    options: options.clone(),
+                    selected,
+                },
+            );
+            it.description = description;
+            it.enabled = enabled;
+            it
+        })
+        .collect()
 }
 
 /// The card for `spec` in the section `section` of `config`.
@@ -1267,7 +1370,13 @@ fn item(
     let key = format!("{section}.{}", spec.key);
     let v = at(config, &key);
     kinds.insert(key.clone(), spec.kind);
-    let control = control(spec.kind, v, at(defaults, &key));
+    let control = match spec.kind {
+        LayoutPick => Control::Layouts {
+            options: layout_choices(config),
+            selected: v.as_str().unwrap_or_default().into(),
+        },
+        _ => control(spec.kind, v, at(defaults, &key)),
+    };
     let mut it = Item::new(key, spec.title, control);
     it.description = spec.description.into();
     it.enabled = enabled;
@@ -1278,6 +1387,9 @@ fn item(
         .iter()
         .map(|c| item(section, c, config, defaults, inner, kinds))
         .collect();
+    if spec.kind == MonitorLayouts {
+        it.children = monitor_items(config, enabled);
+    }
     it
 }
 
@@ -1312,7 +1424,8 @@ fn groups(
     }
     let mut other = Vec::new();
     for key in leaves(&config[section], section) {
-        if seen.contains(&key) {
+        // A covered map (such as monitor ids to layouts) covers its entries too.
+        if seen.contains(&key) || seen.iter().any(|s| key.starts_with(&format!("{s}."))) {
             continue;
         }
         let v = at(config, &key);
@@ -1437,6 +1550,29 @@ pub struct SettingsUi {
     current: usize,
     /// How each setting on the page is edited, by dotted key.
     kinds: HashMap<String, Kind>,
+    zones: Option<ZoneEditor>,
+}
+
+/// The templates of the FancyZones layout editor, for one to eight zones.
+fn zone_templates() -> Vec<ZoneTemplate> {
+    let grid = |n: u32| {
+        let cols = (1..=n).find(|c| c * c >= n).unwrap_or(1);
+        FzLayout::grid(cols, n.div_ceil(cols))
+    };
+    let kinds: [(&str, &dyn Fn(u32) -> FzLayout); 5] = [
+        ("Columns", &FzLayout::columns),
+        ("Rows", &FzLayout::rows),
+        ("Grid", &grid),
+        ("Priority grid", &FzLayout::priority),
+        ("Focus", &FzLayout::focus),
+    ];
+    kinds
+        .into_iter()
+        .map(|(name, make)| ZoneTemplate {
+            name: name.into(),
+            by_count: (1..=8).map(|n| make(n).to_editor().zones).collect(),
+        })
+        .collect()
 }
 
 impl SettingsUi {
@@ -1571,6 +1707,13 @@ impl SettingsUi {
                 self.refresh(host);
             }
             SettingsEvent::Page(_) => {}
+            SettingsEvent::Action(key) if key == "fancy_zones.layouts" => {
+                if let Err(e) = self.open_zones(host) {
+                    if let Some(w) = self.window.as_mut() {
+                        w.set_info(Some((Severity::Error, e)));
+                    }
+                }
+            }
             SettingsEvent::Action(key) => {
                 // Dashboard cards: open the utility's page.
                 let id = key.strip_suffix(".enabled").unwrap_or(&key);
@@ -1588,29 +1731,93 @@ impl SettingsUi {
         }
     }
 
+    fn open_zones(&mut self, host: &Host) -> Result<(), String> {
+        if self.zones.is_none() {
+            let mut w =
+                ZoneEditor::new(zone_templates()).map_err(|e| format!("could not open the layout editor: {e}"))?;
+            crate::icons::apply("fancy_zones", |ico| w.set_icon(ico));
+            self.zones = Some(w);
+        }
+        let w = self.zones.as_mut().expect("created above");
+        // Unsaved changes in a window that is still open are kept.
+        if !(w.is_visible() && w.is_dirty()) {
+            let fz = &host.config().fancy_zones;
+            let selected = fz.layouts.iter().position(|l| l.id == fz.default_layout);
+            w.set_layouts(fz.layouts.iter().map(FzLayout::to_editor).collect(), selected);
+        }
+        w.show();
+        Ok(())
+    }
+
+    /// Save what the layout editor reported.
+    pub fn on_zone_layouts(&mut self, layouts: Vec<ZoneLayout>, host: &mut Host) {
+        let mut config = host.config().clone();
+        config.fancy_zones.layouts = FzLayout::from_editor(&layouts, &config.fancy_zones.layouts);
+        let text = match host.handle_request("config.set", &json!({ "config": config })) {
+            Ok(r) => {
+                let warnings: Vec<&str> = r["warnings"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(Value::as_str).collect())
+                    .unwrap_or_default();
+                if warnings.is_empty() {
+                    "Saved.".to_string()
+                } else {
+                    format!("Saved. {}", warnings.join(" "))
+                }
+            }
+            Err(e) => format!("Not saved: {e}"),
+        };
+        if let Some(w) = self.zones.as_mut() {
+            if !text.starts_with("Not saved") {
+                let saved = host
+                    .config()
+                    .fancy_zones
+                    .layouts
+                    .iter()
+                    .map(FzLayout::to_editor)
+                    .collect();
+                w.set_layouts(saved, None);
+            }
+            w.set_status(&text);
+        }
+        self.refresh(host);
+    }
+
     fn save(&mut self, host: &mut Host, key: &str, value: SettingValue) {
         let mut config = serde_json::to_value(host.config()).unwrap_or(Value::Null);
-        let original = at(&config, key).clone();
-        let kind = self.kinds.get(key).copied().unwrap_or_else(|| guess(&original));
-        let parsed = match value {
-            SettingValue::Bool(b) => Ok(Value::Bool(b)),
-            SettingValue::Text(t) => parse(&original, kind, &t),
+        let parsed = if let Some(monitor) = key.strip_prefix(MONITOR_KEY) {
+            match (value, config["fancy_zones"]["monitor_layouts"].as_object_mut()) {
+                (SettingValue::Text(id), Some(map)) => {
+                    if id.is_empty() {
+                        map.remove(monitor);
+                    } else {
+                        map.insert(monitor.to_string(), Value::String(id));
+                    }
+                    Ok(())
+                }
+                _ => Err("the monitor layouts are not a list".to_string()),
+            }
+        } else {
+            let original = at(&config, key).clone();
+            let kind = self.kinds.get(key).copied().unwrap_or_else(|| guess(&original));
+            match value {
+                SettingValue::Bool(b) => Ok(Value::Bool(b)),
+                SettingValue::Text(t) => parse(&original, kind, &t),
+            }
+            .map(|v| set_at(&mut config, key, v))
         };
         let info = match parsed {
             Err(e) => Some((Severity::Error, format!("Not saved: {e}"))),
-            Ok(v) => {
-                set_at(&mut config, key, v);
-                match host.handle_request("config.set", &json!({ "config": config })) {
-                    Ok(r) => {
-                        let warnings: Vec<&str> = r["warnings"]
-                            .as_array()
-                            .map(|a| a.iter().filter_map(Value::as_str).collect())
-                            .unwrap_or_default();
-                        (!warnings.is_empty()).then(|| (Severity::Warning, warnings.join(" ")))
-                    }
-                    Err(e) => Some((Severity::Error, format!("Not saved: {e}"))),
+            Ok(()) => match host.handle_request("config.set", &json!({ "config": config })) {
+                Ok(r) => {
+                    let warnings: Vec<&str> = r["warnings"]
+                        .as_array()
+                        .map(|a| a.iter().filter_map(Value::as_str).collect())
+                        .unwrap_or_default();
+                    (!warnings.is_empty()).then(|| (Severity::Warning, warnings.join(" ")))
                 }
-            }
+                Err(e) => Some((Severity::Error, format!("Not saved: {e}"))),
+            },
         };
         if key.ends_with(".enabled") {
             self.read_modules(host);
@@ -1658,7 +1865,9 @@ mod tests {
                 Number => assert!(v.is_number(), "{key}"),
                 Shortcut | Color | Text(_) | Choice(_) => assert!(v.is_string(), "{key}"),
                 Lines(_) => assert!(is_string_list(v), "{key}"),
-                Json => {}
+                LayoutPick => assert!(v.is_string(), "{key}"),
+                MonitorLayouts => assert!(v.is_object(), "{key}"),
+                Json | Editor(_) => {}
             }
             if let Choice(options) = kind {
                 let current = v.as_str().unwrap();

@@ -53,6 +53,7 @@ pub mod theme;
 pub mod time;
 pub mod tray;
 pub mod window;
+pub mod zone_editor;
 pub mod zones;
 
 mod util;

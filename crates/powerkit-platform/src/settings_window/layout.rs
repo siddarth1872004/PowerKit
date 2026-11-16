@@ -28,6 +28,9 @@ const CARD_GAP: f32 = 4.0;
 const CARD_MIN_H: f32 = 68.0;
 const CARD_PAD: f32 = 16.0;
 const ICON: f32 = 20.0;
+const TILE_W: f32 = 148.0;
+const TILE_H: f32 = 120.0;
+const TILE_GAP: f32 = 12.0;
 const ROW_MIN_H: f32 = 52.0;
 const CHILD_INDENT: f32 = 58.0;
 const CONTROL_H: f32 = 32.0;
@@ -70,6 +73,8 @@ pub(crate) enum Part {
     Button,
     Link,
     Field,
+    /// The option at this index of a [`Control::Layouts`].
+    Pick(usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,6 +140,12 @@ pub(crate) enum Look {
     },
     Chevron {
         glyph: char,
+        enabled: bool,
+    },
+    LayoutTile {
+        name: String,
+        zones: Vec<[f32; 4]>,
+        selected: bool,
         enabled: bool,
     },
     Info {
@@ -317,7 +328,7 @@ fn control_width(m: &mut dyn Measure, c: &Control, k: f32) -> f32 {
                 .fold(0.0, f32::max);
             (widest + 12.0 * k + 36.0 * k).clamp(160.0 * k, 320.0 * k)
         }
-        Control::Text { wide: true, .. } => 0.0,
+        Control::Text { wide: true, .. } | Control::Layouts { .. } => 0.0,
         Control::Text { .. } => 240.0 * k,
         Control::Number { .. } => 140.0 * k,
         Control::Color(_) => 72.0 * k,
@@ -417,7 +428,33 @@ fn control_nodes(c: &Control, r: Rect, at: ItemRef, enabled: bool, k: f32, out: 
             },
             hit: hit(Part::Button),
         }),
+        Control::Layouts { options, selected } => {
+            let cols = tile_columns(r.w, k);
+            for (i, o) in options.iter().enumerate() {
+                let (col, line) = ((i % cols) as f32, (i / cols) as f32);
+                out.content.push(Node {
+                    rect: Rect::new(
+                        r.x + col * (TILE_W + TILE_GAP) * k,
+                        r.y + line * (TILE_H + TILE_GAP) * k,
+                        TILE_W * k,
+                        TILE_H * k,
+                    ),
+                    look: Look::LayoutTile {
+                        name: o.name.clone(),
+                        zones: o.zones.clone(),
+                        selected: o.id == *selected,
+                        enabled,
+                    },
+                    hit: hit(Part::Pick(i)),
+                });
+            }
+        }
     }
+}
+
+/// How many layout pictures fit across `w`.
+fn tile_columns(w: f32, k: f32) -> usize {
+    (((w + TILE_GAP * k) / ((TILE_W + TILE_GAP) * k)) as usize).max(1)
 }
 
 /// Lay out one row (a card's header or an expanded child) whose content starts at
@@ -451,9 +488,13 @@ fn row(
     } else {
         m.measure(&item.description, &desc, text_w).1
     };
-    let wide = matches!(item.control, Control::Text { wide: true, .. });
-    let wide_h = match item.control {
-        Control::Text { lines, wide: true, .. } => (f32::from(lines.max(1)) * 20.0 + 12.0) * k,
+    let wide = matches!(item.control, Control::Text { wide: true, .. } | Control::Layouts { .. });
+    let wide_h = match &item.control {
+        Control::Text { lines, wide: true, .. } => (f32::from((*lines).max(1)) * 20.0 + 12.0) * k,
+        Control::Layouts { options, .. } => {
+            let lines = options.len().div_ceil(tile_columns(right - text_x, k)).max(1) as f32;
+            lines * (TILE_H + TILE_GAP) * k - TILE_GAP * k
+        }
         _ => 0.0,
     };
     let text_h = th + dh;

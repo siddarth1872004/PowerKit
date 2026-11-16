@@ -98,6 +98,21 @@ pub enum Control {
         label: String,
         accent: bool,
     },
+    /// Pictures of zone layouts on their own lines under the title; clicking one sends
+    /// its id.
+    Layouts {
+        options: Vec<LayoutChoice>,
+        selected: String,
+    },
+}
+
+/// A layout shown by [`Control::Layouts`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayoutChoice {
+    pub id: String,
+    pub name: String,
+    /// Zones as `[x, y, w, h]`, fractions of the screen.
+    pub zones: Vec<[f32; 4]>,
 }
 
 /// A message shown under the page title until it is replaced or closed.

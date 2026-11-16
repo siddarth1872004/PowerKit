@@ -6,6 +6,7 @@ pub mod geometry;
 pub mod keys;
 pub mod lifecycle;
 pub mod shortcut;
+pub mod zone_layout;
 
 pub use event::{
     Event, MouseEvent, PeekEvent, PopupEvent, PowerDisplayEvent, RegistryEvent, RenameEvent, RenameForm, SettingValue,
@@ -14,6 +15,7 @@ pub use event::{
 pub use geometry::Rect;
 pub use lifecycle::{Lifecycle, State, Transition};
 pub use shortcut::{Mods, Shortcut, ShortcutError};
+pub use zone_layout::ZoneLayout;
 
 /// Identifiers of the built-in utilities, in display order.
 pub const MODULE_IDS: [&str; 31] = [

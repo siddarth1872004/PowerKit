@@ -742,6 +742,7 @@ fn run(
                 }
             }
             Event::Settings(e) => ui.settings.on_event(e, &mut host),
+            Event::ZoneLayouts(l) => ui.settings.on_zone_layouts(l, &mut host),
             Event::Rename(e) => ui.rename.on_event(e, &mut host),
             Event::Table { table, event } if table == powerkit_host::hosts::TABLE => ui.hosts.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),

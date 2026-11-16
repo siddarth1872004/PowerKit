@@ -11,7 +11,7 @@ mod model;
 mod painter;
 mod palette;
 
-pub use model::{Control, Group, Item, NavEntry, Page, Severity};
+pub use model::{Control, Group, Item, LayoutChoice, NavEntry, Page, Severity};
 
 use crate::event_loop::push;
 use crate::guide_view::{self, Scene};
@@ -630,6 +630,11 @@ impl State {
                     }
                     (Part::Button | Part::Link, _) => push(Event::Settings(SettingsEvent::Action(item.key.clone()))),
                     (Part::Field, _) => self.set_focus(hit),
+                    (Part::Pick(i), Control::Layouts { options, .. }) => {
+                        if let Some(o) = options.get(i) {
+                            set(SettingValue::Text(o.id.clone()));
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -1504,6 +1509,42 @@ impl View<'_> {
             }
             Look::Chevron { glyph, enabled } => {
                 p.glyph(*glyph, r, 12.0 * k, if *enabled { pal.text } else { pal.disabled });
+            }
+            Look::LayoutTile {
+                name,
+                zones,
+                selected,
+                enabled,
+            } => {
+                p.fill(
+                    r,
+                    radius,
+                    self.state_fill(n.hit, pal.control, pal.control_hover, pal.control_pressed),
+                );
+                if *selected {
+                    p.stroke(r.inset(k, k), radius, pal.accent, 2.0 * k);
+                } else {
+                    p.control_border(r, radius, pal.control_stroke, pal.control_stroke_bottom, k);
+                }
+                let ink = match (enabled, selected) {
+                    (false, _) => pal.disabled,
+                    (true, true) => pal.accent,
+                    (true, false) => pal.text2,
+                };
+                let pic = Rect::new(r.x + 12.0 * k, r.y + 12.0 * k, r.w - 24.0 * k, r.h - 48.0 * k);
+                for z in zones {
+                    let zr = Rect::new(pic.x + z[0] * pic.w, pic.y + z[1] * pic.h, z[2] * pic.w, z[3] * pic.h)
+                        .inset(1.5 * k, 1.5 * k);
+                    p.fill(zr, 2.0 * k, (ink & 0x00FF_FFFF) | 0x4000_0000);
+                    p.stroke(zr, 2.0 * k, ink, k);
+                }
+                let mut st = body(if *enabled { pal.text } else { pal.disabled });
+                st.align = Align::Center;
+                p.text(
+                    name,
+                    Rect::new(r.x + 6.0 * k, pic.bottom() + 6.0 * k, r.w - 12.0 * k, 24.0 * k),
+                    &st,
+                );
             }
             Look::Info { severity } => {
                 let (bg, _) = severity_colors(pal, *severity);

@@ -191,6 +191,8 @@ pub enum Event {
     Registry(RegistryEvent),
     Peek(PeekEvent),
     PowerDisplay(PowerDisplayEvent),
+    /// Save was chosen in the FancyZones layout editor; these are all the layouts.
+    ZoneLayouts(Vec<crate::ZoneLayout>),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.
