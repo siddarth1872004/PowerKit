@@ -35,6 +35,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("workspaces", 9.0, workspaces),
     ("peek", 9.0, peek),
     ("power_plan", 8.0, power_plan),
+    ("advanced_paste", 9.0, advanced_paste),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1780,6 +1781,62 @@ fn power_plan(c: &mut Canvas, t: f32, cfg: &Config) {
                 "Click one to switch; with Balanced on, the power modes are listed too",
             ),
             (5.6, "The tray menu has Power plan as well"),
+        ],
+    );
+}
+
+fn advanced_paste(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.advanced_paste;
+    c.desktop();
+    let top = c.window(70.0, 70.0, 340.0, 120.0, "Notes");
+    let pasted = t >= 4.0;
+    c.rect(82.0, top + 14.0, 316.0, 26.0, 4.0, WHITE);
+    c.outline(82.0, top + 14.0, 316.0, 26.0, 4.0, ACCENT, 1.0);
+    c.field_text(
+        90.0,
+        top + 27.0,
+        if pasted {
+            "**Bold** and a [link](https://example.com)"
+        } else {
+            ""
+        },
+    );
+    scribble(c, 82.0, top + 52.0, 300.0, 3, LINE);
+    press(c, t, 0.8, 1.4, &s.shortcut);
+    let (x, y) = path(
+        t,
+        &[
+            (0.0, 240.0, 120.0),
+            (1.8, 240.0, 120.0),
+            (3.0, 270.0, 66.0),
+            (9.0, 270.0, 66.0),
+        ],
+    );
+    if (1.5..3.6).contains(&t) {
+        let hot = if t >= 2.6 { Some(1) } else { None };
+        let items = [
+            "Paste as plain text",
+            "Paste as Markdown",
+            "Paste as .txt file",
+            "Paste as .html file",
+        ];
+        c.menu(240.0, 30.0, 160.0, &items, hot);
+    }
+    click(c, t, 3.3, x, y);
+    c.cursor(x, y);
+    let start = format!("Copy formatted text, then press {}", named(&s.shortcut));
+    let plain = if s.plain_shortcut.is_empty() {
+        "Plain text, JSON from a table, a file for File Explorer, or the text in a picture".to_string()
+    } else {
+        format!("{} pastes plain text straight away", named(&s.plain_shortcut))
+    };
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.6, "The ways to paste what is on the clipboard show at the cursor"),
+            (3.6, "Click one: it is converted and pasted where you were typing"),
+            (6.2, &plain),
         ],
     );
 }

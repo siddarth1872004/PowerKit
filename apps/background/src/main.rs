@@ -366,6 +366,34 @@ fn power_plan_menu(tray: &Tray, notify: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Show the ways the clipboard can be pasted, at the cursor, and paste the one chosen
+/// into the window that was in front.
+fn advanced_paste_menu(tray: &Tray, language: &str) -> Result<(), String> {
+    let fail = |e: anyhow::Error| format!("Advanced Paste: {e:#}");
+    let target = powerkit_platform::window::foreground().map(|h| h.0);
+    let clip = advanced_paste::read().map_err(fail)?;
+    let choices = clip.choices();
+    let items: Vec<MenuItem> = if choices.is_empty() {
+        vec![MenuItem::Item {
+            id: 1,
+            label: "Nothing on the clipboard can be pasted another way".into(),
+            checked: false,
+            enabled: false,
+        }]
+    } else {
+        choices
+            .iter()
+            .enumerate()
+            .map(|(i, f)| MenuItem::new(1 + i as u32, f.label()))
+            .collect()
+    };
+    let chosen = tray.show_menu(&items).map_err(|e| format!("Advanced Paste: {e}"))?;
+    let Some(format) = chosen.and_then(|id| choices.get(id as usize - 1)) else {
+        return Ok(());
+    };
+    advanced_paste::paste(*format, &clip, target, language).map_err(fail)
+}
+
 /// The windows the host shows, opened by module outputs and fed their own events.
 struct Windows {
     settings: SettingsUi,
@@ -524,6 +552,9 @@ fn run(
                             ui.workspaces.launch(payload["name"].as_str().unwrap_or_default(), host)
                         }
                         power_plan::OPEN_EVENT => power_plan_menu(&tray, host.config().power_plan.notify),
+                        advanced_paste::OPEN_EVENT => {
+                            advanced_paste_menu(&tray, &host.config().advanced_paste.ocr_language)
+                        }
                         peek::OPEN_EVENT => ui.peek.open(payload["hwnd"].as_i64().unwrap_or_default() as isize),
                         _ => Ok(()),
                     };

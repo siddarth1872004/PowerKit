@@ -1,6 +1,7 @@
 //! The configuration schema. Every struct is `#[serde(default)]` so documents written by
 //! older versions (missing fields) and newer versions (unknown fields) both load.
 
+mod advanced_paste;
 mod awake;
 mod color_picker;
 mod crop_and_lock;
@@ -28,6 +29,7 @@ mod window_hopper;
 mod workspaces;
 mod zoom_it;
 
+pub use advanced_paste::*;
 pub use awake::*;
 pub use color_picker::*;
 pub use crop_and_lock::*;
@@ -184,6 +186,7 @@ pub struct Config {
     pub workspaces: Workspaces,
     pub peek: Peek,
     pub power_plan: PowerPlan,
+    pub advanced_paste: AdvancedPaste,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -293,6 +296,7 @@ impl Config {
         self.workspaces.sanitize(&mut w);
         self.peek.sanitize(&mut w);
         self.power_plan.sanitize(&mut w);
+        self.advanced_paste.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -339,6 +343,10 @@ impl Config {
         push("peek", "open", &self.peek.shortcut);
         push("power_plan", "open", &self.power_plan.shortcut);
         push("power_plan", "next", &self.power_plan.next_shortcut);
+        push("advanced_paste", "open", &self.advanced_paste.shortcut);
+        push("advanced_paste", "plain", &self.advanced_paste.plain_shortcut);
+        push("advanced_paste", "markdown", &self.advanced_paste.markdown_shortcut);
+        push("advanced_paste", "json", &self.advanced_paste.json_shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -399,6 +407,7 @@ impl Config {
             "workspaces" => self.workspaces.enabled,
             "peek" => self.peek.enabled,
             "power_plan" => self.power_plan.enabled,
+            "advanced_paste" => self.advanced_paste.enabled,
             _ => return None,
         })
     }
@@ -432,6 +441,7 @@ impl Config {
             "workspaces" => &mut self.workspaces.enabled,
             "peek" => &mut self.peek.enabled,
             "power_plan" => &mut self.power_plan.enabled,
+            "advanced_paste" => &mut self.advanced_paste.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -507,6 +517,7 @@ impl Config {
         config.workspaces = section(&mut map, "workspaces", &mut warnings);
         config.peek = section(&mut map, "peek", &mut warnings);
         config.power_plan = section(&mut map, "power_plan", &mut warnings);
+        config.advanced_paste = section(&mut map, "advanced_paste", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

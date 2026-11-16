@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "advanced-paste"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -542,6 +556,7 @@ dependencies = [
 name = "powerkit-host"
 version = "0.2.0"
 dependencies = [
+ "advanced-paste",
  "always-on-top",
  "anyhow",
  "awake",

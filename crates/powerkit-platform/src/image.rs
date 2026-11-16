@@ -114,6 +114,49 @@ pub fn open(path: &Path) -> Result<Picture> {
     }
 }
 
+/// Write `width` x `height` pixels (`0xAARRGGBB`, not premultiplied, row by row) as a
+/// PNG file at `path`.
+pub fn save_png(pixels: &[u32], width: u32, height: u32, path: &Path) -> Result<()> {
+    if width == 0 || height == 0 || pixels.len() != width as usize * height as usize {
+        return Err(Error::Other("the picture is empty".into()));
+    }
+    // SAFETY: each call is on an interface created just before; `bytes` covers the
+    // whole pixel buffer and outlives the bitmap that copies it.
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let factory: IWICImagingFactory = CoCreateInstance(&CLSID_WICImagingFactory, None, CLSCTX_INPROC_SERVER)
+            .context("starting Windows Imaging")?;
+        let bytes = std::slice::from_raw_parts(pixels.as_ptr().cast::<u8>(), pixels.len() * 4);
+        let bitmap = factory
+            .CreateBitmapFromMemory(width, height, &GUID_WICPixelFormat32bppBGRA, width * 4, bytes)
+            .context("copying the picture")?;
+        let stream = factory.CreateStream().context("creating the file")?;
+        stream
+            .InitializeFromFilename(&HSTRING::from(path.as_os_str()), GENERIC_WRITE.0)
+            .context(format!("creating {}", path.display()))?;
+        let encoder = factory
+            .CreateEncoder(&GUID_ContainerFormatPng, std::ptr::null())
+            .context("starting the picture writer")?;
+        encoder
+            .Initialize(&stream, WICBitmapEncoderNoCache)
+            .context("starting the picture writer")?;
+        let mut out: Option<IWICBitmapFrameEncode> = None;
+        let mut props: Option<IPropertyBag2> = None;
+        encoder.CreateNewFrame(&mut out, &mut props).context("adding a frame")?;
+        let out = out.ok_or_else(|| Error::Other("the picture writer gave no frame".into()))?;
+        out.Initialize(props.as_ref()).context("adding a frame")?;
+        out.SetSize(width, height).context("setting the picture size")?;
+        let mut format = GUID_WICPixelFormat32bppBGRA;
+        out.SetPixelFormat(&mut format).context("choosing the pixel format")?;
+        out.WriteSource(&bitmap, std::ptr::null())
+            .context("writing the picture")?;
+        out.Commit().context("writing the picture")?;
+        encoder.Commit().context("writing the picture")?;
+        stream.Commit(Default::default()).context("writing the picture")?;
+    }
+    Ok(())
+}
+
 /// `dst` with `.pk-resize` added: written first, so a failure never leaves half a
 /// picture under the real name, and the original can be read until the end.
 fn temp_path(dst: &Path) -> PathBuf {

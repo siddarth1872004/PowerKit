@@ -901,6 +901,36 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 Shortcut,
             )],
         )],
+        "advanced_paste" => vec![
+            (
+                "Shortcuts",
+                vec![
+                    s(
+                        "shortcut",
+                        "Show the ways to paste",
+                        "A menu at the cursor of what the clipboard can be pasted as",
+                        Shortcut,
+                    ),
+                    s("plain_shortcut", "Paste as plain text", "Without the formatting", Shortcut),
+                    s("markdown_shortcut", "Paste as Markdown", "From formatted text (HTML)", Shortcut),
+                    s(
+                        "json_shortcut",
+                        "Paste as JSON",
+                        "From JSON, or a comma, semicolon or tab separated table",
+                        Shortcut,
+                    ),
+                ],
+            ),
+            (
+                "Text in pictures",
+                vec![s(
+                    "ocr_language",
+                    "Language",
+                    "A language tag such as en-US or de-DE; empty uses the Windows display languages",
+                    Text(""),
+                )],
+            ),
+        ],
         "power_plan" => vec![
             (
                 "Shortcuts",
@@ -993,7 +1023,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     (
         "Input / Output",
         '\u{E765}',
-        &["keyboard_manager", "mouse_utilities", "quick_accent"],
+        &["keyboard_manager", "mouse_utilities", "quick_accent", "advanced_paste"],
     ),
     (
         "File Management",

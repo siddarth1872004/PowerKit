@@ -547,6 +547,7 @@ impl Host {
                     Some("workspaces") => new.workspaces = d.workspaces,
                     Some("peek") => new.peek = d.peek,
                     Some("power_plan") => new.power_plan = d.power_plan,
+                    Some("advanced_paste") => new.advanced_paste = d.advanced_paste,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);
