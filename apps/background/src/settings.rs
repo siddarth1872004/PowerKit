@@ -816,6 +816,32 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 s("single_line", "Copy as one line", "Join the lines with spaces", Toggle),
             ],
         )],
+        "power_display" => vec![
+            (
+                "Activation",
+                vec![s("shortcut", "Open Power Display", "Shows a slider for each monitor", Shortcut)],
+            ),
+            (
+                "Controls",
+                vec![
+                    s("contrast", "Contrast", "", Toggle),
+                    s("volume", "Volume", "For monitors with speakers", Toggle),
+                    s(
+                        "input_source",
+                        "Input source",
+                        "Switching away blanks this PC's picture; asks first",
+                        Toggle,
+                    ),
+                    s("color_preset", "Color preset", "Asks first", Toggle),
+                    s(
+                        "power_state",
+                        "Power",
+                        "Turning a monitor off may need its own button to undo; asks first",
+                        Toggle,
+                    ),
+                ],
+            ),
+        ],
         _ => Vec::new(),
     }
 }
@@ -830,6 +856,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "color_picker",
             "light_switch",
             "launcher",
+            "power_display",
             "shortcut_guide",
             "text_extractor",
         ],

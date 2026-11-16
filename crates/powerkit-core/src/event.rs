@@ -140,6 +140,16 @@ pub enum RegistryEvent {
     OpenKey(usize),
 }
 
+/// What the user did in the Power Display window; `section` and `row` index what its
+/// owner last showed. A choice that asks first is reported only once confirmed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PowerDisplayEvent {
+    Slider { section: usize, row: usize, value: u32 },
+    Choice { section: usize, row: usize, index: usize },
+    Refresh,
+    Closed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     /// A registered global hotkey fired (identifier assigned at registration).
@@ -168,6 +178,7 @@ pub enum Event {
         event: TableEvent,
     },
     Registry(RegistryEvent),
+    PowerDisplay(PowerDisplayEvent),
     /// Another thread asked the main loop to run (IPC request pending).
     Wake,
     /// The session is ending or the process was asked to exit.

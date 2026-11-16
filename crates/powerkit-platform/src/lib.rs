@@ -13,7 +13,10 @@ pub mod accent_bar;
 pub mod canvas;
 pub mod clipboard;
 pub mod crop;
+pub mod ddc;
 pub mod dialog;
+pub mod display_window;
+
 pub mod env;
 pub mod event_loop;
 pub mod frame;

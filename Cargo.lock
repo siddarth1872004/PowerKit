@@ -447,6 +447,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
+name = "power-display"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "power-rename"
 version = "0.2.0"
 dependencies = [
@@ -515,6 +530,7 @@ dependencies = [
  "light-switch",
  "mouse-utilities",
  "new-plus",
+ "power-display",
  "power-rename",
  "powerkit-config",
  "powerkit-core",

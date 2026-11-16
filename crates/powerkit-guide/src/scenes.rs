@@ -29,6 +29,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("file_locksmith", 9.0, file_locksmith),
     ("image_resizer", 9.0, image_resizer),
     ("text_extractor", 9.0, text_extractor),
+    ("power_display", 9.0, power_display),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1449,6 +1450,57 @@ fn text_extractor(c: &mut Canvas, t: f32, cfg: &Config) {
             (1.6, "Drag a box around the text you want"),
             (3.8, "Windows reads the text and it is copied"),
             (5.0, "Paste it anywhere"),
+        ],
+    );
+}
+
+fn power_display(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.power_display;
+    let level = 0.35 + 0.5 * ease(span(t, 3.4, 5.4));
+    c.desktop();
+    let top = c.window(20.0, 20.0, 230.0, 130.0, "Photos");
+    scribble(c, 34.0, top + 12.0, 200.0, 5, LINE);
+    // The whole screen stands in for the monitor whose brightness changes.
+    c.rect(0.0, 0.0, WIDTH, HEIGHT - 18.0, 0.0, BLACK.alpha(0.5 * (1.0 - level)));
+    press(c, t, 0.5, 1.1, &s.shortcut);
+    let mut rows = vec![("Brightness", level)];
+    if s.contrast {
+        rows.push(("Contrast", 0.75));
+    }
+    if s.volume {
+        rows.push(("Volume", 0.3));
+    }
+    let (x, w) = (262.0, 200.0);
+    let h = 44.0 + rows.len() as f32 * 24.0;
+    let y = HEIGHT - 26.0 - h;
+    let thumb = (x + 70.0 + 96.0 * level, y + TITLE_H + 30.5);
+    if t >= 1.2 {
+        let wt = c.window(x, y, w, h, "Power Display");
+        c.bold(x + 10.0, wt + 8.0, "Acer EK221Q", 8.0, TEXT);
+        for (i, (label, v)) in rows.iter().enumerate() {
+            let ry = wt + 30.0 + i as f32 * 24.0;
+            c.text(x + 10.0, ry - 4.0, label, 7.0, TEXT);
+            let (bx, bw) = (x + 70.0, 96.0);
+            c.rect(bx, ry - 1.0, bw, 3.0, 1.5, LINE);
+            c.rect(bx, ry - 1.0, bw * v, 3.0, 1.5, ACCENT);
+            c.circle(bx + bw * v, ry + 0.5, 5.0, ACCENT);
+            c.text(x + w - 24.0, ry - 4.0, &format!("{}", (v * 100.0).round()), 7.0, MUTED);
+        }
+    }
+    let (cx, cy) = if t < 3.0 {
+        path(t, &[(0.0, 200.0, 200.0), (2.6, thumb.0, thumb.1)])
+    } else {
+        thumb
+    };
+    c.cursor(cx, cy);
+    let start = format!("Press {}", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.4, "Each monitor gets its own sliders"),
+            (3.2, "Drag to set the monitor's own brightness"),
+            (6.0, "Input and power can be added in the settings"),
         ],
     );
 }

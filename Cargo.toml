@@ -23,6 +23,7 @@ members = [
     "modules/file-locksmith",
     "modules/image-resizer",
     "modules/text-extractor",
+    "modules/power-display",
     "modules/power-rename",
     "apps/background",
 ]
@@ -75,6 +76,7 @@ new-plus = { path = "modules/new-plus" }
 file-locksmith = { path = "modules/file-locksmith" }
 image-resizer = { path = "modules/image-resizer" }
 text-extractor = { path = "modules/text-extractor" }
+power-display = { path = "modules/power-display" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

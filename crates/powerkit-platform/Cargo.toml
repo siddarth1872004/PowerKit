@@ -23,6 +23,7 @@ features = [
     "Media_Ocr",
     "Security_Cryptography",
     "Storage_Streams",
+    "Win32_Devices_Display",
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",

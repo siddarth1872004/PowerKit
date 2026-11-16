@@ -527,6 +527,7 @@ impl Host {
                     Some("file_locksmith") => new.file_locksmith = d.file_locksmith,
                     Some("image_resizer") => new.image_resizer = d.image_resizer,
                     Some("text_extractor") => new.text_extractor = d.text_extractor,
+                    Some("power_display") => new.power_display = d.power_display,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

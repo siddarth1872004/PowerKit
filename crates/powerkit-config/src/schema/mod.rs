@@ -15,6 +15,7 @@ mod launcher;
 mod light_switch;
 mod mouse;
 mod new_plus;
+mod power_display;
 mod quick_accent;
 mod registry_preview;
 mod rename;
@@ -36,6 +37,7 @@ pub use launcher::*;
 pub use light_switch::*;
 pub use mouse::*;
 pub use new_plus::*;
+pub use power_display::*;
 pub use quick_accent::*;
 pub use registry_preview::*;
 pub use rename::*;
@@ -166,6 +168,7 @@ pub struct Config {
     pub file_locksmith: FileLocksmith,
     pub image_resizer: ImageResizer,
     pub text_extractor: TextExtractor,
+    pub power_display: PowerDisplay,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -269,6 +272,7 @@ impl Config {
         self.new_plus.sanitize(&mut w);
         self.image_resizer.sanitize(&mut w);
         self.text_extractor.sanitize(&mut w);
+        self.power_display.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -305,6 +309,7 @@ impl Config {
         push("environment_variables", "open", &self.environment_variables.shortcut);
         push("registry_preview", "open", &self.registry_preview.shortcut);
         push("text_extractor", "extract", &self.text_extractor.shortcut);
+        push("power_display", "open", &self.power_display.shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
         }
@@ -359,6 +364,7 @@ impl Config {
             "file_locksmith" => self.file_locksmith.enabled,
             "image_resizer" => self.image_resizer.enabled,
             "text_extractor" => self.text_extractor.enabled,
+            "power_display" => self.power_display.enabled,
             _ => return None,
         })
     }
@@ -386,6 +392,7 @@ impl Config {
             "file_locksmith" => &mut self.file_locksmith.enabled,
             "image_resizer" => &mut self.image_resizer.enabled,
             "text_extractor" => &mut self.text_extractor.enabled,
+            "power_display" => &mut self.power_display.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -455,6 +462,7 @@ impl Config {
         config.file_locksmith = section(&mut map, "file_locksmith", &mut warnings);
         config.image_resizer = section(&mut map, "image_resizer", &mut warnings);
         config.text_extractor = section(&mut map, "text_extractor", &mut warnings);
+        config.power_display = section(&mut map, "power_display", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

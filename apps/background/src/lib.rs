@@ -42,5 +42,6 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(file_locksmith::FileLocksmith::new()),
         Box::new(image_resizer::ImageResizer::new()),
         Box::new(text_extractor::TextExtractor::new()),
+        Box::new(power_display::PowerDisplay::new()),
     ]
 }

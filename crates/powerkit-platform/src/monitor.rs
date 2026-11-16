@@ -46,6 +46,10 @@ impl Monitor {
             handle: 0,
         }
     }
+
+    pub(crate) fn raw(&self) -> HMONITOR {
+        HMONITOR(self.handle as *mut _)
+    }
 }
 
 fn describe(handle: HMONITOR) -> Option<Monitor> {
