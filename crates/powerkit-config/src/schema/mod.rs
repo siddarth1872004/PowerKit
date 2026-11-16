@@ -4,6 +4,7 @@
 mod advanced_paste;
 mod awake;
 mod color_picker;
+mod command_not_found;
 mod crop_and_lock;
 mod environment_variables;
 mod fancy_zones;
@@ -32,6 +33,7 @@ mod zoom_it;
 pub use advanced_paste::*;
 pub use awake::*;
 pub use color_picker::*;
+pub use command_not_found::*;
 pub use crop_and_lock::*;
 pub use environment_variables::*;
 pub use fancy_zones::*;
@@ -187,6 +189,7 @@ pub struct Config {
     pub peek: Peek,
     pub power_plan: PowerPlan,
     pub advanced_paste: AdvancedPaste,
+    pub command_not_found: CommandNotFound,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -297,6 +300,7 @@ impl Config {
         self.peek.sanitize(&mut w);
         self.power_plan.sanitize(&mut w);
         self.advanced_paste.sanitize(&mut w);
+        self.command_not_found.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -408,6 +412,7 @@ impl Config {
             "peek" => self.peek.enabled,
             "power_plan" => self.power_plan.enabled,
             "advanced_paste" => self.advanced_paste.enabled,
+            "command_not_found" => self.command_not_found.enabled,
             _ => return None,
         })
     }
@@ -442,6 +447,7 @@ impl Config {
             "peek" => &mut self.peek.enabled,
             "power_plan" => &mut self.power_plan.enabled,
             "advanced_paste" => &mut self.advanced_paste.enabled,
+            "command_not_found" => &mut self.command_not_found.enabled,
             _ => return false,
         };
         *slot = enabled;
@@ -518,6 +524,7 @@ impl Config {
         config.peek = section(&mut map, "peek", &mut warnings);
         config.power_plan = section(&mut map, "power_plan", &mut warnings);
         config.advanced_paste = section(&mut map, "advanced_paste", &mut warnings);
+        config.command_not_found = section(&mut map, "command_not_found", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

@@ -548,6 +548,7 @@ impl Host {
                     Some("peek") => new.peek = d.peek,
                     Some("power_plan") => new.power_plan = d.power_plan,
                     Some("advanced_paste") => new.advanced_paste = d.advanced_paste,
+                    Some("command_not_found") => new.command_not_found = d.command_not_found,
                     Some(other) => return Err(format!("unknown section {other:?}")),
                 }
                 self.apply_config(new);

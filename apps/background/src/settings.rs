@@ -1033,7 +1033,12 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
     (
         "Advanced",
         '\u{E9F5}',
-        &["environment_variables", "hosts_editor", "registry_preview"],
+        &[
+            "environment_variables",
+            "hosts_editor",
+            "registry_preview",
+            "command_not_found",
+        ],
     ),
 ];
 

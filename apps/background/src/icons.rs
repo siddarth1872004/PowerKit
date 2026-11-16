@@ -33,6 +33,7 @@ pub fn module(id: &str) -> Option<&'static [u8]> {
         "peek" => include_bytes!("../../../assets/modules/peek.ico"),
         "power_plan" => include_bytes!("../../../assets/modules/power_plan.ico"),
         "advanced_paste" => include_bytes!("../../../assets/modules/advanced_paste.ico"),
+        "command_not_found" => include_bytes!("../../../assets/modules/command_not_found.ico"),
         _ => return None,
     })
 }

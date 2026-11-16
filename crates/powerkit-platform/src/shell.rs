@@ -16,6 +16,21 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
+/// The user's Documents folder, wherever it was moved to (OneDrive included).
+pub fn documents_dir() -> Result<std::path::PathBuf> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Shell::{FOLDERID_Documents, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
+    // SAFETY: the returned string is read, then freed with the allocator Windows
+    // used for it.
+    unsafe {
+        let path =
+            SHGetKnownFolderPath(&FOLDERID_Documents, KF_FLAG_DEFAULT, None).context("finding the Documents folder")?;
+        let text = String::from_utf16_lossy(path.as_wide());
+        CoTaskMemFree(Some(path.0 as *const core::ffi::c_void));
+        Ok(text.into())
+    }
+}
+
 /// Open a program, document, folder or URI with its default handler, the same way a
 /// double-click in Explorer would. `target` and `args` are passed to the shell as-is;
 /// no command interpreter is involved, so there is no shell-injection surface.

@@ -162,6 +162,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "command-not-found"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "core_detect"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -561,6 +575,7 @@ dependencies = [
  "anyhow",
  "awake",
  "color-picker",
+ "command-not-found",
  "crop-and-lock",
  "environment-variables",
  "fancy-zones",

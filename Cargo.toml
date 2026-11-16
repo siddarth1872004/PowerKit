@@ -31,6 +31,7 @@ members = [
     "modules/peek",
     "modules/power-plan",
     "modules/advanced-paste",
+    "modules/command-not-found",
     "apps/background",
 ]
 
@@ -69,6 +70,7 @@ workspaces = { path = "modules/workspaces" }
 peek = { path = "modules/peek" }
 power-plan = { path = "modules/power-plan" }
 advanced-paste = { path = "modules/advanced-paste" }
+command-not-found = { path = "modules/command-not-found" }
 fancy-zones = { path = "modules/fancy-zones" }
 launcher = { path = "modules/launcher" }
 keyboard-manager = { path = "modules/keyboard-manager" }

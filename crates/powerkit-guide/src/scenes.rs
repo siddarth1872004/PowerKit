@@ -36,6 +36,7 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("peek", 9.0, peek),
     ("power_plan", 8.0, power_plan),
     ("advanced_paste", 9.0, advanced_paste),
+    ("command_not_found", 8.0, command_not_found),
 ];
 
 const KEYS_Y: f32 = 216.0;
@@ -1837,6 +1838,61 @@ fn advanced_paste(c: &mut Canvas, t: f32, cfg: &Config) {
             (1.6, "The ways to paste what is on the clipboard show at the cursor"),
             (3.6, "Click one: it is converted and pasted where you were typing"),
             (6.2, &plain),
+        ],
+    );
+}
+
+fn command_not_found(c: &mut Canvas, t: f32, _cfg: &Config) {
+    c.desktop();
+    let top = c.window_toned(50.0, 50.0, 380.0, 150.0, "PowerShell", 1.0);
+    let green = Color::rgb(120, 220, 140);
+    let gray = Color::rgb(150, 150, 150);
+    let yellow = Color::rgb(240, 210, 90);
+    let typed_cmd = typed("smerge", t, 0.6, 0.15);
+    c.text(62.0, top + 18.0, &format!("PS C:\\> {typed_cmd}"), 11.0, WHITE);
+    if t >= 1.8 {
+        c.text(
+            62.0,
+            top + 36.0,
+            "Looking for a winget package with 'smerge'...",
+            11.0,
+            gray,
+        );
+    }
+    if t >= 2.8 {
+        c.text(
+            62.0,
+            top + 54.0,
+            "'smerge' is not installed. To install it:",
+            11.0,
+            yellow,
+        );
+        c.text(
+            62.0,
+            top + 72.0,
+            "    winget install --id SublimeHQ.SublimeMerge -e",
+            11.0,
+            green,
+        );
+    }
+    if t >= 5.0 {
+        c.text(
+            62.0,
+            top + 96.0,
+            "PS C:\\> winget install --id SublimeHQ.SublimeMerge -e",
+            11.0,
+            WHITE,
+        );
+    }
+    c.steps(
+        t,
+        &[
+            (
+                0.0,
+                "Turn Command Not Found on, then type a command that is not installed",
+            ),
+            (2.8, "PowerShell suggests the winget package that provides it"),
+            (5.0, "Run the line it shows to install the package"),
         ],
     );
 }
