@@ -22,6 +22,11 @@ pub(crate) const ALL: &[(&str, f32, Draw)] = &[
     ("shortcut_guide", 8.0, shortcut_guide),
     ("grab_and_move", 9.0, grab_and_move),
     ("window_hopper", 8.0, window_hopper),
+    ("window_tiling", 9.0, window_tiling),
+    ("quick_notes", 9.0, quick_notes),
+    ("clipboard_history", 9.0, clipboard_history),
+    ("screenshot", 9.0, screenshot),
+    ("screen_recorder", 9.0, screen_recorder),
     ("hosts_editor", 10.0, hosts_editor),
     ("environment_variables", 9.0, environment_variables),
     ("registry_preview", 10.0, registry_preview),
@@ -946,6 +951,266 @@ fn window_hopper(c: &mut Canvas, t: f32, cfg: &Config) {
     c.steps(
         t,
         &[(0.0, "Several windows of one app are open"), (1.0, &next), (5.0, &back)],
+    );
+}
+
+fn window_tiling(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.window_tiling;
+    c.desktop();
+    let work = (WIDTH, HEIGHT - 18.0);
+    // Where the window is after each press: centered, left half, left third, maximized, back.
+    let spots = [
+        (100.0, 50.0, 280.0, 150.0),
+        (0.0, 0.0, work.0 / 2.0, work.1),
+        (0.0, 0.0, work.0 / 3.0, work.1),
+        (0.0, 0.0, work.0, work.1),
+        (0.0, 0.0, work.0 / 3.0, work.1),
+    ];
+    let presses = [1.2, 3.0, 4.8, 6.6];
+    let done = presses.iter().filter(|&&p| t >= p).count();
+    let p = presses
+        .get(done.wrapping_sub(1))
+        .map_or(1.0, |&at| ease(span(t, at, at + 0.35)));
+    let from = spots[done.saturating_sub(1)];
+    let to = spots[done];
+    let r = (
+        lerp(from.0, to.0, p),
+        lerp(from.1, to.1, p),
+        lerp(from.2, to.2, p),
+        lerp(from.3, to.3, p),
+    );
+    let top = c.window(r.0, r.1, r.2, r.3, "Report.docx");
+    scribble(
+        c,
+        r.0 + 12.0,
+        top + 12.0,
+        r.2 - 24.0,
+        ((r.3 - 40.0) / 11.0) as usize,
+        LINE,
+    );
+    for (at, shortcut) in presses
+        .iter()
+        .zip([&s.left_shortcut, &s.left_shortcut, &s.up_shortcut, &s.down_shortcut])
+    {
+        press(c, t, *at, at + 0.3, shortcut);
+    }
+    let half = format!("{} puts the window in front on the left half", named(&s.left_shortcut));
+    let third = "Pressed again: a third, then two thirds".to_string();
+    let max = format!("{} maximizes it", named(&s.up_shortcut));
+    let back = format!("{} puts it back the way it was", named(&s.down_shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, "A window somewhere on the screen"),
+            (1.0, &half),
+            (2.8, &third),
+            (4.6, &max),
+            (6.4, &back),
+        ],
+    );
+}
+
+fn quick_notes(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.quick_notes;
+    c.desktop();
+    let top = c.window(30.0, 20.0, 300.0, 190.0, "Budget.xlsx");
+    scribble(c, 42.0, top + 12.0, 276.0, 12, LINE);
+    let open = (1.2..6.0).contains(&t) || t >= 7.6;
+    press(c, t, 1.0, 1.3, &s.shortcut);
+    press(c, t, 5.8, 6.1, &s.shortcut);
+    press(c, t, 7.4, 7.7, &s.shortcut);
+    if open {
+        let (x, y) = (250.0, 40.0);
+        let ntop = c.window(x, y, 190.0, 170.0, "Quick Notes");
+        c.rect(x + 1.0, ntop, 188.0, 168.0 - (ntop - y), 0.0, WHITE);
+        let lines = ["Call the bank before 5", "Ideas: rename the report", "Milk, eggs"];
+        for (i, line) in lines.iter().enumerate() {
+            let shown = if i < 2 { line } else { typed(line, t, 2.4, 0.12) };
+            c.text(x + 10.0, ntop + 14.0 + i as f32 * 16.0, shown, 8.0, TEXT);
+        }
+    }
+    let first = format!("{} opens your notes over whatever you are doing", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, "Something to remember while you work"),
+            (1.0, &first),
+            (2.4, "Type; it is saved as you go"),
+            (5.8, "The same shortcut puts the notes away"),
+            (7.4, "Next time they are just as you left them"),
+        ],
+    );
+}
+
+fn clipboard_history(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.clipboard_history;
+    c.desktop();
+    let top = c.window(30.0, 30.0, 300.0, 180.0, "Email - New message");
+    scribble(c, 42.0, top + 12.0, 200.0, 3, LINE);
+    let pasted = t >= 6.2;
+    if pasted {
+        c.text(42.0, top + 52.0, "Order 48213-77, shipped Tuesday", 8.0, TEXT);
+    }
+    let copies = [
+        "Order 48213-77, shipped Tuesday",
+        "https://example.com/report",
+        "Meeting moved to 3 pm",
+    ];
+    press(c, t, 1.4, 1.8, &s.shortcut);
+    if (1.9..6.0).contains(&t) {
+        let query = typed("order", t, 3.2, 0.2);
+        c.rect(122.0, 63.0, 280.0, 28.0, 8.0, SHADOW);
+        c.rect(120.0, 60.0, 280.0, 28.0, 8.0, WINDOW);
+        c.outline(120.0, 60.0, 280.0, 28.0, 8.0, ACCENT, 1.5);
+        c.field_text(132.0, 74.0, query);
+        let hits: Vec<&str> = copies
+            .iter()
+            .copied()
+            .filter(|a| a.to_lowercase().contains(query))
+            .collect();
+        c.rect(120.0, 92.0, 280.0, hits.len() as f32 * 26.0 + 6.0, 8.0, WINDOW);
+        for (i, a) in hits.iter().enumerate() {
+            let ry = 95.0 + i as f32 * 26.0;
+            if i == 0 {
+                c.rect(123.0, ry, 274.0, 26.0, 5.0, ACCENT_SOFT);
+            }
+            c.text(132.0, ry + 9.0, a, 8.0, TEXT);
+            c.text(132.0, ry + 19.0, &format!("{} characters", a.len()), 6.5, MUTED);
+        }
+    }
+    press(c, t, 5.6, 6.0, "Enter");
+    let open = format!("{} lists the text you copied lately", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, "You copied something a while ago and need it again"),
+            (1.4, &open),
+            (3.2, "Type part of it to find it"),
+            (5.6, "Enter pastes it where you were typing"),
+        ],
+    );
+}
+
+fn screenshot(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.screenshot;
+    c.desktop();
+    let top = c.window(20.0, 20.0, 280.0, 160.0, "Sales report");
+    let bars = [50.0, 80.0, 35.0, 95.0, 65.0];
+    for (i, h) in bars.iter().enumerate() {
+        let x = 50.0 + i as f32 * 40.0;
+        c.rect(x, top + 120.0 - h, 24.0, *h, 2.0, SWATCHES[i * 3]);
+    }
+    press(c, t, 0.5, 1.1, &s.region_shortcut);
+    let a = (40.0, top + 14.0);
+    let b = (250.0, top + 126.0);
+    let (bx, by) = path(t, &[(0.0, a.0, a.1), (1.8, a.0, a.1), (3.4, b.0, b.1)]);
+    if (1.2..3.8).contains(&t) {
+        c.rect(0.0, 0.0, WIDTH, HEIGHT, 0.0, BLACK.alpha(0.25));
+        if t >= 1.8 {
+            c.rect(a.0, a.1, bx - a.0, by - a.1, 0.0, WHITE.alpha(0.2));
+            c.outline(a.0, a.1, bx - a.0, by - a.1, 0.0, WHITE, 1.5);
+        }
+    }
+    if (3.8..4.0).contains(&t) {
+        c.rect(a.0, a.1, b.0 - a.0, b.1 - a.1, 0.0, WHITE.alpha(0.7));
+    }
+    let saved = "Screenshot 2026-11-17 093012.png";
+    c.toast(&format!("Copied and saved as {saved}"), span(t, 3.9, 6.0));
+    if t >= 6.2 {
+        let wt = c.window(200.0, 90.0, 260.0, 110.0, "Screenshots");
+        file_row(c, 208.0, wt + 8.0, 244.0, saved, false, true);
+        file_row(
+            c,
+            208.0,
+            wt + 28.0,
+            244.0,
+            "Screenshot 2026-11-16 171544.png",
+            false,
+            false,
+        );
+        c.button(208.0, wt + 62.0, 50.0, "Open", true);
+        c.button(264.0, wt + 62.0, 50.0, "Delete", false);
+    }
+    let (x, y) = if t < 1.8 {
+        path(t, &[(0.0, 300.0, 230.0), (1.4, a.0, a.1)])
+    } else {
+        (bx, by)
+    };
+    c.cursor(x, y);
+    let start = format!("{} dims the screen", named(&s.region_shortcut));
+    let others = format!(
+        "{} takes the window in front, {} every monitor",
+        named(&s.window_shortcut),
+        named(&s.screen_shortcut)
+    );
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.8, "Drag over the part you want"),
+            (3.8, "It is copied and saved as a PNG"),
+            (6.2, "The screenshots list opens or deletes them"),
+            (7.6, &others),
+        ],
+    );
+}
+
+fn screen_recorder(c: &mut Canvas, t: f32, cfg: &Config) {
+    let s = &cfg.screen_recorder;
+    c.desktop();
+    let top = c.window(20.0, 20.0, 280.0, 160.0, "Spreadsheet");
+    let rows = ((t - 4.0) / 0.6).clamp(0.0, 4.0) as usize;
+    for i in 0..5 {
+        let y = top + 14.0 + i as f32 * 18.0;
+        c.rect(40.0, y, 220.0, 14.0, 2.0, if i <= rows { ACCENT_SOFT } else { WINDOW });
+        scribble(c, 46.0, y + 4.0, 120.0, 1, LINE);
+    }
+    press(c, t, 0.5, 1.1, &s.shortcut);
+    let a = (32.0, top + 8.0);
+    let b = (270.0, top + 110.0);
+    let (bx, by) = path(t, &[(0.0, a.0, a.1), (1.8, a.0, a.1), (3.2, b.0, b.1)]);
+    if (1.2..3.4).contains(&t) {
+        c.rect(0.0, 0.0, WIDTH, HEIGHT, 0.0, BLACK.alpha(0.25));
+        if t >= 1.8 {
+            c.rect(a.0, a.1, bx - a.0, by - a.1, 0.0, WHITE.alpha(0.2));
+            c.outline(a.0, a.1, bx - a.0, by - a.1, 0.0, WHITE, 1.5);
+        }
+    }
+    let red = Color::rgb(232, 17, 35);
+    if (3.4..6.8).contains(&t) {
+        c.outline(a.0 - 3.0, a.1 - 3.0, b.0 - a.0 + 6.0, b.1 - a.1 + 6.0, 0.0, red, 3.0);
+        if (t * 2.0) as i32 % 2 == 0 {
+            c.circle(b.0 - 8.0, a.1 + 8.0, 4.0, red);
+        }
+    }
+    press(c, t, 6.4, 6.9, &s.shortcut);
+    let ext = match s.format {
+        powerkit_config::RecordingFormat::Mp4 => "mp4",
+        powerkit_config::RecordingFormat::Gif => "gif",
+    };
+    c.toast(
+        &format!("Saved as Screen recording 2026-11-17 093012.{ext}"),
+        span(t, 7.0, 9.0),
+    );
+    let (x, y) = if t < 1.8 {
+        path(t, &[(0.0, 300.0, 230.0), (1.4, a.0, a.1)])
+    } else if t < 3.4 {
+        (bx, by)
+    } else {
+        path(t, &[(3.4, bx, by), (4.0, 150.0, top + 30.0), (6.2, 150.0, top + 90.0)])
+    };
+    c.cursor(x, y);
+    let start = format!("{} dims the screen", named(&s.shortcut));
+    let stop = format!("{} again stops it", named(&s.shortcut));
+    c.steps(
+        t,
+        &[
+            (0.0, &start),
+            (1.8, "Drag over the part to record"),
+            (3.4, "Everything inside the red frame is recorded"),
+            (6.4, &stop),
+            (7.0, "The recording is saved in Videos"),
+        ],
     );
 }
 

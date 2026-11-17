@@ -297,7 +297,7 @@ impl Launcher {
             self.reindex();
         }
         if self.popup.is_none() {
-            self.popup = Some(powerkit_platform::popup::Popup::new().map_err(|e| anyhow!(e))?);
+            self.popup = Some(powerkit_platform::popup::Popup::new(ID).map_err(|e| anyhow!(e))?);
         }
         self.results.clear();
         self.popup
@@ -424,17 +424,26 @@ impl Module for Launcher {
                     self.remember_clipboard(text);
                 }
             }
-            Event::Popup(PopupEvent::Query(q)) => {
+            Event::Popup {
+                owner: ID,
+                event: PopupEvent::Query(q),
+            } => {
                 self.search(q);
                 self.show_results()?;
             }
-            Event::Popup(PopupEvent::Activate(i)) => {
+            Event::Popup {
+                owner: ID,
+                event: PopupEvent::Activate(i),
+            } => {
                 if let Err(e) = self.run_result(*i, ctx) {
                     ctx.notify("PowerKit Run", format!("{e:#}"));
                     return Err(e);
                 }
             }
-            Event::Popup(PopupEvent::Dismiss) => self.results.clear(),
+            Event::Popup {
+                owner: ID,
+                event: PopupEvent::Dismiss,
+            } => self.results.clear(),
             _ => {}
         }
         Ok(())
@@ -584,18 +593,36 @@ mod tests {
     fn popup_events_drive_search_and_activation() {
         let mut fx = Fixture::new();
         let mut m = fx.started();
-        m.on_event(&Event::Popup(PopupEvent::Query("power run".into())), &mut fx.ctx())
-            .unwrap();
+        m.on_event(
+            &Event::Popup {
+                owner: ID,
+                event: PopupEvent::Query("power run".into()),
+            },
+            &mut fx.ctx(),
+        )
+        .unwrap();
         assert_eq!(m.results[0].key, "pk:launcher");
-        m.on_event(&Event::Popup(PopupEvent::Activate(0)), &mut fx.ctx())
-            .unwrap();
+        m.on_event(
+            &Event::Popup {
+                owner: ID,
+                event: PopupEvent::Activate(0),
+            },
+            &mut fx.ctx(),
+        )
+        .unwrap();
         assert!(m.results.is_empty());
         assert!(fx
             .actions
             .iter()
             .any(|a| matches!(a, HostAction::OpenSettings { page: Some(p) } if p == "launcher")));
         // Activating after the results were consumed is reported, not ignored.
-        let e = m.on_event(&Event::Popup(PopupEvent::Activate(0)), &mut fx.ctx());
+        let e = m.on_event(
+            &Event::Popup {
+                owner: ID,
+                event: PopupEvent::Activate(0),
+            },
+            &mut fx.ctx(),
+        );
         assert!(e.is_err());
         assert!(fx.actions.iter().any(|a| matches!(a, HostAction::Notify { .. })));
     }

@@ -146,6 +146,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "clipboard-history"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "color-picker"
 version = "0.4.0"
 dependencies = [
@@ -603,6 +618,7 @@ dependencies = [
  "always-on-top",
  "anyhow",
  "awake",
+ "clipboard-history",
  "color-picker",
  "command-not-found",
  "crop-and-lock",
@@ -632,14 +648,18 @@ dependencies = [
  "powerkit-platform",
  "powerkit-plugin-api",
  "quick-accent",
+ "quick-notes",
  "registry-preview",
+ "screen-recorder",
  "screen-ruler",
+ "screenshot",
  "serde_json",
  "shortcut-guide",
  "tempfile",
  "text-extractor",
  "tracing",
  "window-hopper",
+ "window-tiling",
  "winresource",
  "workspaces",
  "zoom-it",
@@ -766,6 +786,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
+name = "quick-notes"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-plugin-api",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -874,6 +905,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "screen-recorder"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "screenshot",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "screen-ruler"
 version = "0.4.0"
 dependencies = [
@@ -884,6 +931,21 @@ dependencies = [
  "powerkit-plugin-api",
  "serde",
  "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "screenshot"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
  "tracing",
 ]
 
@@ -1164,6 +1226,21 @@ dependencies = [
 
 [[package]]
 name = "window-hopper"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "powerkit-config",
+ "powerkit-core",
+ "powerkit-platform",
+ "powerkit-plugin-api",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "window-tiling"
 version = "0.4.0"
 dependencies = [
  "anyhow",

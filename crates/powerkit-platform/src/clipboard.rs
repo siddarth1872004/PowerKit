@@ -113,6 +113,47 @@ fn register(name: &str) -> Result<u32> {
     }
 }
 
+/// Replace the clipboard contents with a picture of `width` x `height` pixels
+/// (`0x00RRGGBB`, row by row), as a device-independent bitmap every program can paste.
+pub fn set_picture(pixels: &[u32], width: u32, height: u32) -> Result<()> {
+    put(&[(CF_DIB, dib(pixels, width, height)?)])
+}
+
+/// A 32-bit bottom-up DIB: some programs misread top-down ones from the clipboard.
+fn dib(pixels: &[u32], width: u32, height: u32) -> Result<Vec<u8>> {
+    if width == 0 || height == 0 || pixels.len() != width as usize * height as usize {
+        return Err(Error::Other("the picture is empty".into()));
+    }
+    let mut out = Vec::with_capacity(40 + pixels.len() * 4);
+    for v in [40u32, width, height] {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    out.extend_from_slice(&1u16.to_le_bytes()); // planes
+    out.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
+    out.extend_from_slice(&[0; 24]); // BI_RGB, sizes, resolution and palette left to defaults
+    for row in pixels.chunks_exact(width as usize).rev() {
+        for p in row {
+            out.extend_from_slice(&(p | 0xFF00_0000).to_le_bytes());
+        }
+    }
+    Ok(out)
+}
+
+/// Whether the app that copied asked for the copy to stay out of clipboard histories,
+/// as password managers do.
+pub fn is_private() -> Result<bool> {
+    let exclude = register("ExcludeClipboardContentFromMonitorProcessing")?;
+    // SAFETY: format availability needs no open clipboard.
+    if unsafe { IsClipboardFormatAvailable(exclude) }.is_ok() {
+        return Ok(true);
+    }
+    let allowed = register("CanIncludeInClipboardHistory")?;
+    Ok(match get_bytes(allowed)? {
+        Some(b) if b.len() >= 4 => u32::from_le_bytes([b[0], b[1], b[2], b[3]]) == 0,
+        _ => false,
+    })
+}
+
 /// The bytes of one clipboard format, or `None` when the clipboard has none.
 fn get_bytes(format: u32) -> Result<Option<Vec<u8>>> {
     // SAFETY: format availability needs no open clipboard.

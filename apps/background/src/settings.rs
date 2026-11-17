@@ -729,6 +729,92 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                 ],
             ),
         ],
+        "window_tiling" => vec![
+            (
+                "Activation",
+                vec![
+                    s("left_shortcut", "Left", "Left half, then a third, then two thirds", Shortcut),
+                    s("right_shortcut", "Right", "Right half, then a third, then two thirds", Shortcut),
+                    s("up_shortcut", "Up", "From a half, the top quarter; otherwise maximize", Shortcut),
+                    s(
+                        "down_shortcut",
+                        "Down",
+                        "From a half, the bottom quarter; from maximized, the size before",
+                        Shortcut,
+                    ),
+                ],
+            ),
+            ("Layout", vec![s("gap", "Gap between windows", "0 to 50 pixels", Number)]),
+        ],
+        "clipboard_history" => vec![
+            (
+                "Activation",
+                vec![s("shortcut", "Activation shortcut", "Opens the list of copied text", Shortcut)],
+            ),
+            (
+                "History",
+                vec![
+                    s("max_items", "Texts kept", "1 to 500", Number),
+                    s(
+                        "remember",
+                        "Keep the history after a restart",
+                        "Writes what you copy to disk; copies password managers mark as private are never kept",
+                        Toggle,
+                    ),
+                ],
+            ),
+        ],
+        "screenshot" => vec![
+            (
+                "Activation",
+                vec![
+                    s("region_shortcut", "Area", "Drag a box over the part to take", Shortcut),
+                    s("window_shortcut", "Window", "The window in front", Shortcut),
+                    s("screen_shortcut", "Screen", "Every monitor", Shortcut),
+                    s("manager_shortcut", "Screenshots", "Lists the pictures saved", Shortcut),
+                ],
+            ),
+            (
+                "Saving",
+                vec![
+                    s("copy_to_clipboard", "Copy the picture", "", Toggle),
+                    s("save_to_folder", "Save the picture as a PNG", "", Toggle),
+                    s("folder", "Folder", "Where the pictures are saved", Text(r"Pictures\Screenshots")),
+                ],
+            ),
+        ],
+        "screen_recorder" => vec![
+            (
+                "Activation",
+                vec![s(
+                    "shortcut",
+                    "Activation shortcut",
+                    "Drag a box to start recording it; pressed again, stops",
+                    Shortcut,
+                )],
+            ),
+            (
+                "Recording",
+                vec![
+                    s(
+                        "format",
+                        "Save as",
+                        "GIFs play anywhere but grow large; keep them short",
+                        Choice(&[("mp4", "MP4 video"), ("gif", "Animated GIF")]),
+                    ),
+                    s("fps", "Frames each second", "1 to 30", Number),
+                    s("show_cursor", "Show the mouse pointer", "", Toggle),
+                    s("folder", "Folder", "Where recordings are saved", Text(r"Videos\Screen recordings")),
+                ],
+            ),
+        ],
+        "quick_notes" => vec![
+            (
+                "Activation",
+                vec![s("shortcut", "Activation shortcut", "Opens the notes, or puts them away", Shortcut)],
+            ),
+            ("Window", vec![s("always_on_top", "Keep the notes above other windows", "", Toggle)]),
+        ],
         "hosts_editor" | "environment_variables" | "registry_preview" => vec![(
             "Activation",
             vec![s("shortcut", "Activation shortcut", "Open the editor", Shortcut)],
@@ -1091,6 +1177,9 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "zoom_it",
             "peek",
             "power_plan",
+            "quick_notes",
+            "screenshot",
+            "screen_recorder",
         ],
     ),
     (
@@ -1102,6 +1191,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "fancy_zones",
             "grab_and_move",
             "window_hopper",
+            "window_tiling",
             "workspaces",
         ],
     ),
@@ -1115,6 +1205,7 @@ const CATEGORIES: &[(&str, char, &[&str])] = &[
             "mouse_without_borders",
             "quick_accent",
             "advanced_paste",
+            "clipboard_history",
         ],
     ),
     (

@@ -1,17 +1,8 @@
 use crate::{convert, file_name, Clip, Format};
 use anyhow::{bail, Context, Result};
 use powerkit_platform::window::{self, Hwnd};
-use powerkit_platform::{clipboard, image, input, keyhook, ocr, time};
+use powerkit_platform::{clipboard, image, keyhook, ocr, time};
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
-
-/// Win, Shift, Ctrl and Alt, left and right.
-const MODIFIERS: [u32; 8] = [0x5B, 0x5C, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5];
-/// An unassigned key: pressing it between Win or Alt going down and up keeps their
-/// release from opening Start or a menu bar.
-const VK_NONE: u32 = 0xE8;
-const VK_CONTROL: u32 = 0x11;
-const VK_V: u32 = 0x56;
 
 /// Read every format Advanced Paste can use from the clipboard.
 pub fn read() -> Result<Clip> {
@@ -59,7 +50,7 @@ pub fn paste(format: Format, clip: &Clip, target: Option<isize>, language: &str)
     if let Some(hwnd) = target {
         window::activate(Hwnd(hwnd)).context("the clipboard holds the converted content; press Ctrl+V to paste it")?;
     }
-    press_paste()
+    keyhook::press_paste().context("pressing Ctrl+V")
 }
 
 fn picture(clip: &Clip) -> Result<convert::Picture> {
@@ -85,22 +76,4 @@ fn new_file(extension: &str) -> Result<PathBuf> {
         (t.hour, t.minute, t.second),
         extension,
     )))
-}
-
-/// Press Ctrl+V. Modifiers still held from the shortcut would turn it into another
-/// shortcut, so give the user a moment to let go, then release any still down.
-fn press_paste() -> Result<()> {
-    let deadline = Instant::now() + Duration::from_millis(500);
-    while MODIFIERS.iter().any(|&vk| input::key_down(vk)) && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(10));
-    }
-    let mut strokes = vec![(VK_NONE, true), (VK_NONE, false)];
-    strokes.extend(
-        MODIFIERS
-            .iter()
-            .filter(|&&vk| input::key_down(vk))
-            .map(|&vk| (vk, false)),
-    );
-    strokes.extend([(VK_CONTROL, true), (VK_V, true), (VK_V, false), (VK_CONTROL, false)]);
-    keyhook::send_keys(&strokes).context("pressing Ctrl+V")
 }

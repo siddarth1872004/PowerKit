@@ -3,6 +3,7 @@
 
 mod advanced_paste;
 mod awake;
+mod clipboard_history;
 mod color_picker;
 mod command_not_found;
 mod crop_and_lock;
@@ -23,17 +24,22 @@ mod peek;
 mod power_display;
 mod power_plan;
 mod quick_accent;
+mod quick_notes;
 mod registry_preview;
 mod rename;
+mod screen_recorder;
 mod screen_ruler;
+mod screenshot;
 mod shortcut_guide;
 mod text_extractor;
 mod window_hopper;
+mod window_tiling;
 mod workspaces;
 mod zoom_it;
 
 pub use advanced_paste::*;
 pub use awake::*;
+pub use clipboard_history::*;
 pub use color_picker::*;
 pub use command_not_found::*;
 pub use crop_and_lock::*;
@@ -54,12 +60,16 @@ pub use peek::*;
 pub use power_display::*;
 pub use power_plan::*;
 pub use quick_accent::*;
+pub use quick_notes::*;
 pub use registry_preview::*;
 pub use rename::*;
+pub use screen_recorder::*;
 pub use screen_ruler::*;
+pub use screenshot::*;
 pub use shortcut_guide::*;
 pub use text_extractor::*;
 pub use window_hopper::*;
+pub use window_tiling::*;
 pub use workspaces::*;
 pub use zoom_it::*;
 
@@ -196,6 +206,11 @@ pub struct Config {
     pub command_not_found: CommandNotFound,
     pub file_explorer: FileExplorer,
     pub mouse_without_borders: MouseWithoutBorders,
+    pub window_tiling: WindowTiling,
+    pub quick_notes: QuickNotes,
+    pub clipboard_history: ClipboardHistory,
+    pub screenshot: Screenshot,
+    pub screen_recorder: ScreenRecorder,
 }
 
 pub(crate) fn fix_shortcut(value: &mut String, default: &str, what: &str, warnings: &mut Vec<String>) {
@@ -309,6 +324,11 @@ impl Config {
         self.command_not_found.sanitize(&mut w);
         self.file_explorer.sanitize(&mut w);
         self.mouse_without_borders.sanitize(&mut w);
+        self.window_tiling.sanitize(&mut w);
+        self.quick_notes.sanitize(&mut w);
+        self.clipboard_history.sanitize(&mut w);
+        self.screenshot.sanitize(&mut w);
+        self.screen_recorder.sanitize(&mut w);
         self.report_shortcut_conflicts(&mut w);
         w
     }
@@ -358,6 +378,17 @@ impl Config {
         push("advanced_paste", "open", &self.advanced_paste.shortcut);
         push("advanced_paste", "plain", &self.advanced_paste.plain_shortcut);
         push("advanced_paste", "markdown", &self.advanced_paste.markdown_shortcut);
+        push("window_tiling", "left", &self.window_tiling.left_shortcut);
+        push("window_tiling", "right", &self.window_tiling.right_shortcut);
+        push("window_tiling", "up", &self.window_tiling.up_shortcut);
+        push("window_tiling", "down", &self.window_tiling.down_shortcut);
+        push("quick_notes", "open", &self.quick_notes.shortcut);
+        push("clipboard_history", "open", &self.clipboard_history.shortcut);
+        push("screenshot", "region", &self.screenshot.region_shortcut);
+        push("screenshot", "window", &self.screenshot.window_shortcut);
+        push("screenshot", "screen", &self.screenshot.screen_shortcut);
+        push("screenshot", "manager", &self.screenshot.manager_shortcut);
+        push("screen_recorder", "record", &self.screen_recorder.shortcut);
         push("advanced_paste", "json", &self.advanced_paste.json_shortcut);
         if self.shortcut_guide.enabled {
             push("shortcut_guide", "toggle", &self.shortcut_guide.shortcut);
@@ -413,6 +444,11 @@ impl Config {
             "file_locksmith" => self.file_locksmith.enabled,
             "image_resizer" => self.image_resizer.enabled,
             "text_extractor" => self.text_extractor.enabled,
+            "window_tiling" => self.window_tiling.enabled,
+            "quick_notes" => self.quick_notes.enabled,
+            "clipboard_history" => self.clipboard_history.enabled,
+            "screenshot" => self.screenshot.enabled,
+            "screen_recorder" => self.screen_recorder.enabled,
             "power_display" => self.power_display.enabled,
             "screen_ruler" => self.screen_ruler.enabled,
             "zoom_it" => self.zoom_it.enabled,
@@ -450,6 +486,11 @@ impl Config {
             "file_locksmith" => &mut self.file_locksmith.enabled,
             "image_resizer" => &mut self.image_resizer.enabled,
             "text_extractor" => &mut self.text_extractor.enabled,
+            "window_tiling" => &mut self.window_tiling.enabled,
+            "quick_notes" => &mut self.quick_notes.enabled,
+            "clipboard_history" => &mut self.clipboard_history.enabled,
+            "screenshot" => &mut self.screenshot.enabled,
+            "screen_recorder" => &mut self.screen_recorder.enabled,
             "power_display" => &mut self.power_display.enabled,
             "screen_ruler" => &mut self.screen_ruler.enabled,
             "zoom_it" => &mut self.zoom_it.enabled,
@@ -539,6 +580,11 @@ impl Config {
         config.command_not_found = section(&mut map, "command_not_found", &mut warnings);
         config.file_explorer = section(&mut map, "file_explorer", &mut warnings);
         config.mouse_without_borders = section(&mut map, "mouse_without_borders", &mut warnings);
+        config.window_tiling = section(&mut map, "window_tiling", &mut warnings);
+        config.quick_notes = section(&mut map, "quick_notes", &mut warnings);
+        config.clipboard_history = section(&mut map, "clipboard_history", &mut warnings);
+        config.screenshot = section(&mut map, "screenshot", &mut warnings);
+        config.screen_recorder = section(&mut map, "screen_recorder", &mut warnings);
         warnings.extend(config.sanitize());
         (config, warnings)
     }

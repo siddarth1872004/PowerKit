@@ -75,6 +75,8 @@ pub(crate) fn helper() -> Result<HWND> {
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_HOTKEY => push(Event::Hotkey(wparam.0 as i32)),
+        crate::mousehook::WM_MOUSE_PENDING => crate::mousehook::deliver_pending(),
+        crate::mousehook::WM_MOUSE_BUTTON => return LRESULT(crate::mousehook::deliver_button(wparam, lparam) as isize),
         WM_TIMER => push(Event::Timer(wparam.0)),
         WM_WAKE => push(Event::Wake),
         WM_DISPLAYCHANGE => push(Event::DisplayChanged),

@@ -184,7 +184,11 @@ pub enum Event {
         icon: u32,
         event: TrayEvent,
     },
-    Popup(PopupEvent),
+    /// From the search popup of the utility with id `owner`.
+    Popup {
+        owner: &'static str,
+        event: PopupEvent,
+    },
     Settings(SettingsEvent),
     Rename(RenameEvent),
     /// From the table editor window whose spec has this id.
@@ -193,6 +197,8 @@ pub enum Event {
         event: TableEvent,
     },
     Registry(RegistryEvent),
+    /// The Quick Notes text after an edit; carries all of it.
+    Notes(String),
     Peek(PeekEvent),
     PowerDisplay(PowerDisplayEvent),
     /// Save was chosen in the FancyZones layout editor; these are all the layouts.

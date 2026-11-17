@@ -16,6 +16,11 @@ members = [
     "modules/shortcut-guide",
     "modules/grab-and-move",
     "modules/window-hopper",
+    "modules/window-tiling",
+    "modules/quick-notes",
+    "modules/clipboard-history",
+    "modules/screenshot",
+    "modules/screen-recorder",
     "modules/hosts-editor",
     "modules/environment-variables",
     "modules/registry-preview",
@@ -87,6 +92,11 @@ crop-and-lock = { path = "modules/crop-and-lock" }
 shortcut-guide = { path = "modules/shortcut-guide" }
 grab-and-move = { path = "modules/grab-and-move" }
 window-hopper = { path = "modules/window-hopper" }
+window-tiling = { path = "modules/window-tiling" }
+quick-notes = { path = "modules/quick-notes" }
+clipboard-history = { path = "modules/clipboard-history" }
+screenshot = { path = "modules/screenshot" }
+screen-recorder = { path = "modules/screen-recorder" }
 hosts-editor = { path = "modules/hosts-editor" }
 environment-variables = { path = "modules/environment-variables" }
 registry-preview = { path = "modules/registry-preview" }

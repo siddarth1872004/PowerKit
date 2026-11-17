@@ -25,10 +25,12 @@ use powerkit_host::env::EnvUi;
 use powerkit_host::explorer_menu;
 use powerkit_host::hosts::HostsUi;
 use powerkit_host::locksmith::LocksmithUi;
+use powerkit_host::notes::NotesUi;
 use powerkit_host::peek_view::PeekUi;
 use powerkit_host::registry::RegistryUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::resizer::ResizerUi;
+use powerkit_host::screenshots::ScreenshotsUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::tool_tray::{power_plan_menu, ToolTrays};
 use powerkit_host::update::{self, Release};
@@ -364,9 +366,11 @@ struct Windows {
     env: EnvUi,
     registry: RegistryUi,
     locksmith: LocksmithUi,
+    screenshots: ScreenshotsUi,
     resizer: ResizerUi,
     workspaces: WorkspacesUi,
     peek: PeekUi,
+    notes: NotesUi,
 }
 
 fn run(
@@ -467,9 +471,11 @@ fn run(
         env: EnvUi::new(event_loop.waker()),
         registry: RegistryUi::new(event_loop.waker()),
         locksmith: LocksmithUi::new(event_loop.waker()),
+        screenshots: ScreenshotsUi::default(),
         resizer: ResizerUi::new(event_loop.waker()),
         workspaces: WorkspacesUi::new(event_loop.waker()),
         peek: PeekUi::new(event_loop.waker()),
+        notes: NotesUi::default(),
     };
     let flush = |host: &mut Host, ui: &mut Windows| -> bool {
         let mut keep_running = true;
@@ -484,6 +490,9 @@ fn run(
                     let opened = match event.as_str() {
                         "power_rename.pending" => ui.rename.open(host),
                         hosts_editor::OPEN_EVENT => ui.hosts.open(),
+                        quick_notes::OPEN_EVENT => ui
+                            .notes
+                            .toggle(&host.paths().root, host.config().quick_notes.always_on_top),
                         environment_variables::OPEN_EVENT => ui.env.open(),
                         registry_preview::OPEN_EVENT => ui.registry.open(payload["path"].as_str().map(PathBuf::from)),
                         new_plus::OPEN_EVENT => powerkit_host::new_menu::show(
@@ -492,6 +501,9 @@ fn run(
                             &host.paths().root,
                             &tray,
                         ),
+                        screenshot::MANAGER_EVENT => ui
+                            .screenshots
+                            .open(PathBuf::from(payload["folder"].as_str().unwrap_or_default())),
                         file_locksmith::OPEN_EVENT => ui.locksmith.open(
                             payload["paths"]
                                 .as_array()
@@ -720,11 +732,18 @@ fn run(
             }
             Event::Table { table, event } if table == powerkit_host::env::TABLE => ui.env.on_event(event, &host),
             Event::Table { table, event } if table == powerkit_host::locksmith::TABLE => ui.locksmith.on_event(event),
+            Event::Table { table, event } if table == powerkit_host::screenshots::TABLE => ui.screenshots.on_event(event),
             Event::Table { table, event } if table == powerkit_host::resizer::TABLE => ui.resizer.on_event(event, &mut host),
             Event::Table { table, event } if table == powerkit_host::workspace_editor::TABLE => {
                 ui.workspaces.on_event(event, &mut host)
             }
             Event::Registry(e) => ui.registry.on_event(e, &host.paths().root),
+            Event::Notes(text) => {
+                if let Err(e) = ui.notes.save(&text, &host.paths().root) {
+                    tracing::error!("{e}");
+                    let _ = tray.notify("Quick Notes", &e);
+                }
+            }
             Event::Peek(e) => {
                 if let Err(e) = ui.peek.on_event(e) {
                     let _ = tray.notify("Peek", &e);

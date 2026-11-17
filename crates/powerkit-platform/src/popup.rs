@@ -122,6 +122,8 @@ fn make_font(px: i32, weight: i32) -> HFONT {
 
 /// State shared with the window procedures through `GWLP_USERDATA`.
 struct State {
+    /// The id of the utility the popup belongs to, so its events reach only that one.
+    owner: &'static str,
     edit: HWND,
     rows: Vec<Row>,
     selected: usize,
@@ -266,14 +268,20 @@ fn choose(hwnd: HWND, st: &mut State, row: usize) {
         // Hide first so focus returns to the previous window before the action runs
         // (a copied result is then pasted where the user was).
         hide_window(hwnd, st);
-        push(Event::Popup(PopupEvent::Activate(row)));
+        push(Event::Popup {
+            owner: st.owner,
+            event: PopupEvent::Activate(row),
+        });
     }
 }
 
 fn dismiss(hwnd: HWND, st: &mut State) {
     if st.visible {
         hide_window(hwnd, st);
-        push(Event::Popup(PopupEvent::Dismiss));
+        push(Event::Popup {
+            owner: st.owner,
+            event: PopupEvent::Dismiss,
+        });
     }
 }
 
@@ -290,7 +298,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             LRESULT(0)
         }
         WM_COMMAND if (wparam.0 >> 16) as u32 == EN_CHANGE => {
-            push(Event::Popup(PopupEvent::Query(edit_text(st.edit))));
+            push(Event::Popup {
+                owner: st.owner,
+                event: PopupEvent::Query(edit_text(st.edit)),
+            });
             LRESULT(0)
         }
         WM_CTLCOLOREDIT => {
@@ -384,7 +395,7 @@ pub struct Popup {
 }
 
 impl Popup {
-    pub fn new() -> Result<Popup> {
+    pub fn new(owner: &'static str) -> Result<Popup> {
         let class = wide(CLASS_NAME);
         let edit_class = wide("EDIT");
         let empty = wide("");
@@ -436,6 +447,7 @@ impl Popup {
                 }
             };
             let mut state = Box::new(State {
+                owner,
                 edit,
                 rows: Vec::new(),
                 selected: 0,

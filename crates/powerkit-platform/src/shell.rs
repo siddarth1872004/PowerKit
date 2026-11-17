@@ -16,19 +16,55 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
-/// The user's Documents folder, wherever it was moved to (OneDrive included).
-pub fn documents_dir() -> Result<std::path::PathBuf> {
+/// A known folder of the user's, wherever it was moved to (OneDrive included).
+fn known_folder(id: &windows::core::GUID, name: &str) -> Result<std::path::PathBuf> {
     use windows::Win32::System::Com::CoTaskMemFree;
-    use windows::Win32::UI::Shell::{FOLDERID_Documents, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
+    use windows::Win32::UI::Shell::{SHGetKnownFolderPath, KF_FLAG_DEFAULT};
     // SAFETY: the returned string is read, then freed with the allocator Windows
     // used for it.
     unsafe {
-        let path =
-            SHGetKnownFolderPath(&FOLDERID_Documents, KF_FLAG_DEFAULT, None).context("finding the Documents folder")?;
+        let path = SHGetKnownFolderPath(id, KF_FLAG_DEFAULT, None).context(format!("finding the {name} folder"))?;
         let text = String::from_utf16_lossy(path.as_wide());
         CoTaskMemFree(Some(path.0 as *const core::ffi::c_void));
         Ok(text.into())
     }
+}
+
+pub fn documents_dir() -> Result<std::path::PathBuf> {
+    known_folder(&windows::Win32::UI::Shell::FOLDERID_Documents, "Documents")
+}
+
+pub fn pictures_dir() -> Result<std::path::PathBuf> {
+    known_folder(&windows::Win32::UI::Shell::FOLDERID_Pictures, "Pictures")
+}
+
+pub fn videos_dir() -> Result<std::path::PathBuf> {
+    known_folder(&windows::Win32::UI::Shell::FOLDERID_Videos, "Videos")
+}
+
+/// Move a file to the Recycle Bin, so a delete can be undone there.
+pub fn recycle(path: &std::path::Path) -> Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::UI::Shell::{
+        SHFileOperationW, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, FOF_NOERRORUI, FOF_SILENT, FO_DELETE, SHFILEOPSTRUCTW,
+    };
+    // The list of paths ends with an empty one, hence two NULs.
+    let from: Vec<u16> = path.as_os_str().encode_wide().chain([0, 0]).collect();
+    let mut op = SHFILEOPSTRUCTW {
+        wFunc: FO_DELETE,
+        pFrom: windows::core::PCWSTR(from.as_ptr()),
+        fFlags: (FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT).0 as u16,
+        ..Default::default()
+    };
+    // SAFETY: `from` is double-NUL terminated and outlives the call.
+    let code = unsafe { SHFileOperationW(&mut op) };
+    if code != 0 || op.fAnyOperationsAborted.as_bool() {
+        return Err(crate::Error::Other(format!(
+            "{} was not moved to the Recycle Bin (code {code:#x})",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 /// Open a program, document, folder or URI with its default handler, the same way a

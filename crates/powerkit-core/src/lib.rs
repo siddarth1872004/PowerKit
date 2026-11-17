@@ -18,7 +18,7 @@ pub use shortcut::{Mods, Shortcut, ShortcutError};
 pub use zone_layout::ZoneLayout;
 
 /// Identifiers of the built-in utilities, in display order.
-pub const MODULE_IDS: [&str; 31] = [
+pub const MODULE_IDS: [&str; 36] = [
     "fancy_zones",
     "power_rename",
     "color_picker",
@@ -40,6 +40,11 @@ pub const MODULE_IDS: [&str; 31] = [
     "file_locksmith",
     "image_resizer",
     "text_extractor",
+    "window_tiling",
+    "quick_notes",
+    "clipboard_history",
+    "screenshot",
+    "screen_recorder",
     "power_display",
     "screen_ruler",
     "zoom_it",

@@ -9,10 +9,12 @@ pub mod icons;
 pub mod lists;
 pub mod locksmith;
 pub mod new_menu;
+pub mod notes;
 pub mod peek_view;
 pub mod registry;
 pub mod rename;
 pub mod resizer;
+pub mod screenshots;
 pub mod settings;
 pub mod tool_tray;
 pub mod update;
@@ -48,6 +50,11 @@ pub fn builtin_modules() -> Vec<Box<dyn Module>> {
         Box::new(shortcut_guide::ShortcutGuide::new()),
         Box::new(grab_and_move::GrabAndMove::new()),
         Box::new(window_hopper::WindowHopper::new()),
+        Box::new(window_tiling::WindowTiling::new()),
+        Box::new(quick_notes::QuickNotes::new()),
+        Box::new(clipboard_history::ClipboardHistory::new()),
+        Box::new(screenshot::Screenshot::new()),
+        Box::new(screen_recorder::ScreenRecorder::new()),
         Box::new(hosts_editor::HostsEditor::new()),
         Box::new(environment_variables::EnvironmentVariables::new()),
         Box::new(registry_preview::RegistryPreview::new()),
