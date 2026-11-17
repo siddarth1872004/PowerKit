@@ -14,6 +14,7 @@ pub mod registry;
 pub mod rename;
 pub mod resizer;
 pub mod settings;
+pub mod tool_tray;
 pub mod update;
 pub mod workspace_editor;
 

@@ -30,6 +30,7 @@ use powerkit_host::registry::RegistryUi;
 use powerkit_host::rename::RenameUi;
 use powerkit_host::resizer::ResizerUi;
 use powerkit_host::settings::SettingsUi;
+use powerkit_host::tool_tray::{power_plan_menu, ToolTrays};
 use powerkit_host::update::{self, Release};
 use powerkit_host::workspace_editor::WorkspacesUi;
 use powerkit_host::{builtin_modules, Backend, Host, Output};
@@ -39,7 +40,7 @@ use powerkit_platform::event_loop::{hook_global_window_events, EventLoop};
 use powerkit_platform::hotkey;
 use powerkit_platform::pipe::{PipeServer, Reply};
 use powerkit_platform::shell::{self, SingleInstance};
-use powerkit_platform::tray::{MenuItem, Tray};
+use powerkit_platform::tray::{self, MenuItem, Tray};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -327,45 +328,6 @@ fn main() -> std::process::ExitCode {
     code.into()
 }
 
-/// Show the power plans (and power modes) at the cursor and switch to the one chosen.
-fn power_plan_menu(tray: &Tray, notify: bool) -> Result<(), String> {
-    let state = power_plan::state().map_err(|e| format!("Power Plan Switcher: {e:#}"))?;
-    let (plans, modes) = state.menu();
-    let mut items: Vec<MenuItem> = plans
-        .iter()
-        .enumerate()
-        .map(|(i, e)| MenuItem::checked(1 + i as u32, &e.label, e.checked))
-        .collect();
-    if !modes.is_empty() {
-        items.push(MenuItem::Separator);
-    }
-    items.extend(
-        modes
-            .iter()
-            .enumerate()
-            .map(|(i, e)| MenuItem::checked(1000 + i as u32, &e.label, e.checked)),
-    );
-    let chosen = match tray
-        .show_menu(&items)
-        .map_err(|e| format!("Power Plan Switcher: {e}"))?
-    {
-        Some(id) if id >= 1000 => modes.get((id - 1000) as usize),
-        Some(id) => plans.get(id as usize - 1),
-        None => None,
-    };
-    let Some(entry) = chosen else { return Ok(()) };
-    if entry.checked {
-        return Ok(());
-    }
-    let now = power_plan::apply(&entry.choice).map_err(|e| format!("Power Plan Switcher: {e:#}"))?;
-    if notify {
-        if let Err(e) = tray.notify("Power plan", &now.describe()) {
-            tracing::warn!("notification not shown: {e}");
-        }
-    }
-    Ok(())
-}
-
 /// Show the ways the clipboard can be pasted, at the cursor, and paste the one chosen
 /// into the window that was in front.
 fn advanced_paste_menu(tray: &Tray, language: &str) -> Result<(), String> {
@@ -484,6 +446,8 @@ fn run(
     } else {
         menu_applied = Some(false);
     }
+    let mut tool_trays = ToolTrays::default();
+    tool_trays.sync(&host);
     let mut available: Option<Release> = None;
     let mut update_busy = false;
     if let Some(params) = request {
@@ -662,10 +626,16 @@ fn run(
                     }
                 }
             }
-            Event::Tray(TrayEvent::Activate) => {
+            Event::Tray {
+                icon: tray::MAIN,
+                event: TrayEvent::Activate,
+            } => {
                 host.handle_request("app.open_settings", &Value::Null).ok();
             }
-            Event::Tray(TrayEvent::ContextMenu) => {
+            Event::Tray {
+                icon: tray::MAIN,
+                event: TrayEvent::ContextMenu,
+            } => {
                 let status = host.status();
                 let modules = status["modules"].as_array().cloned().unwrap_or_default();
                 let mut items = vec![MenuItem::new(MENU_SETTINGS, "Open settings")];
@@ -760,8 +730,14 @@ fn run(
                     let _ = tray.notify("Peek", &e);
                 }
             }
+            Event::Tray { icon, event } => {
+                if let Some(Err(e)) = tool_trays.on_click(icon, event, &mut host) {
+                    let _ = tray.notify("PowerKit", &e);
+                }
+            }
             other => host.dispatch(&other),
         }
+        tool_trays.sync(&host);
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);
         let wanted = host.config().general.explorer_menu;
         if !menu_busy && menu_applied != Some(wanted) {

@@ -7,17 +7,19 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use windows::Win32::Foundation::POINT;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetSystemMetricsForDpi};
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIM_ADD, NIM_DELETE, NIM_MODIFY,
     NOTIFYICONDATAW,
 };
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-const TRAY_ID: u32 = 1;
+/// The id of PowerKit's own icon, made by [`Tray::new`].
+pub const MAIN: u32 = 1;
 
 thread_local! {
-    /// Data needed to re-add the icon when Explorer restarts.
-    static CURRENT: RefCell<Option<NOTIFYICONDATAW>> = const { RefCell::new(None) };
+    /// The icons shown, kept to re-add them when Explorer restarts.
+    static CURRENT: RefCell<Vec<NOTIFYICONDATAW>> = const { RefCell::new(Vec::new()) };
 }
 
 fn copy_into(dst: &mut [u16], text: &str) {
@@ -29,10 +31,10 @@ fn copy_into(dst: &mut [u16], text: &str) {
 /// Explorer restarted: the icon must be added again.
 pub(crate) fn taskbar_recreated() {
     CURRENT.with(|c| {
-        if let Some(data) = c.borrow().as_ref() {
+        for data in c.borrow().iter() {
             // SAFETY: `data` is a fully initialized NOTIFYICONDATAW.
             if !unsafe { Shell_NotifyIconW(NIM_ADD, data) }.as_bool() {
-                tracing::warn!("could not restore the tray icon after Explorer restarted");
+                tracing::warn!("could not restore tray icon {} after Explorer restarted", data.uID);
             }
         }
     });
@@ -70,14 +72,14 @@ impl MenuItem {
 }
 
 pub struct Tray {
+    id: u32,
     _not_send: PhantomData<*const ()>,
 }
 
 impl Tray {
-    /// Add the icon. The image is icon resource 1 of the executable, falling back to
-    /// the stock application icon.
+    /// Add PowerKit's icon, with id [`MAIN`]. The image is icon resource 1 of the
+    /// executable, falling back to the stock application icon.
     pub fn new(tooltip: &str) -> Result<Tray> {
-        let hwnd = helper()?;
         // SAFETY: resource lookups with constant arguments; a missing resource is
         // handled by the fallback.
         let icon = unsafe {
@@ -89,10 +91,23 @@ impl Tray {
             .or_else(|_| LoadIconW(None, IDI_APPLICATION))
             .context("LoadIcon")?
         };
+        Self::add(MAIN, tooltip, icon)
+    }
+
+    /// Add another icon, showing the .ico file `ico`. Clicks on it are reported with
+    /// `id`, which must differ from [`MAIN`] and from the other icons shown.
+    pub fn with_icon(id: u32, tooltip: &str, ico: &'static [u8]) -> Result<Tray> {
+        // SAFETY: plain queries.
+        let size = unsafe { GetSystemMetricsForDpi(SM_CXSMICON, GetDpiForSystem()) };
+        Self::add(id, tooltip, crate::icon::load(ico, size)?)
+    }
+
+    fn add(id: u32, tooltip: &str, icon: HICON) -> Result<Tray> {
+        let hwnd = helper()?;
         let mut data = NOTIFYICONDATAW {
             cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
             hWnd: hwnd,
-            uID: TRAY_ID,
+            uID: id,
             uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP,
             uCallbackMessage: WM_TRAY,
             hIcon: icon,
@@ -104,27 +119,52 @@ impl Tray {
             // The shell may not be running yet (early logon); TaskbarCreated re-adds it.
             tracing::warn!("tray icon could not be added yet; will retry when the taskbar appears");
         }
-        CURRENT.with(|c| *c.borrow_mut() = Some(data));
-        Ok(Tray { _not_send: PhantomData })
+        CURRENT.with(|c| c.borrow_mut().push(data));
+        Ok(Tray {
+            id,
+            _not_send: PhantomData,
+        })
     }
 
-    /// Show a balloon / toast style notification from the tray icon.
-    pub fn notify(&self, title: &str, message: &str) -> Result<()> {
+    /// Change the text shown when the pointer rests on the icon.
+    pub fn set_tooltip(&self, tooltip: &str) -> Result<()> {
+        self.modify(|data| {
+            data.uFlags = NIF_TIP;
+            copy_into(&mut data.szTip, tooltip);
+        })
+        .map_err(|_| Error::Other("the tray icon text could not be changed".into()))
+    }
+
+    /// Apply `change` to this icon's data (keeping it for a re-add) and send it.
+    fn modify(&self, change: impl FnOnce(&mut NOTIFYICONDATAW)) -> Result<()> {
         CURRENT.with(|c| {
-            let Some(mut data) = *c.borrow() else {
+            let mut c = c.borrow_mut();
+            let Some(kept) = c.iter_mut().find(|d| d.uID == self.id) else {
                 return Err(Error::Other("tray icon is not present".into()));
             };
-            data.uFlags = NIF_INFO;
-            data.dwInfoFlags = NIIF_INFO;
-            copy_into(&mut data.szInfoTitle, title);
-            copy_into(&mut data.szInfo, message);
+            let mut data = *kept;
+            change(&mut data);
+            if data.uFlags & NIF_TIP == NIF_TIP {
+                kept.szTip = data.szTip;
+            }
             // SAFETY: `data` is fully initialized and outlives the call.
             if unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) }.as_bool() {
                 Ok(())
             } else {
-                Err(Error::Other("the notification could not be shown".into()))
+                Err(Error::Other("the tray icon could not be changed".into()))
             }
         })
+    }
+
+    /// Show a balloon / toast style notification from the tray icon.
+    pub fn notify(&self, title: &str, message: &str) -> Result<()> {
+        self.modify(|data| {
+            data.uFlags = NIF_INFO;
+            data.dwInfoFlags = NIIF_INFO;
+            copy_into(&mut data.szInfoTitle, title);
+            copy_into(&mut data.szInfo, message);
+        })
+        .map_err(|_| Error::Other("the notification could not be shown".into()))
     }
 
     /// Show a context menu at the cursor and return the chosen item id. Blocks (running
@@ -179,8 +219,10 @@ impl Tray {
 impl Drop for Tray {
     fn drop(&mut self) {
         CURRENT.with(|c| {
-            if let Some(data) = c.borrow_mut().take() {
-                // SAFETY: `data` identifies the icon added in `new`.
+            let mut c = c.borrow_mut();
+            if let Some(at) = c.iter().position(|d| d.uID == self.id) {
+                let data = c.remove(at);
+                // SAFETY: `data` identifies the icon added in `add`.
                 let _ = unsafe { Shell_NotifyIconW(NIM_DELETE, &data) };
             }
         });

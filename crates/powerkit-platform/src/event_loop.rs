@@ -35,7 +35,17 @@ thread_local! {
 pub(crate) fn push(event: Event) {
     QUEUE.with(|q| {
         let mut q = q.borrow_mut();
-        let coalesce = matches!(event, Event::DisplayChanged | Event::Wake | Event::ClipboardChanged);
+        // Location changes arrive in bursts while a window is dragged; keep one.
+        let coalesce = matches!(
+            event,
+            Event::DisplayChanged
+                | Event::Wake
+                | Event::ClipboardChanged
+                | Event::Window {
+                    kind: WindowEventKind::LocationChange,
+                    ..
+                }
+        );
         if coalesce && q.back() == Some(&event) {
             return;
         }
@@ -71,11 +81,21 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         // SPI_SETWORKAREA: the taskbar moved or resized.
         WM_SETTINGCHANGE if wparam.0 == 0x002F => push(Event::DisplayChanged),
         WM_CLIPBOARDUPDATE => push(Event::ClipboardChanged),
-        WM_TRAY => match (lparam.0 as u32) & 0xFFFF {
-            WM_LBUTTONUP | WM_LBUTTONDBLCLK => push(Event::Tray(TrayEvent::Activate)),
-            WM_RBUTTONUP | WM_CONTEXTMENU => push(Event::Tray(TrayEvent::ContextMenu)),
-            _ => {}
-        },
+        // Without NOTIFYICON_VERSION_4, wparam is the id of the icon clicked.
+        WM_TRAY => {
+            let icon = wparam.0 as u32;
+            match (lparam.0 as u32) & 0xFFFF {
+                WM_LBUTTONUP | WM_LBUTTONDBLCLK => push(Event::Tray {
+                    icon,
+                    event: TrayEvent::Activate,
+                }),
+                WM_RBUTTONUP | WM_CONTEXTMENU => push(Event::Tray {
+                    icon,
+                    event: TrayEvent::ContextMenu,
+                }),
+                _ => {}
+            }
+        }
         WM_QUERYENDSESSION => return LRESULT(1),
         WM_ENDSESSION if wparam.0 != 0 => push(Event::Quit),
         WM_CLOSE => push(Event::Quit),
@@ -309,14 +329,9 @@ unsafe extern "system" fn winevent_proc(
         kind,
         hwnd: hwnd.0 as isize,
     };
-    QUEUE.with(|q| {
-        let mut q = q.borrow_mut();
-        // Location changes arrive in bursts while a window is dragged; keep one.
-        if kind == WindowEventKind::LocationChange && q.back() == Some(&event) {
-            return;
-        }
-        q.push_back(event);
-    });
+    // Through `push`, so the loop is woken: an event queued without waking it would
+    // leave the queue non-empty and keep every later event from waking it either.
+    push(event);
 }
 
 /// An installed WinEvent hook; uninstalled on drop. Events are delivered as

@@ -179,7 +179,11 @@ pub enum Event {
     Mouse(MouseEvent),
     /// A key pressed while an input capture is active (virtual-key code).
     Key(u32),
-    Tray(TrayEvent),
+    /// A click on the tray icon with this id.
+    Tray {
+        icon: u32,
+        event: TrayEvent,
+    },
     Popup(PopupEvent),
     Settings(SettingsEvent),
     Rename(RenameEvent),
