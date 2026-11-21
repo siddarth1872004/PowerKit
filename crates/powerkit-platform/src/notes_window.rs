@@ -25,6 +25,7 @@ const HEIGHT: i32 = 480;
 const FONT_PT: i32 = 11;
 
 struct State {
+    look: crate::dark::DarkLook,
     font: HFONT,
     /// Set while the owner replaces the text, so that is not reported back.
     quiet: bool,
@@ -102,7 +103,10 @@ fn report(hwnd: HWND, st: &mut State) {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // SAFETY: `hwnd` is a Quick Notes window (this is its class's procedure).
-    let st = unsafe { state(hwnd) };
+    let mut st = unsafe { state(hwnd) };
+    if let Some(done) = st.as_deref_mut().and_then(|st| st.look.on_message(hwnd, msg, wparam)) {
+        return done;
+    }
     match (msg, st) {
         (WM_SIZE, _) => {
             let (w, h) = ((lparam.0 & 0xFFFF) as i32, ((lparam.0 >> 16) & 0xFFFF) as i32);
@@ -229,6 +233,7 @@ impl NotesWindow {
             // Lift the 32K default; notes kept for months grow past it.
             send(text_box, EM_SETLIMITTEXT, 0, 0);
             let mut state = Box::new(State {
+                look: Default::default(),
                 font: make_font(dpi),
                 quiet: false,
                 dirty: false,
@@ -246,6 +251,7 @@ impl NotesWindow {
     }
 
     pub fn show(&mut self) {
+        self.state.look.update(self.hwnd);
         // SAFETY: own window. Return values are the previous state, not errors.
         unsafe {
             let cmd = if IsIconic(self.hwnd).as_bool() {

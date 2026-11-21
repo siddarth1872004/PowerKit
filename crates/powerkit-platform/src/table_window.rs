@@ -108,6 +108,7 @@ struct State {
     hook: Option<HHOOK>,
     /// Modifiers held down while capturing.
     held: Mods,
+    look: crate::dark::DarkLook,
 }
 
 fn scale(v: i32, dpi: u32) -> i32 {
@@ -332,7 +333,10 @@ fn check_state(state: u32) -> u32 {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // SAFETY: `hwnd` is a table window (this is its class's procedure).
-    let st = unsafe { state(hwnd) };
+    let mut st = unsafe { state(hwnd) };
+    if let Some(done) = st.as_deref_mut().and_then(|st| st.look.on_message(hwnd, msg, wparam)) {
+        return done;
+    }
     match (msg, st) {
         (WM_SIZE, Some(st)) => {
             layout(hwnd, st.spec, st.dpi);
@@ -600,6 +604,7 @@ impl TableWindow {
                 quiet: false,
                 hook: None,
                 held: Mods::NONE,
+                look: Default::default(),
             });
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut *state as *mut State as isize);
             let dpi = GetDpiForWindow(hwnd).max(96);
@@ -614,6 +619,7 @@ impl TableWindow {
     }
 
     pub fn show(&mut self) {
+        self.state.look.update(self.hwnd);
         // SAFETY: own window. Return values are the previous state, not errors.
         unsafe {
             let cmd = if IsIconic(self.hwnd).as_bool() {

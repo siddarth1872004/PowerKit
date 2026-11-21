@@ -8,6 +8,28 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
 };
 
+/// PowerKit's own theme choice: 0 follows Windows, 1 light, 2 dark.
+static APP_THEME: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Set the theme PowerKit's windows use: `None` follows Windows.
+pub fn set_app_theme(dark: Option<bool>) {
+    let v = match dark {
+        None => 0,
+        Some(false) => 1,
+        Some(true) => 2,
+    };
+    APP_THEME.store(v, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether PowerKit's windows should be dark now.
+pub fn app_dark() -> bool {
+    match APP_THEME.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => false,
+        2 => true,
+        _ => !is_light(false).unwrap_or(true),
+    }
+}
+
 const KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 const APPS: &str = "AppsUseLightTheme";
 const SYSTEM: &str = "SystemUsesLightTheme";

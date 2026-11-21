@@ -59,6 +59,7 @@ const FILE_KINDS: FileKinds = FileKinds {
 };
 
 struct State {
+    look: crate::dark::DarkLook,
     dpi: u32,
     font: HFONT,
     mono: HFONT,
@@ -190,7 +191,10 @@ fn select_line(hwnd: HWND, line: usize) {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // SAFETY: `hwnd` is a Registry Preview window (this is its class's procedure).
-    let st = unsafe { state(hwnd) };
+    let mut st = unsafe { state(hwnd) };
+    if let Some(done) = st.as_deref_mut().and_then(|st| st.look.on_message(hwnd, msg, wparam)) {
+        return done;
+    }
     match (msg, st) {
         (WM_SIZE, Some(st)) => {
             layout(hwnd, st.dpi);
@@ -400,6 +404,7 @@ impl RegistryWindow {
                 return Err(e);
             }
             let mut state = Box::new(State {
+                look: Default::default(),
                 dpi,
                 font: make_font("Segoe UI", dpi),
                 mono: make_font("Consolas", dpi),
@@ -419,6 +424,7 @@ impl RegistryWindow {
     }
 
     pub fn show(&mut self) {
+        self.state.look.update(self.hwnd);
         // SAFETY: own window. Return values are the previous state, not errors.
         unsafe {
             let cmd = if IsIconic(self.hwnd).as_bool() {

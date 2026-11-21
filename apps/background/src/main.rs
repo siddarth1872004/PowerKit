@@ -51,6 +51,15 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const STARTUP_VALUE: &str = "PowerKit";
+/// Tell PowerKit's windows which theme the settings ask for.
+fn sync_theme(host: &Host) {
+    powerkit_platform::theme::set_app_theme(match host.config().general.theme {
+        powerkit_config::Theme::System => None,
+        powerkit_config::Theme::Light => Some(false),
+        powerkit_config::Theme::Dark => Some(true),
+    });
+}
+
 const MENU_SETTINGS: u32 = 1;
 const MENU_QUIT: u32 = 2;
 const MENU_CHECK_UPDATES: u32 = 3;
@@ -450,6 +459,7 @@ fn run(
         let _ = tray.notify("PowerKit", &format!("Updated to version {}.", update::CURRENT));
     }
     let (update_tx, update_rx) = mpsc::channel::<UpdateMsg>();
+    sync_theme(&host);
     let auto_check = Arc::new(AtomicBool::new(host.config().general.check_for_updates));
     spawn_daily_check(update_tx.clone(), event_loop.waker(), Arc::clone(&auto_check));
     // The Explorer menu package, installed or removed off this thread. `menu_applied`
@@ -784,6 +794,7 @@ fn run(
             other => host.dispatch(&other),
         }
         tool_trays.sync(&host);
+        sync_theme(&host);
         auto_check.store(host.config().general.check_for_updates, Ordering::Relaxed);
         let wanted = host.config().general.explorer_menu;
         if !menu_busy && menu_applied != Some(wanted) {
