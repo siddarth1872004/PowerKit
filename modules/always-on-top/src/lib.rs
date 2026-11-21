@@ -269,7 +269,10 @@ impl Module for AlwaysOnTop {
     }
 
     fn config_changed(&mut self, ctx: &mut Ctx) -> Result<()> {
-        self.settings = ctx.config.always_on_top.clone();
+        let before = std::mem::replace(&mut self.settings, ctx.config.always_on_top.clone());
+        if before.auto_pin_apps != self.settings.auto_pin_apps {
+            self.auto_handled.clear();
+        }
         self.prune();
         let mut pinned = std::mem::take(&mut self.pinned);
         for p in &mut pinned {
@@ -293,6 +296,7 @@ impl Module for AlwaysOnTop {
         let hwnd = Hwnd(hwnd);
         match kind {
             WindowEventKind::Destroyed => {
+                self.auto_handled.remove(&hwnd.0);
                 if self.is_pinned(hwnd) && self.prune() {
                     self.changed(ctx);
                 }
@@ -302,11 +306,12 @@ impl Module for AlwaysOnTop {
                     && !self.is_pinned(hwnd)
                     && !self.auto_handled.contains(&hwnd.0)
                 {
+                    // Looked up once per window: a window's program does not change.
+                    self.auto_handled.insert(hwnd.0);
                     let exe = window::thread_process(hwnd)
                         .and_then(|(pid, _)| window::process_exe(pid))
                         .unwrap_or_default();
                     if self.settings.auto_pin_apps.contains(&exe) {
-                        self.auto_handled.insert(hwnd.0);
                         match self.pin(hwnd) {
                             Ok(()) => self.changed(ctx),
                             Err(e) => tracing::info!(error = %e, "auto-pin skipped"),

@@ -220,6 +220,11 @@ pub fn get_dib() -> Result<Option<Vec<u8>>> {
     get_bytes(CF_DIB)
 }
 
+/// Replace the clipboard contents with a packed DIB as [`get_dib`] returns it.
+pub fn set_dib(dib: Vec<u8>) -> Result<()> {
+    put(&[(CF_DIB, dib)])
+}
+
 /// Put files on the clipboard as File Explorer copies them, so pasting into a folder
 /// copies them there.
 pub fn set_files(paths: &[std::path::PathBuf]) -> Result<()> {

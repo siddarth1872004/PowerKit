@@ -104,9 +104,13 @@ impl GrabAndMove {
         );
         live.borrow_mut().settings = self.settings.clone();
         if self.hook.is_none() {
-            self.hook = Some(MouseHook::install_filter(move |input| match live.try_borrow_mut() {
-                Ok(mut l) => l.on_mouse(input),
-                Err(_) => false,
+            // Win or Alt, whichever the setting names: clicks without them never wait.
+            const MODIFIERS: [u16; 3] = [0x5B, 0x5C, 0x12];
+            self.hook = Some(MouseHook::install_filter_while(&MODIFIERS, move |input| {
+                match live.try_borrow_mut() {
+                    Ok(mut l) => l.on_mouse(input),
+                    Err(_) => false,
+                }
             })?);
         }
         Ok(())

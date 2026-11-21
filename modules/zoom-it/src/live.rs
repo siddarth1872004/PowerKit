@@ -123,14 +123,15 @@ impl Session {
                     }
                 }
                 if std::mem::take(&mut self.dirty) {
-                    let mut pixels = match d.board {
-                        Some(c) => vec![c; d.base.len()],
-                        None => d.base.clone(),
-                    };
-                    for s in d.strokes.iter().chain(&d.current) {
-                        paint(&mut pixels, size.0, s);
-                    }
-                    self.overlay.show_picture(rect, &pixels)?;
+                    self.overlay.show_drawn(rect, |pixels| {
+                        match d.board {
+                            Some(c) => pixels.fill(c),
+                            None => pixels.copy_from_slice(&d.base),
+                        }
+                        for s in d.strokes.iter().chain(&d.current) {
+                            paint(pixels, size.0, s);
+                        }
+                    })?;
                 }
             }
             Mode::Live { zoom, overlay_ready } => {
@@ -139,8 +140,7 @@ impl Session {
                     *overlay_ready = true;
                 }
                 let area = view(size, cursor, *zoom).offset(rect.left, rect.top);
-                let pixels = magnifier::capture_scaled(area, size.0, size.1)?;
-                self.overlay.show_picture(rect, &pixels)?;
+                self.overlay.show_screen(rect, area)?;
             }
             Mode::Break { canvas, end, shown } => {
                 let left = end.saturating_duration_since(Instant::now());

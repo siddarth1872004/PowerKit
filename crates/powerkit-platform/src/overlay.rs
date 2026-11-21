@@ -65,6 +65,8 @@ enum Shown {
 pub struct Overlay {
     hwnd: HWND,
     shown: Option<Shown>,
+    /// The last picture's bitmap and size, reused while the size stays.
+    dib: Option<((i32, i32), Dib)>,
     _not_send: PhantomData<*const ()>,
 }
 
@@ -100,6 +102,7 @@ impl Overlay {
         Ok(Overlay {
             hwnd,
             shown: None,
+            dib: None,
             _not_send: PhantomData,
         })
     }
@@ -177,13 +180,88 @@ impl Overlay {
 
     /// Show `pixels` (`0x00RRGGBB`, row by row, `at.width()` per row) at `at`.
     pub fn show_picture(&mut self, at: Rect, pixels: &[u32]) -> Result<()> {
-        let (w, h) = (at.width(), at.height());
-        if w <= 0 || h <= 0 || pixels.len() != (w * h) as usize {
+        if pixels.len() != (at.width().max(0) * at.height().max(0)) as usize {
             return Err(Error::Other("picture size does not match its area".into()));
         }
-        let mut dib = Dib::new(w, h)?;
-        dib.pixels().copy_from_slice(pixels);
-        // SAFETY: own window; the DC obtained is released on every path.
+        self.show_drawn(at, |out| out.copy_from_slice(pixels))
+    }
+
+    /// Show at `at` what `draw` paints into its pixels (`0x00RRGGBB`, row by row,
+    /// `at.width()` per row; they hold the previous picture of that size). The bitmap is
+    /// kept between calls: at a frame rate, making a screen-sized one each time showed.
+    pub fn show_drawn(&mut self, at: Rect, draw: impl FnOnce(&mut [u32])) -> Result<()> {
+        let (w, h) = (at.width(), at.height());
+        if w <= 0 || h <= 0 {
+            return Err(Error::Other("the picture is empty".into()));
+        }
+        let dib = match &mut self.dib {
+            Some((size, dib)) if *size == (w, h) => dib,
+            slot => &mut slot.insert(((w, h), Dib::new(w, h)?)).1,
+        };
+        draw(dib.pixels());
+        let src = dib.dc;
+        self.place(at)?;
+        // SAFETY: own window; the DC obtained is released on every path; `src` is the
+        // kept bitmap's DC, alive while `self` is.
+        unsafe {
+            let dc = GetDC(Some(self.hwnd));
+            if dc.is_invalid() {
+                return Err(Error::Other("GetDC(overlay) failed".into()));
+            }
+            let blt = BitBlt(dc, 0, 0, w, h, Some(src), 0, 0, SRCCOPY);
+            ReleaseDC(Some(self.hwnd), dc);
+            blt.context("BitBlt(overlay)")?;
+        }
+        Ok(())
+    }
+
+    /// Show the screen's `area` stretched over `at`, copied straight from the screen to
+    /// this window. Call [`Overlay::exclude_from_capture`] first, or the window shows
+    /// itself.
+    pub fn show_screen(&mut self, at: Rect, area: Rect) -> Result<()> {
+        let (w, h) = (at.width(), at.height());
+        if w <= 0 || h <= 0 || area.width() <= 0 || area.height() <= 0 {
+            return Err(Error::Other("empty capture area".into()));
+        }
+        self.place(at)?;
+        // SAFETY: both DCs are released on every path.
+        unsafe {
+            let screen = GetDC(None);
+            if screen.is_invalid() {
+                return Err(Error::Other("GetDC(screen) failed".into()));
+            }
+            let dc = GetDC(Some(self.hwnd));
+            if dc.is_invalid() {
+                ReleaseDC(None, screen);
+                return Err(Error::Other("GetDC(overlay) failed".into()));
+            }
+            SetStretchBltMode(dc, HALFTONE);
+            let _ = SetBrushOrgEx(dc, 0, 0, None);
+            let blt = StretchBlt(
+                dc,
+                0,
+                0,
+                w,
+                h,
+                Some(screen),
+                area.left,
+                area.top,
+                area.width(),
+                area.height(),
+                SRCCOPY | CAPTUREBLT,
+            );
+            ReleaseDC(Some(self.hwnd), dc);
+            ReleaseDC(None, screen);
+            if !blt.as_bool() {
+                return Err(Error::Other("StretchBlt(screen) failed".into()));
+            }
+        }
+        Ok(())
+    }
+
+    /// Make the window an opaque rectangle at `at`, shown on top.
+    fn place(&mut self, at: Rect) -> Result<()> {
+        // SAFETY: own window.
         unsafe {
             SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, NO_FILL);
             let _ = SetWindowRgn(self.hwnd, None, false);
@@ -194,20 +272,13 @@ impl Overlay {
                 Some(HWND_TOPMOST),
                 at.left,
                 at.top,
-                w,
-                h,
+                at.width(),
+                at.height(),
                 SWP_NOACTIVATE | SWP_SHOWWINDOW,
             )
             .context("SetWindowPos(overlay)")?;
-            self.shown = Some(Shown::Picture);
-            let dc = GetDC(Some(self.hwnd));
-            if dc.is_invalid() {
-                return Err(Error::Other("GetDC(overlay) failed".into()));
-            }
-            let blt = BitBlt(dc, 0, 0, w, h, Some(dib.dc), 0, 0, SRCCOPY);
-            ReleaseDC(Some(self.hwnd), dc);
-            blt.context("BitBlt(overlay)")?;
         }
+        self.shown = Some(Shown::Picture);
         Ok(())
     }
 
@@ -219,6 +290,7 @@ impl Overlay {
     }
 
     pub fn hide(&mut self) {
+        self.dib = None;
         if self.shown.take().is_some() {
             // SAFETY: own window. The return value is the previous visibility.
             let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };

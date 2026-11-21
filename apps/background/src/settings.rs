@@ -761,16 +761,16 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
         "clipboard_history" => vec![
             (
                 "Activation",
-                vec![s("shortcut", "Activation shortcut", "Opens the list of copied text", Shortcut)],
+                vec![s("shortcut", "Activation shortcut", "Opens the list of copied text and pictures", Shortcut)],
             ),
             (
                 "History",
                 vec![
-                    s("max_items", "Texts kept", "1 to 500", Number),
+                    s("max_items", "Entries kept", "1 to 500; at most 20 of them pictures", Number),
                     s(
                         "remember",
                         "Keep the history after a restart",
-                        "Writes what you copy to disk; copies password managers mark as private are never kept",
+                        "Writes the texts you copy to disk (pictures are kept until PowerKit closes); copies password managers mark as private are never kept",
                         Toggle,
                     ),
                 ],

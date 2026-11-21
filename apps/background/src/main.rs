@@ -341,7 +341,7 @@ fn main() -> std::process::ExitCode {
 
 /// Show the ways the clipboard can be pasted, at the cursor, and paste the one chosen
 /// into the window that was in front.
-fn advanced_paste_menu(tray: &Tray, language: &str) -> Result<(), String> {
+fn advanced_paste_menu(tray: &Tray, host: &mut Host) -> Result<(), String> {
     let fail = |e: anyhow::Error| format!("Advanced Paste: {e:#}");
     let target = powerkit_platform::window::foreground().map(|h| h.0);
     let clip = advanced_paste::read().map_err(fail)?;
@@ -364,7 +364,13 @@ fn advanced_paste_menu(tray: &Tray, language: &str) -> Result<(), String> {
     let Some(format) = chosen.and_then(|id| choices.get(id as usize - 1)) else {
         return Ok(());
     };
-    advanced_paste::paste(*format, &clip, target, language).map_err(fail)
+    let args = json!({ "format": format.id(), "target": target });
+    host.handle_request(
+        "module.command",
+        &json!({ "id": advanced_paste::ID, "command": "paste", "args": args }),
+    )
+    .map(drop)
+    .map_err(|e| format!("Advanced Paste: {e}"))
 }
 
 /// The windows the host shows, opened by module outputs and fed their own events.
@@ -537,9 +543,7 @@ fn run(
                             ui.workspaces.launch(payload["name"].as_str().unwrap_or_default(), host)
                         }
                         power_plan::OPEN_EVENT => power_plan_menu(&tray, host.config().power_plan.notify),
-                        advanced_paste::OPEN_EVENT => {
-                            advanced_paste_menu(&tray, &host.config().advanced_paste.ocr_language)
-                        }
+                        advanced_paste::OPEN_EVENT => advanced_paste_menu(&tray, host),
                         peek::OPEN_EVENT => ui.peek.open(payload["hwnd"].as_i64().unwrap_or_default() as isize),
                         _ => Ok(()),
                     };

@@ -5,7 +5,7 @@ pub mod convert;
 #[cfg(windows)]
 mod live;
 #[cfg(windows)]
-pub use live::{paste, read};
+pub use live::{paste, read, Reading};
 
 use anyhow::{anyhow, bail, Result};
 use powerkit_config::AdvancedPaste as Settings;
@@ -134,6 +134,8 @@ pub fn file_name(date: (u16, u16, u16), time: (u16, u16, u16), extension: &str) 
 pub struct AdvancedPaste {
     settings: Settings,
     running: bool,
+    #[cfg(windows)]
+    reading: Option<live::Reading>,
 }
 
 impl AdvancedPaste {
@@ -148,13 +150,15 @@ impl AdvancedPaste {
         Ok(())
     }
 
+    /// Paste into `target`, or the window in front when `None`.
     #[cfg(windows)]
-    fn paste_now(&self, format: Format) -> Result<()> {
-        paste(format, &read()?, None, &self.settings.ocr_language)
+    fn paste_now(&mut self, format: Format, target: Option<isize>) -> Result<()> {
+        self.reading = paste(format, &read()?, target, &self.settings.ocr_language)?;
+        Ok(())
     }
 
     #[cfg(not(windows))]
-    fn paste_now(&self, _format: Format) -> Result<()> {
+    fn paste_now(&mut self, _format: Format, _target: Option<isize>) -> Result<()> {
         bail!("Advanced Paste works only on Windows")
     }
 }
@@ -177,7 +181,7 @@ impl Module for AdvancedPaste {
                 CommandSpec {
                     id: "paste".into(),
                     title: "Paste in a format".into(),
-                    description: "Takes `format`: plain, markdown, json, image_text, txt_file, html_file or png_file."
+                    description: "Takes `format`: plain, markdown, json, image_text, txt_file, html_file or png_file; and optionally `target`, the window to paste into."
                         .into(),
                 },
             ],
@@ -209,12 +213,25 @@ impl Module for AdvancedPaste {
             }
             other => {
                 let format = Format::from_id(other).ok_or_else(|| anyhow!("unknown action {other:?}"))?;
-                self.paste_now(format)
+                self.paste_now(format, None)
             }
         }
     }
 
-    fn on_event(&mut self, _event: &Event, _ctx: &mut Ctx) -> Result<()> {
+    fn on_event(&mut self, event: &Event, ctx: &mut Ctx) -> Result<()> {
+        #[cfg(windows)]
+        if let (Event::Timer(id), Some(r)) = (event, &self.reading) {
+            if *id == r.timer() {
+                if let Some(done) = r.finish() {
+                    self.reading = None;
+                    if let Err(e) = done {
+                        ctx.notify("Advanced Paste", format!("{e:#}"));
+                    }
+                }
+            }
+        }
+        #[cfg(not(windows))]
+        let _ = (event, ctx);
         Ok(())
     }
 
@@ -225,7 +242,7 @@ impl Module for AdvancedPaste {
             "paste" => {
                 let name = args["format"].as_str().unwrap_or_default();
                 let format = Format::from_id(name).ok_or_else(|| anyhow!("unknown format {name:?}"))?;
-                self.paste_now(format)?;
+                self.paste_now(format, args["target"].as_i64().map(|t| t as isize))?;
             }
             _ => bail!("unknown command {id:?}"),
         }

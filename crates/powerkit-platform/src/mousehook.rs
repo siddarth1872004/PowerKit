@@ -12,13 +12,14 @@ use crate::event_loop::helper;
 use crate::{Error, Result};
 use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicU8, Ordering};
 use std::sync::Mutex;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::{
     GetCurrentThread, GetCurrentThreadId, SetThreadPriority, THREAD_PRIORITY_HIGHEST,
 };
+use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 /// Posted to the event loop's helper window: moves or wheel notches are waiting.
@@ -33,6 +34,33 @@ static TARGET: AtomicIsize = AtomicIsize::new(0);
 /// The latest pointer position not yet given to the callbacks, and whether one is.
 static LAST_MOVE: AtomicU64 = AtomicU64::new(0);
 static MOVE_PENDING: AtomicBool = AtomicBool::new(false);
+/// The callbacks that may keep a click from its application, with the keys one of
+/// which must be held for them to want it (`None`: any click). A click no filter wants
+/// is passed on at once instead of waiting for the event loop.
+static FILTERS: Mutex<Vec<(u64, Option<Vec<u16>>)>> = Mutex::new(Vec::new());
+/// Buttons whose press waited for the event loop, so their release waits too.
+static WAITED: AtomicU8 = AtomicU8::new(0);
+
+/// On the hook thread: whether this click must wait for the callbacks' answer.
+fn must_wait(button: Button, down: bool) -> bool {
+    let bit = 1u8 << button_code(button);
+    if !down {
+        return WAITED.fetch_and(!bit, Ordering::AcqRel) & bit != 0;
+    }
+    let wait = FILTERS
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .iter()
+        .any(|(_, keys)| match keys {
+            None => true,
+            // SAFETY: plain query.
+            Some(keys) => keys.iter().any(|&k| unsafe { GetAsyncKeyState(i32::from(k)) } < 0),
+        });
+    if wait {
+        WAITED.fetch_or(bit, Ordering::AcqRel);
+    }
+    wait
+}
 static WHEEL: Mutex<Vec<MouseInput>> = Mutex::new(Vec::new());
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,6 +182,12 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
                 // handled, when this frame is gone.
                 let w = WPARAM(button_code(button) | (usize::from(down) << 8));
                 let l = LPARAM(pack(x, y) as i64 as isize);
+                if !must_wait(button, down) {
+                    // SAFETY: plain value arguments.
+                    let _ = unsafe { PostMessageW(Some(target), WM_MOUSE_BUTTON, w, l) };
+                    // SAFETY: forwarding the unmodified arguments of this callback.
+                    return unsafe { CallNextHookEx(None, code, wparam, lparam) };
+                }
                 let mut keep = 0usize;
                 // SAFETY: `keep` outlives the call, which returns before this does.
                 let answered = unsafe {
@@ -258,6 +292,7 @@ fn start_thread() -> Result<u32> {
 /// last one.
 pub struct MouseHook {
     id: u64,
+    filter: bool,
     _not_send: PhantomData<*const ()>,
 }
 
@@ -265,15 +300,30 @@ impl MouseHook {
     /// Must be called on the event-loop thread, whose message loop services the hook.
     /// The callback runs for every mouse move, so it must be quick.
     pub fn install(mut callback: impl FnMut(MouseInput) + 'static) -> Result<MouseHook> {
-        Self::install_filter(move |input| {
-            callback(input);
-            false
-        })
+        Self::add(
+            Box::new(move |input| {
+                callback(input);
+                false
+            }),
+            None,
+        )
     }
 
     /// Like [`MouseHook::install`], but the callback returns `true` to keep the input
     /// from its application. Swallow a release only when its press was swallowed too.
     pub fn install_filter(callback: impl FnMut(MouseInput) -> bool + 'static) -> Result<MouseHook> {
+        Self::add(Box::new(callback), Some(None))
+    }
+
+    /// Like [`MouseHook::install_filter`] for a callback that keeps clicks only while
+    /// one of the virtual keys `keys` is held; other clicks reach their application
+    /// without waiting for the event loop. The callback still sees every click.
+    pub fn install_filter_while(keys: &[u16], callback: impl FnMut(MouseInput) -> bool + 'static) -> Result<MouseHook> {
+        Self::add(Box::new(callback), Some(Some(keys.to_vec())))
+    }
+
+    /// `filter`: `None` for a callback that never keeps input.
+    fn add(callback: Callback, filter: Option<Option<Vec<u16>>>) -> Result<MouseHook> {
         let target = helper()?;
         HOOKS.with(|h| {
             let mut h = h
@@ -285,9 +335,13 @@ impl MouseHook {
             }
             let id = h.next_id;
             h.next_id += 1;
-            h.callbacks.push((id, Box::new(callback)));
+            h.callbacks.push((id, callback));
+            let filter = filter
+                .map(|keys| FILTERS.lock().unwrap_or_else(|p| p.into_inner()).push((id, keys)))
+                .is_some();
             Ok(MouseHook {
                 id,
+                filter,
                 _not_send: PhantomData,
             })
         })
@@ -302,6 +356,12 @@ impl Drop for MouseHook {
                 return;
             };
             h.callbacks.retain(|(id, _)| *id != self.id);
+            if self.filter {
+                FILTERS
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .retain(|(id, _)| *id != self.id);
+            }
             if h.callbacks.is_empty() {
                 if let Some(thread) = h.os.take() {
                     // SAFETY: plain value arguments; the thread removes its hook and ends.

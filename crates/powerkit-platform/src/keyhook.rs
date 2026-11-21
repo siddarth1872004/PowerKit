@@ -99,21 +99,30 @@ const VK_V: u32 = 0x56;
 
 /// Press Ctrl+V in the window in front. Modifiers still held from the shortcut would
 /// turn it into another shortcut, so give the user a moment to let go, then release
-/// any still down.
+/// any still down. The waiting happens on a thread of its own: on the event loop it
+/// would hold up the keyboard hook, and with it the very key releases it waits for.
 pub fn press_paste() -> Result<()> {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
-    while MODIFIERS.iter().any(|&vk| crate::input::key_down(vk)) && std::time::Instant::now() < deadline {
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
-    let mut strokes = vec![(VK_NONE, true), (VK_NONE, false)];
-    strokes.extend(
-        MODIFIERS
-            .iter()
-            .filter(|&&vk| crate::input::key_down(vk))
-            .map(|&vk| (vk, false)),
-    );
-    strokes.extend([(VK_CONTROL, true), (VK_V, true), (VK_V, false), (VK_CONTROL, false)]);
-    send_keys(&strokes)
+    std::thread::Builder::new()
+        .name("paste".into())
+        .spawn(|| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
+            while MODIFIERS.iter().any(|&vk| crate::input::key_down(vk)) && std::time::Instant::now() < deadline {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let mut strokes = vec![(VK_NONE, true), (VK_NONE, false)];
+            strokes.extend(
+                MODIFIERS
+                    .iter()
+                    .filter(|&&vk| crate::input::key_down(vk))
+                    .map(|&vk| (vk, false)),
+            );
+            strokes.extend([(VK_CONTROL, true), (VK_V, true), (VK_V, false), (VK_CONTROL, false)]);
+            if let Err(e) = send_keys(&strokes) {
+                tracing::warn!(error = %e, "could not press Ctrl+V");
+            }
+        })
+        .map(|_| ())
+        .map_err(|e| Error::Other(format!("paste thread: {e}")))
 }
 
 /// Send key strokes as if typed, marked so the hook ignores them.

@@ -1,17 +1,121 @@
-//! Clipboard History: text copied anywhere is kept, newest first; a shortcut opens a
-//! searchable list, and choosing an entry pastes it where the user was typing.
-//! Copies an app marks as private (password managers do) are not kept.
+//! Clipboard History: text and pictures copied anywhere are kept, newest first; a
+//! shortcut opens a searchable list, and choosing an entry pastes it where the user was
+//! typing. Copies an app marks as private (password managers do) are not kept.
 
 use anyhow::{bail, Result};
 use powerkit_config::{ClipboardHistory as Settings, StateFile};
 use powerkit_core::{Event, PopupEvent};
 use powerkit_plugin_api::{CommandSpec, Ctx, Manifest, Module, Permission, API_VERSION};
 use serde_json::{json, Value};
+use std::rc::Rc;
+use std::sync::mpsc::{self, Sender};
+use std::thread::JoinHandle;
 
 pub const ID: &str = "clipboard_history";
 const STATE: &str = "clipboard_history";
 /// Larger texts are not kept: the list shows one line of each anyway.
 const MAX_BYTES: usize = 64 * 1024;
+/// Pictures are kept in memory only, so their number and size are capped well below
+/// the text limit: a 4K screenshot is 33 MB.
+const MAX_PICTURES: usize = 20;
+const MAX_PICTURE_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Entry {
+    Text(String),
+    /// A packed DIB as the clipboard holds it.
+    Picture(Rc<Vec<u8>>),
+}
+
+impl Entry {
+    /// The list row: the first line of a text and how much more there is, or a
+    /// picture's size.
+    pub fn row(&self) -> (String, String) {
+        match self {
+            Entry::Text(t) => row_text(t),
+            Entry::Picture(dib) => (
+                "Picture".into(),
+                match dib_size(dib) {
+                    Some((w, h)) => format!("{w} x {h} pixels"),
+                    None => "Picture".into(),
+                },
+            ),
+        }
+    }
+}
+
+/// Width and height from a DIB's BITMAPINFOHEADER; height is negative for top-down ones.
+fn dib_size(dib: &[u8]) -> Option<(u32, u32)> {
+    let field = |at: usize| Some(i32::from_le_bytes(dib.get(at..at + 4)?.try_into().ok()?));
+    Some((field(4)?.unsigned_abs(), field(8)?.unsigned_abs()))
+}
+
+/// Writes the history on a thread of its own: a long history is megabytes of JSON and
+/// writing it on every copy held up the event loop. Only the newest pending write is
+/// done; `None` removes the file.
+struct Saver {
+    tx: Option<Sender<Option<Vec<String>>>>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl Saver {
+    fn new(state: StateFile) -> Option<Self> {
+        let (tx, rx) = mpsc::channel::<Option<Vec<String>>>();
+        let thread = std::thread::Builder::new()
+            .name("clipboard-history-save".into())
+            .spawn(move || {
+                while let Ok(mut job) = rx.recv() {
+                    while let Ok(next) = rx.try_recv() {
+                        job = next;
+                    }
+                    match job {
+                        Some(texts) => {
+                            if let Err(e) = state.save(&texts) {
+                                tracing::warn!("clipboard history not saved: {e}");
+                            }
+                        }
+                        None => {
+                            if let Err(e) = std::fs::remove_file(state.path()) {
+                                if e.kind() != std::io::ErrorKind::NotFound {
+                                    tracing::warn!("saved clipboard history not removed: {e}");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        match thread {
+            Ok(thread) => Some(Self {
+                tx: Some(tx),
+                thread: Some(thread),
+            }),
+            Err(e) => {
+                tracing::warn!("clipboard history will not be saved: {e}");
+                None
+            }
+        }
+    }
+
+    fn send(&self, job: Option<Vec<String>>) {
+        if let Some(tx) = &self.tx {
+            if tx.send(job).is_err() {
+                tracing::warn!("clipboard history not saved: its writer stopped");
+            }
+        }
+    }
+}
+
+impl Drop for Saver {
+    /// Finish the last write, so nothing copied before quitting is lost.
+    fn drop(&mut self) {
+        self.tx = None;
+        if let Some(thread) = self.thread.take() {
+            if thread.join().is_err() {
+                tracing::warn!("clipboard history writer failed");
+            }
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct ClipboardHistory {
@@ -19,10 +123,10 @@ pub struct ClipboardHistory {
     running: bool,
     paused: bool,
     /// Newest first.
-    entries: Vec<String>,
+    entries: Vec<Entry>,
     /// The entries listed for the current search, as indexes into `entries`.
     shown: Vec<usize>,
-    state: Option<StateFile>,
+    saver: Option<Saver>,
     #[cfg(windows)]
     os: live::Os,
 }
@@ -32,42 +136,63 @@ impl ClipboardHistory {
         Self::default()
     }
 
-    /// Put `text` at the top, once.
-    fn remember(&mut self, text: String) {
-        if text.trim().is_empty() || text.len() > MAX_BYTES {
-            return;
+    /// Put `entry` at the top, once.
+    fn remember(&mut self, entry: Entry) {
+        match &entry {
+            Entry::Text(t) if t.trim().is_empty() || t.len() > MAX_BYTES => return,
+            Entry::Picture(dib) if dib.len() > MAX_PICTURE_BYTES => return,
+            _ => {}
         }
-        self.entries.retain(|t| *t != text);
-        self.entries.insert(0, text);
+        let text = matches!(entry, Entry::Text(_));
+        self.entries.retain(|e| *e != entry);
+        self.entries.insert(0, entry);
         self.entries.truncate(self.settings.max_items as usize);
-        self.save();
+        let mut pictures = 0;
+        self.entries.retain(|e| {
+            pictures += usize::from(matches!(e, Entry::Picture(_)));
+            matches!(e, Entry::Text(_)) || pictures <= MAX_PICTURES
+        });
+        if text {
+            self.save();
+        }
     }
 
+    /// Only texts are written: pictures would make the file hundreds of megabytes.
     fn save(&self) {
-        let Some(state) = self.state.as_ref().filter(|_| self.settings.remember) else {
+        let Some(saver) = self.saver.as_ref().filter(|_| self.settings.remember) else {
             return;
         };
-        if let Err(e) = state.save(&self.entries) {
-            tracing::warn!("clipboard history not saved: {e}");
-        }
+        let texts = self
+            .entries
+            .iter()
+            .filter_map(|e| match e {
+                Entry::Text(t) => Some(t.clone()),
+                Entry::Picture(_) => None,
+            })
+            .collect();
+        saver.send(Some(texts));
     }
 
     /// Forget the saved copy when remembering is turned off, so it does not stay on disk.
     fn sync_saved(&self) {
-        let Some(state) = &self.state else { return };
+        let Some(saver) = &self.saver else { return };
         if self.settings.remember {
             self.save();
-        } else if let Err(e) = std::fs::remove_file(state.path()) {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                tracing::warn!("saved clipboard history not removed: {e}");
-            }
+        } else {
+            saver.send(None);
         }
     }
 
     fn search(&mut self, query: &str) {
         let q = query.trim().to_lowercase();
         self.shown = (0..self.entries.len())
-            .filter(|&i| q.is_empty() || self.entries[i].to_lowercase().contains(&q))
+            .filter(|&i| {
+                q.is_empty()
+                    || match &self.entries[i] {
+                        Entry::Text(t) => t.to_lowercase().contains(&q),
+                        Entry::Picture(_) => "picture".contains(&q),
+                    }
+            })
             .collect();
     }
 
@@ -99,7 +224,7 @@ pub fn row_text(text: &str) -> (String, String) {
 
 #[cfg(windows)]
 mod live {
-    use super::row_text;
+    use super::Entry;
     use anyhow::{Context, Result};
     use powerkit_platform::popup::{Popup, Row};
     use powerkit_platform::window::{self, Hwnd};
@@ -124,12 +249,18 @@ mod live {
             }
         }
 
-        /// The text just copied, unless there is none or the copier marked it private.
-        pub fn copied(&self) -> Result<Option<String>> {
+        /// What was just copied, unless there is nothing or the copier marked it
+        /// private. Text wins when both are there: a spreadsheet copies its cells as a
+        /// picture too.
+        pub fn copied(&self) -> Result<Option<Entry>> {
             if !self.listening || clipboard::is_private().context("reading the clipboard")? {
                 return Ok(None);
             }
-            clipboard::get_text().context("reading the clipboard")
+            if let Some(text) = clipboard::get_text().context("reading the clipboard")? {
+                return Ok(Some(Entry::Text(text)));
+            }
+            let dib = clipboard::get_dib().context("reading the clipboard")?;
+            Ok(dib.map(|d| Entry::Picture(d.into())))
         }
 
         pub fn visible(&self) -> bool {
@@ -152,11 +283,11 @@ mod live {
             }
         }
 
-        pub fn set_rows(&mut self, texts: &[&str]) -> Result<()> {
-            let rows = texts
+        pub fn set_rows(&mut self, entries: &[&Entry]) -> Result<()> {
+            let rows = entries
                 .iter()
-                .map(|t| {
-                    let (title, subtitle) = row_text(t);
+                .map(|e| {
+                    let (title, subtitle) = e.row();
                     Row { title, subtitle }
                 })
                 .collect();
@@ -166,10 +297,14 @@ mod live {
             Ok(())
         }
 
-        pub fn paste(&mut self, text: &str) -> Result<()> {
-            clipboard::set_text(text).context("writing the clipboard")?;
+        pub fn paste(&mut self, entry: &Entry) -> Result<()> {
+            match entry {
+                Entry::Text(t) => clipboard::set_text(t),
+                Entry::Picture(dib) => clipboard::set_dib(dib.to_vec()),
+            }
+            .context("writing the clipboard")?;
             if let Some(hwnd) = self.target.take() {
-                window::activate(hwnd).context("the text is on the clipboard; press Ctrl+V to paste it")?;
+                window::activate(hwnd).context("it is on the clipboard; press Ctrl+V to paste it")?;
             }
             keyhook::press_paste().context("pressing Ctrl+V")?;
             Ok(())
@@ -192,7 +327,7 @@ impl Module for ClipboardHistory {
         Manifest {
             id: ID.into(),
             name: "Clipboard History".into(),
-            description: "Paste any of the texts you copied lately, found by typing part of it.".into(),
+            description: "Paste any of the texts and pictures you copied lately, found by typing part of it.".into(),
             version: env!("CARGO_PKG_VERSION").into(),
             api_version: API_VERSION,
             permissions: vec![
@@ -213,10 +348,11 @@ impl Module for ClipboardHistory {
         self.settings = ctx.config.clipboard_history.clone();
         let state = StateFile::new(ctx.paths, STATE);
         if self.settings.remember {
-            self.entries = state.load();
+            let texts: Vec<String> = state.load();
+            self.entries = texts.into_iter().map(Entry::Text).collect();
             self.entries.truncate(self.settings.max_items as usize);
         }
-        self.state = Some(state);
+        self.saver = Saver::new(state);
         self.running = true;
         self.paused = false;
         #[cfg(windows)]
@@ -269,8 +405,8 @@ impl Module for ClipboardHistory {
         match event {
             #[cfg(windows)]
             Event::ClipboardChanged if self.active() => {
-                if let Some(text) = self.os.copied()? {
-                    self.remember(text);
+                if let Some(entry) = self.os.copied()? {
+                    self.remember(entry);
                 }
             }
             Event::Popup {
@@ -280,22 +416,22 @@ impl Module for ClipboardHistory {
                 self.search(q);
                 #[cfg(windows)]
                 {
-                    let texts: Vec<&str> = self.shown.iter().map(|&i| self.entries[i].as_str()).collect();
-                    self.os.set_rows(&texts)?;
+                    let entries: Vec<&Entry> = self.shown.iter().map(|&i| &self.entries[i]).collect();
+                    self.os.set_rows(&entries)?;
                 }
             }
             Event::Popup {
                 owner: ID,
                 event: PopupEvent::Activate(row),
             } => {
-                let Some(text) = self.shown.get(*row).and_then(|&i| self.entries.get(i)).cloned() else {
+                let Some(entry) = self.shown.get(*row).and_then(|&i| self.entries.get(i)).cloned() else {
                     bail!("there is no entry {row}");
                 };
                 self.shown.clear();
                 #[cfg(windows)]
-                self.os.paste(&text)?;
+                self.os.paste(&entry)?;
                 #[cfg(not(windows))]
-                drop(text);
+                drop(entry);
             }
             Event::Popup {
                 owner: ID,
@@ -358,14 +494,25 @@ mod tests {
         m
     }
 
+    fn text(t: &str) -> Entry {
+        Entry::Text(t.into())
+    }
+
+    fn picture(w: i32, h: i32) -> Entry {
+        let mut dib = vec![40, 0, 0, 0];
+        dib.extend_from_slice(&w.to_le_bytes());
+        dib.extend_from_slice(&h.to_le_bytes());
+        Entry::Picture(dib.into())
+    }
+
     #[test]
     fn newest_first_without_repeats_and_within_the_limit() {
         let dir = tempfile::tempdir().unwrap();
         let mut m = module(dir.path(), false);
         for t in ["a", "b", "a", "c", "d", "  "] {
-            m.remember(t.into());
+            m.remember(text(t));
         }
-        assert_eq!(m.entries, ["d", "c", "a"]);
+        assert_eq!(m.entries, [text("d"), text("c"), text("a")]);
         m.search("C");
         assert_eq!(m.shown, [1]);
     }
@@ -373,14 +520,40 @@ mod tests {
     #[test]
     fn kept_across_restarts_only_when_asked() {
         let dir = tempfile::tempdir().unwrap();
-        module(dir.path(), false).remember("secret".into());
+        module(dir.path(), false).remember(text("secret"));
         assert!(module(dir.path(), false).entries.is_empty());
         assert!(
             module(dir.path(), true).entries.is_empty(),
             "nothing was written while off"
         );
-        module(dir.path(), true).remember("kept".into());
-        assert_eq!(module(dir.path(), true).entries, ["kept"]);
+        let mut m = module(dir.path(), true);
+        m.remember(text("kept"));
+        m.remember(picture(2, 2));
+        drop(m);
+        assert_eq!(
+            module(dir.path(), true).entries,
+            [text("kept")],
+            "pictures stay in memory"
+        );
+    }
+
+    #[test]
+    fn pictures_are_listed_by_size_and_capped() {
+        assert_eq!(
+            picture(1920, -1080).row(),
+            ("Picture".into(), "1920 x 1080 pixels".into())
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let mut m = module(dir.path(), false);
+        m.settings.max_items = 500;
+        for i in 0..MAX_PICTURES as i32 + 5 {
+            m.remember(picture(i, 1));
+        }
+        m.remember(text("t"));
+        assert_eq!(m.entries.len(), MAX_PICTURES + 1);
+        assert_eq!(m.entries[1], picture(MAX_PICTURES as i32 + 4, 1));
+        m.search("pict");
+        assert_eq!(m.shown.len(), MAX_PICTURES);
     }
 
     #[test]

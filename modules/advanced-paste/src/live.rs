@@ -1,8 +1,44 @@
 use crate::{convert, file_name, Clip, Format};
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use powerkit_platform::window::{self, Hwnd};
-use powerkit_platform::{clipboard, image, keyhook, ocr, time};
+use powerkit_platform::{clipboard, event_loop, image, keyhook, ocr, time};
 use std::path::PathBuf;
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+
+const POLL_MS: u32 = 50;
+
+/// Text being read from a picture on a worker thread: recognition can take a second,
+/// and the event loop also runs the keyboard hook, which Windows drops when it stalls.
+pub struct Reading {
+    rx: Receiver<Result<String, String>>,
+    timer: usize,
+    target: Option<isize>,
+}
+
+impl Drop for Reading {
+    fn drop(&mut self) {
+        event_loop::kill_timer(self.timer);
+    }
+}
+
+impl Reading {
+    pub fn timer(&self) -> usize {
+        self.timer
+    }
+
+    /// `None` while still reading; then the text is pasted, or why it was not.
+    pub fn finish(&self) -> Option<Result<()>> {
+        let text = match self.rx.try_recv() {
+            Err(TryRecvError::Empty) => return None,
+            Err(TryRecvError::Disconnected) => return Some(Err(anyhow!("text recognition stopped unexpectedly"))),
+            Ok(r) => r,
+        };
+        Some(text.map_err(anyhow::Error::msg).and_then(|text| {
+            clipboard::set_text(&text).context("writing the clipboard")?;
+            put_back(self.target)
+        }))
+    }
+}
 
 /// Read every format Advanced Paste can use from the clipboard.
 pub fn read() -> Result<Clip> {
@@ -15,8 +51,9 @@ pub fn read() -> Result<Clip> {
 
 /// Put `clip` on the clipboard in `format`, bring back `target` (the window that was in
 /// front before a menu took focus) and press Ctrl+V there. The converted content stays
-/// on the clipboard.
-pub fn paste(format: Format, clip: &Clip, target: Option<isize>, language: &str) -> Result<()> {
+/// on the clipboard. Text in a picture is read on a worker: the paste happens when the
+/// returned reading finishes.
+pub fn paste(format: Format, clip: &Clip, target: Option<isize>, language: &str) -> Result<Option<Reading>> {
     match format {
         Format::Plain | Format::Markdown | Format::Json => {
             clipboard::set_text(&clip.convert_text(format)?).context("writing the clipboard")?
@@ -40,13 +77,30 @@ pub fn paste(format: Format, clip: &Clip, target: Option<isize>, language: &str)
             if picture.width > max || picture.height > max {
                 bail!("The picture is too big to read text from (over {max} pixels across).");
             }
-            let lines = ocr::recognize(&picture.pixels, picture.width, picture.height, language)?;
-            if lines.is_empty() {
-                bail!("No text was found in the picture.");
-            }
-            clipboard::set_text(&lines.join("\r\n")).context("writing the clipboard")?;
+            let language = language.to_string();
+            let (tx, rx) = mpsc::channel();
+            std::thread::spawn(move || {
+                let text = ocr::recognize(&picture.pixels, picture.width, picture.height, &language)
+                    .map_err(|e| e.to_string())
+                    .and_then(|lines| match lines.is_empty() {
+                        true => Err("No text was found in the picture.".to_string()),
+                        false => Ok(lines.join("\r\n")),
+                    });
+                // The receiver is gone only when the paste was replaced or PowerKit quits.
+                let _ = tx.send(text);
+            });
+            return Ok(Some(Reading {
+                rx,
+                timer: event_loop::set_timer(POLL_MS)?,
+                target,
+            }));
         }
     }
+    put_back(target)?;
+    Ok(None)
+}
+
+fn put_back(target: Option<isize>) -> Result<()> {
     if let Some(hwnd) = target {
         window::activate(Hwnd(hwnd)).context("the clipboard holds the converted content; press Ctrl+V to paste it")?;
     }

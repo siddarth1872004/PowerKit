@@ -45,6 +45,8 @@ pub struct AccentBar {
     hwnd: HWND,
     font: Option<(u32, HFONT)>,
     shown: Option<AccentView>,
+    /// Reused while the bar keeps its size, which it does while the arrows move along it.
+    dib: Option<((i32, i32), Dib)>,
     _not_send: PhantomData<*const ()>,
 }
 
@@ -98,6 +100,7 @@ impl AccentBar {
             hwnd,
             font: None,
             shown: None,
+            dib: None,
             _not_send: PhantomData,
         })
     }
@@ -155,7 +158,10 @@ impl AccentBar {
         let x = view.area.left + (view.area.width() - w) / 2;
         let y = view.area.top + scale(TOP_GAP);
         let font = self.font(view.dpi);
-        let dib = Dib::new(w, h)?;
+        let dib = match &mut self.dib {
+            Some((size, dib)) if *size == (w, h) => dib,
+            slot => &mut slot.insert(((w, h), Dib::new(w, h)?)).1,
+        };
         fill(
             dib.dc,
             &RECT {
