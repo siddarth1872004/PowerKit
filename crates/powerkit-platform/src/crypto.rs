@@ -4,7 +4,7 @@ use crate::{Context, Error, Result};
 use windows::Win32::Security::Cryptography::{
     BCryptDecrypt, BCryptDeriveKeyPBKDF2, BCryptDestroyKey, BCryptEncrypt, BCryptGenRandom, BCryptGenerateSymmetricKey,
     BCryptHash, BCRYPT_AES_GCM_ALG_HANDLE, BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO, BCRYPT_FLAGS,
-    BCRYPT_HMAC_SHA256_ALG_HANDLE, BCRYPT_KEY_HANDLE, BCRYPT_USE_SYSTEM_PREFERRED_RNG,
+    BCRYPT_HMAC_SHA256_ALG_HANDLE, BCRYPT_KEY_HANDLE, BCRYPT_SHA256_ALG_HANDLE, BCRYPT_USE_SYSTEM_PREFERRED_RNG,
 };
 
 pub const TAG_LEN: usize = 16;
@@ -15,6 +15,15 @@ pub fn random(buf: &mut [u8]) -> Result<()> {
     unsafe { BCryptGenRandom(None, buf, BCRYPT_USE_SYSTEM_PREFERRED_RNG) }
         .ok()
         .context("BCryptGenRandom")
+}
+
+pub fn sha256(data: &[u8]) -> Result<[u8; 32]> {
+    let mut out = [0u8; 32];
+    // SAFETY: the slices are valid; the output is the size of a SHA-256 digest.
+    unsafe { BCryptHash(BCRYPT_SHA256_ALG_HANDLE, None, data, &mut out) }
+        .ok()
+        .context("SHA-256")?;
+    Ok(out)
 }
 
 pub fn hmac_sha256(key: &[u8], data: &[u8]) -> Result<[u8; 32]> {
@@ -143,6 +152,14 @@ mod tests {
 
     fn hex(b: &[u8]) -> String {
         b.iter().map(|x| format!("{x:02x}")).collect()
+    }
+
+    #[test]
+    fn sha256_matches_the_standard_vector() {
+        assert_eq!(
+            hex(&sha256(b"abc").unwrap()),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]

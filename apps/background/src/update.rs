@@ -15,6 +15,8 @@ pub struct Release {
     pub page: String,
     pub download: String,
     pub size: u64,
+    /// The file's SHA-256 as GitHub reports it, checked before the file is installed.
+    pub sha256: [u8; 32],
 }
 
 /// "v1.2.3", "1.2" or "1.2.3-beta" as numbers; pre-release and build suffixes are
@@ -61,7 +63,24 @@ pub fn parse_release(v: &Value) -> Result<Release> {
             .ok_or_else(|| anyhow!("{ASSET} has no download address"))?
             .to_string(),
         size: asset["size"].as_u64().unwrap_or(0),
+        sha256: asset["digest"]
+            .as_str()
+            .and_then(parse_digest)
+            .ok_or_else(|| anyhow!("release {tag} does not say what {ASSET} should contain"))?,
     })
+}
+
+/// "sha256:" and 64 hex digits, as GitHub reports an asset's digest.
+fn parse_digest(s: &str) -> Option<[u8; 32]> {
+    let hex = s.strip_prefix("sha256:")?;
+    if hex.len() != 64 || !hex.is_ascii() {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    for (i, b) in out.iter_mut().enumerate() {
+        *b = u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).ok()?;
+    }
+    Some(out)
 }
 
 /// The newest release, when it is newer than this build.
@@ -89,6 +108,9 @@ pub fn install(r: &Release) -> Result<std::path::PathBuf> {
         .with_context(|| format!("could not download PowerKit {}", r.version))?;
     if (r.size != 0 && bytes.len() as u64 != r.size) || !bytes.starts_with(b"MZ") {
         bail!("the downloaded file is incomplete or not a program");
+    }
+    if powerkit_platform::crypto::sha256(&bytes).context("checking the download")? != r.sha256 {
+        bail!("the downloaded file is not the one GitHub published");
     }
     let new = exe.with_extension("new.exe");
     let old = old_path(&exe);
@@ -152,7 +174,8 @@ mod tests {
             "html_url": "https://github.com/x/y/releases/tag/v0.2.0",
             "assets": [
                 { "name": "notes.txt", "browser_download_url": "https://a/notes.txt", "size": 3 },
-                { "name": "PowerKit.exe", "browser_download_url": "https://a/powerkit.exe", "size": 1234 }
+                { "name": "PowerKit.exe", "browser_download_url": "https://a/powerkit.exe", "size": 1234,
+                  "digest": "sha256:00ff0000000000000000000000000000000000000000000000000000000000a1" }
             ]
         });
         let r = parse_release(&v).unwrap();
@@ -163,7 +186,20 @@ mod tests {
                 page: "https://github.com/x/y/releases/tag/v0.2.0".into(),
                 download: "https://a/powerkit.exe".into(),
                 size: 1234,
+                sha256: {
+                    let mut d = [0; 32];
+                    d[1] = 0xff;
+                    d[31] = 0xa1;
+                    d
+                },
             }
+        );
+        let unchecked = json!({ "tag_name": "v0.2.0", "assets": [
+            { "name": "powerkit.exe", "browser_download_url": "https://a/powerkit.exe", "digest": "md5:00" }
+        ]});
+        assert!(
+            parse_release(&unchecked).is_err(),
+            "an update that cannot be checked is not offered"
         );
         let no_asset = json!({ "tag_name": "v0.2.0", "assets": [] });
         assert!(parse_release(&no_asset)
