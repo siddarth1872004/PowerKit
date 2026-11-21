@@ -3,6 +3,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::Value;
 
+pub const RELEASES_PAGE: &str = "https://github.com/siddarth1872004/PowerKit/releases";
 pub const LATEST_URL: &str = "https://api.github.com/repos/siddarth1872004/PowerKit/releases/latest";
 /// The release file that is the new `powerkit.exe`.
 pub const ASSET: &str = "powerkit.exe";

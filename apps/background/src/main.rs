@@ -59,6 +59,7 @@ const MENU_HOSTS: u32 = 5;
 const MENU_ENV: u32 = 6;
 const MENU_REGISTRY: u32 = 7;
 const MENU_POWER_PLAN: u32 = 8;
+const MENU_RELEASE_NOTES: u32 = 9;
 /// The first automatic check waits so it does not slow down signing in.
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(120);
 const CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -680,14 +681,22 @@ fn run(
                     Some(r) => MenuItem::new(MENU_INSTALL_UPDATE, format!("Install update {}", r.version)),
                     None => MenuItem::new(MENU_CHECK_UPDATES, "Check for updates"),
                 });
+                items.push(MenuItem::new(MENU_RELEASE_NOTES, "What's new"));
                 items.push(MenuItem::Separator);
-                for (i, m) in modules.iter().enumerate() {
-                    items.push(MenuItem::checked(
-                        MENU_MODULE_BASE + i as u32,
-                        m["name"].as_str().unwrap_or("?"),
-                        m["enabled"].as_bool().unwrap_or(false),
-                    ));
-                }
+                items.push(MenuItem::Submenu {
+                    label: "Utilities".into(),
+                    items: modules
+                        .iter()
+                        .enumerate()
+                        .map(|(i, m)| {
+                            MenuItem::checked(
+                                MENU_MODULE_BASE + i as u32,
+                                m["name"].as_str().unwrap_or("?"),
+                                m["enabled"].as_bool().unwrap_or(false),
+                            )
+                        })
+                        .collect(),
+                });
                 items.push(MenuItem::Separator);
                 items.push(MenuItem::new(MENU_QUIT, "Quit PowerKit"));
                 match tray.show_menu(&items) {
@@ -707,6 +716,11 @@ fn run(
                         }
                     }
                     Ok(Some(MENU_QUIT)) => return false,
+                    Ok(Some(MENU_RELEASE_NOTES)) => {
+                        if let Err(e) = powerkit_platform::shell::open(update::RELEASES_PAGE, None) {
+                            let _ = tray.notify("PowerKit", &format!("Could not open the release notes: {e}"));
+                        }
+                    }
                     Ok(Some(MENU_CHECK_UPDATES | MENU_INSTALL_UPDATE)) if update_busy => {
                         let _ = tray.notify("PowerKit update", "Already working on it.");
                     }

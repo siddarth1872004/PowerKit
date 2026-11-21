@@ -215,7 +215,7 @@ impl HostsUi {
         let text = self.file.render();
         let staged = data_dir.join("hosts.new");
         let prepared = std::fs::create_dir_all(data_dir)
-            .and_then(|()| std::fs::write(data_dir.join("hosts.backup"), &self.loaded))
+            .and_then(|()| keep_backup(&data_dir.join(BACKUPS), &self.loaded))
             .and_then(|()| std::fs::write(&staged, &text));
         if let Err(e) = prepared {
             return status(self, &format!("Could not prepare the new hosts file: {e}"));
@@ -255,7 +255,7 @@ impl HostsUi {
                 self.dirty = false;
                 self.show(
                     None,
-                    "Saved. The previous version is in hosts.backup in PowerKit's data folder.",
+                    "Saved. The previous version is in the hosts-backups folder in PowerKit's data folder.",
                 );
             }
             Ok(code) => {
@@ -272,6 +272,42 @@ impl HostsUi {
             }
         }
     }
+}
+
+/// Folder in the data folder holding the hosts file as it was before each save.
+const BACKUPS: &str = "hosts-backups";
+const BACKUPS_KEPT: usize = 10;
+
+/// Save `text` as a new dated backup in `dir`, dropping all but the newest
+/// [`BACKUPS_KEPT`].
+fn keep_backup(dir: &std::path::Path, text: &str) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let t = powerkit_platform::time::local_now();
+    let name = format!(
+        "hosts-{:04}{:02}{:02}-{:02}{:02}{:02}",
+        t.year, t.month, t.day, t.hour, t.minute, t.second
+    );
+    std::fs::write(dir.join(name), text)?;
+    for old in old_backups(dir)? {
+        std::fs::remove_file(old)?;
+    }
+    Ok(())
+}
+
+/// The backups past the newest [`BACKUPS_KEPT`]; the dated names sort oldest first.
+fn old_backups(dir: &std::path::Path) -> std::io::Result<Vec<std::path::PathBuf>> {
+    let mut names: Vec<_> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("hosts-"))
+        })
+        .collect();
+    names.sort();
+    let extra = names.len().saturating_sub(BACKUPS_KEPT);
+    names.truncate(extra);
+    Ok(names)
 }
 
 #[cfg(test)]
@@ -314,5 +350,17 @@ mod tests {
         assert!(edit(&mut f, TableEvent::Delete(5)).is_err());
         assert_eq!(f.render(), "1.1.1.1 a\n");
         assert_eq!(edit(&mut f, TableEvent::Delete(0)), Ok(None));
+    }
+
+    #[test]
+    fn only_the_newest_backups_are_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..12 {
+            std::fs::write(dir.path().join(format!("hosts-20260101-0000{i:02}")), "x").unwrap();
+        }
+        std::fs::write(dir.path().join("notes.txt"), "x").unwrap();
+        let old = old_backups(dir.path()).unwrap();
+        let names: Vec<_> = old.iter().map(|p| p.file_name().unwrap().to_str().unwrap()).collect();
+        assert_eq!(names, ["hosts-20260101-000000", "hosts-20260101-000001"]);
     }
 }

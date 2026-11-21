@@ -49,6 +49,10 @@ pub enum MenuItem {
         enabled: bool,
     },
     Separator,
+    Submenu {
+        label: String,
+        items: Vec<MenuItem>,
+    },
 }
 
 impl MenuItem {
@@ -175,27 +179,9 @@ impl Tray {
         // outlive the AppendMenu calls that copy them.
         unsafe {
             let menu = CreatePopupMenu().context("CreatePopupMenu")?;
-            for item in items {
-                match item {
-                    MenuItem::Separator => AppendMenuW(menu, MF_SEPARATOR, 0, None),
-                    MenuItem::Item {
-                        id,
-                        label,
-                        checked,
-                        enabled,
-                    } => {
-                        let mut flags = MF_STRING;
-                        if *checked {
-                            flags |= MF_CHECKED;
-                        }
-                        if !*enabled {
-                            flags |= MF_GRAYED;
-                        }
-                        let text = wide(label);
-                        AppendMenuW(menu, flags, *id as usize, pcwstr(&text))
-                    }
-                }
-                .context("AppendMenu")?;
+            if let Err(e) = fill(menu, items) {
+                let _ = DestroyMenu(menu);
+                return Err(e);
             }
             let mut pt = POINT::default();
             GetCursorPos(&mut pt).context("GetCursorPos")?;
@@ -214,6 +200,49 @@ impl Tray {
             Ok((chosen.0 > 0).then_some(chosen.0 as u32))
         }
     }
+}
+
+/// Append `items` to `menu`; submenus are owned by `menu` and destroyed with it.
+///
+/// # Safety
+/// `menu` must be a menu handle created by this thread.
+unsafe fn fill(menu: HMENU, items: &[MenuItem]) -> Result<()> {
+    for item in items {
+        match item {
+            MenuItem::Separator => unsafe { AppendMenuW(menu, MF_SEPARATOR, 0, None) },
+            MenuItem::Item {
+                id,
+                label,
+                checked,
+                enabled,
+            } => {
+                let mut flags = MF_STRING;
+                if *checked {
+                    flags |= MF_CHECKED;
+                }
+                if !*enabled {
+                    flags |= MF_GRAYED;
+                }
+                let text = wide(label);
+                unsafe { AppendMenuW(menu, flags, *id as usize, pcwstr(&text)) }
+            }
+            MenuItem::Submenu { label, items } => {
+                let sub = unsafe { CreatePopupMenu() }.context("CreatePopupMenu")?;
+                if let Err(e) = unsafe { fill(sub, items) } {
+                    let _ = unsafe { DestroyMenu(sub) };
+                    return Err(e);
+                }
+                let text = wide(label);
+                let added = unsafe { AppendMenuW(menu, MF_POPUP, sub.0 as usize, pcwstr(&text)) };
+                if added.is_err() {
+                    let _ = unsafe { DestroyMenu(sub) };
+                }
+                added
+            }
+        }
+        .context("AppendMenu")?;
+    }
+    Ok(())
 }
 
 impl Drop for Tray {
