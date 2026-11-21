@@ -26,8 +26,9 @@ struct Open {
 }
 
 /// Ordinary windows of programs that can be started again, minimized ones too, front
-/// to back, leaving out those of process `skip_pid`.
-fn open_windows(skip_pid: u32) -> Result<Vec<Open>> {
+/// to back, leaving out those of process `skip_pid`. The titles of ordinary windows
+/// whose program cannot be started again go to `left_out`.
+fn open_windows(skip_pid: u32, mut left_out: Option<&mut Vec<String>>) -> Result<Vec<Open>> {
     let mut out = Vec::new();
     for hwnd in window::enumerate()? {
         let Ok(info) = window::info(hwnd) else { continue };
@@ -43,6 +44,9 @@ fn open_windows(skip_pid: u32) -> Result<Vec<Open>> {
             continue;
         }
         let Some(path) = window::process_path(info.pid).filter(|p| relaunchable(p)) else {
+            if let Some(list) = left_out.as_deref_mut() {
+                list.push(info.title);
+            }
             continue;
         };
         out.push(Open { hwnd, info, path });
@@ -51,10 +55,12 @@ fn open_windows(skip_pid: u32) -> Result<Vec<Open>> {
 }
 
 /// The windows open now, back to front so that launching them in order leaves the
-/// front-most on top. PowerKit's own windows are left out.
-pub fn capture() -> Result<Vec<WorkspaceApp>> {
+/// front-most on top, and the titles of windows that could not be kept. PowerKit's
+/// own windows are left out.
+pub fn capture() -> Result<(Vec<WorkspaceApp>, Vec<String>)> {
     let mut apps = Vec::new();
-    for w in open_windows(std::process::id())?.into_iter().rev() {
+    let mut left_out = Vec::new();
+    for w in open_windows(std::process::id(), Some(&mut left_out))?.into_iter().rev() {
         let Some(m) = monitor::from_window(w.hwnd) else {
             continue;
         };
@@ -71,6 +77,7 @@ pub fn capture() -> Result<Vec<WorkspaceApp>> {
                 Ok(r) => r,
                 Err(e) => {
                     tracing::warn!("workspaces: skipped {:?}: {e}", w.info.title);
+                    left_out.push(w.info.title);
                     continue;
                 }
             },
@@ -85,7 +92,7 @@ pub fn capture() -> Result<Vec<WorkspaceApp>> {
             state,
         });
     }
-    Ok(apps)
+    Ok((apps, left_out))
 }
 
 fn monitors() -> Result<Vec<(String, Rect)>> {
@@ -120,7 +127,7 @@ fn start(app: &WorkspaceApp) -> std::io::Result<u32> {
 /// the rest and place each new window as it appears.
 pub fn launch(apps: &[WorkspaceApp], move_existing: bool) -> Report {
     let mut report = Report::default();
-    let (monitors, before) = match (monitors(), open_windows(std::process::id())) {
+    let (monitors, before) = match (monitors(), open_windows(std::process::id(), None)) {
         (Ok(m), Ok(o)) => (m, o),
         (Err(e), _) | (_, Err(e)) => {
             report.failed.push(format!("Nothing was done: {e:#}."));
@@ -151,7 +158,7 @@ pub fn launch(apps: &[WorkspaceApp], move_existing: bool) -> Report {
     let mut shown: Vec<(usize, Hwnd)> = Vec::new();
     while !waiting.is_empty() && Instant::now() < deadline {
         std::thread::sleep(POLL);
-        let Ok(now) = open_windows(std::process::id()) else {
+        let Ok(now) = open_windows(std::process::id(), None) else {
             continue;
         };
         waiting.retain(|&(app, pid)| {

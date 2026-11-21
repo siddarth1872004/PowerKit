@@ -465,7 +465,9 @@ mod tests {
         fx.config.fancy_zones.override_snap_keys = true;
         let keys = m.hotkeys(&fx.config);
         assert!(keys.iter().any(|k| k.action == "prev_zone" && k.shortcut == "Win+Left"));
-        assert!(keys.iter().any(|k| k.action == "next_zone" && k.shortcut == "Win+Right"));
+        assert!(keys
+            .iter()
+            .any(|k| k.action == "next_zone" && k.shortcut == "Win+Right"));
     }
 
     #[test]

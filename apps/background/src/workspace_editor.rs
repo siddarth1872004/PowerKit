@@ -24,11 +24,12 @@ static SPEC: TableSpec = TableSpec {
     }],
     checks: false,
     choices: &[],
-    buttons: ["Capture", "Launch", "Delete", "", ""],
+    buttons: ["Capture", "Launch", "Delete", "Desktop shortcut", "Rename"],
 };
 
-const HINT: &str =
-    "Arrange your windows, type a name and click Capture. Choose a workspace and click Launch to bring it back.";
+const HINT: &str = "Arrange your windows, type a name and click Capture. Choose a workspace and click Launch to \
+bring it back, or Desktop shortcut to launch it from the desktop. To rename one, choose it, change the name and click \
+Rename.";
 
 pub fn rows(workspaces: &[Workspace]) -> Vec<TableRow> {
     workspaces
@@ -45,10 +46,7 @@ pub fn rows(workspaces: &[Workspace]) -> Vec<TableRow> {
 /// Save `apps` as the workspace `name`, replacing one of that name; returns its row
 /// and whether it replaced one.
 pub fn store(s: &mut Settings, name: &str, apps: Vec<powerkit_config::WorkspaceApp>) -> Result<(usize, bool), String> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err("Type a name for the workspace first.".into());
-    }
+    let name = checked_name(name)?;
     if apps.is_empty() {
         return Err("There are no windows to save.".into());
     }
@@ -66,6 +64,60 @@ pub fn store(s: &mut Settings, name: &str, apps: Vec<powerkit_config::WorkspaceA
             Ok((s.workspaces.len() - 1, false))
         }
     }
+}
+
+/// The trimmed name, if it can be a workspace name. A quote would end the name early
+/// on a desktop shortcut's command line.
+fn checked_name(name: &str) -> Result<&str, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Type a name for the workspace first.".into());
+    }
+    if name.contains('"') {
+        return Err("A workspace name cannot contain a quote (\").".into());
+    }
+    Ok(name)
+}
+
+/// Rename the workspace at `row` to `name`, unless another one already has it.
+pub fn rename(s: &mut Settings, row: usize, name: &str) -> Result<usize, String> {
+    let name = checked_name(name)?;
+    if row >= s.workspaces.len() {
+        return Err("Choose a workspace to rename first.".into());
+    }
+    if let Some(other) = s
+        .workspaces
+        .iter()
+        .enumerate()
+        .find(|(i, w)| *i != row && w.name.eq_ignore_ascii_case(name))
+    {
+        return Err(format!("There is already a workspace named {}.", other.1.name));
+    }
+    s.workspaces[row].name = name.into();
+    Ok(row)
+}
+
+/// The file name for a workspace's desktop shortcut: characters Windows does not
+/// allow in file names become dashes.
+pub fn shortcut_file_name(name: &str) -> String {
+    let clean: String = name
+        .chars()
+        .map(|c| {
+            if "\\/:*?\"<>|".contains(c) || c.is_control() {
+                '-'
+            } else {
+                c
+            }
+        })
+        .collect();
+    format!("{} (workspace)", clean.trim_end_matches(['.', ' ']))
+}
+
+/// The command line that launches the workspace `name`. Backslashes before the
+/// closing quote are doubled so that they do not escape it.
+pub fn shortcut_args(name: &str) -> String {
+    let tail = name.len() - name.trim_end_matches('\\').len();
+    format!("--workspace \"{name}{}\"", "\\".repeat(tail))
 }
 
 pub struct WorkspacesUi {
@@ -169,7 +221,7 @@ impl WorkspacesUi {
         match event {
             TableEvent::Add(fields) => {
                 let name = fields.first().map_or("", |f| f.trim()).to_string();
-                let apps = match workspaces::capture() {
+                let (apps, left_out) = match workspaces::capture() {
                     Ok(a) => a,
                     Err(e) => return self.status(&format!("Could not read the open windows: {e:#}")),
                 };
@@ -182,7 +234,14 @@ impl WorkspacesUi {
                     })
                 }) {
                     let verb = if replaced { "Captured again" } else { "Captured" };
-                    self.status(&format!("{verb} {name} with {count} windows."));
+                    let mut text = format!("{verb} {name} with {count} windows.");
+                    if !left_out.is_empty() {
+                        text.push_str(&format!(
+                            " Left out, as their programs cannot be started again: {}.",
+                            left_out.join(", ")
+                        ));
+                    }
+                    self.status(&text);
                 }
             }
             TableEvent::Update { row, .. } => {
@@ -201,7 +260,42 @@ impl WorkspacesUi {
                     Ok(None)
                 });
             }
+            TableEvent::Reload => self.desktop_shortcut(host),
+            TableEvent::Save => {
+                let Some(row) = self.window.as_ref().and_then(TableWindow::selected) else {
+                    return self.status("Choose a workspace to rename first.");
+                };
+                let name = self.fields().first().cloned().unwrap_or_default();
+                if self.save(host, |s| rename(s, row, &name).map(Some)) {
+                    self.status(&format!("Renamed to {}.", name.trim()));
+                }
+            }
             _ => {}
+        }
+    }
+
+    fn fields(&self) -> Vec<String> {
+        self.window.as_ref().map(TableWindow::fields).unwrap_or_default()
+    }
+
+    fn desktop_shortcut(&mut self, host: &Host) {
+        let list = &host.config().workspaces.workspaces;
+        let Some(ws) = self
+            .window
+            .as_ref()
+            .and_then(TableWindow::selected)
+            .and_then(|i| list.get(i))
+        else {
+            return self.status("Choose a workspace first.");
+        };
+        let name = ws.name.clone();
+        let made = std::env::current_exe().map_err(|e| e.to_string()).and_then(|exe| {
+            powerkit_platform::shell::create_desktop_shortcut(&shortcut_file_name(&name), &exe, &shortcut_args(&name))
+                .map_err(|e| e.to_string())
+        });
+        match made {
+            Ok(path) => self.status(&format!("Put {} on the desktop.", path.display())),
+            Err(e) => self.status(&format!("Could not make the shortcut: {e}")),
         }
     }
 }
@@ -229,6 +323,28 @@ mod tests {
         assert_eq!(s.workspaces.len(), 2);
         assert_eq!(s.workspaces[0].apps.len(), 3);
         assert_eq!(rows(&s.workspaces)[1].1, ["Play", "app0", "1"]);
+    }
+
+    #[test]
+    fn renaming_keeps_names_unique_and_quote_free() {
+        let mut s = Settings::default();
+        store(&mut s, "Work", apps(1)).unwrap();
+        store(&mut s, "Play", apps(1)).unwrap();
+        assert!(rename(&mut s, 1, "WORK").is_err());
+        assert!(rename(&mut s, 1, "say \"hi\"").is_err());
+        assert!(rename(&mut s, 5, "Games").is_err());
+        assert_eq!(rename(&mut s, 1, " Games "), Ok(1));
+        assert_eq!(rename(&mut s, 0, "work"), Ok(0));
+        assert_eq!(s.workspaces[0].name, "work");
+        assert_eq!(s.workspaces[1].name, "Games");
+    }
+
+    #[test]
+    fn shortcuts_name_files_safely_and_quote_the_workspace() {
+        assert_eq!(shortcut_file_name("A/B: C?"), "A-B- C- (workspace)");
+        assert_eq!(shortcut_file_name("Dots..."), "Dots (workspace)");
+        assert_eq!(shortcut_args("My work"), "--workspace \"My work\"");
+        assert_eq!(shortcut_args("ends\\"), "--workspace \"ends\\\\\"");
     }
 
     #[test]

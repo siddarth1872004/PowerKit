@@ -681,6 +681,16 @@ impl TableWindow {
         }
     }
 
+    /// The selected row, if any.
+    pub fn selected(&self) -> Option<usize> {
+        selected_row(self.hwnd)
+    }
+
+    /// What the boxes under the list hold.
+    pub fn fields(&self) -> Vec<String> {
+        read_fields(self.hwnd, self.state.spec)
+    }
+
     /// Show `index` in the selector without reporting it as a change.
     pub fn set_choice(&mut self, index: usize) {
         send(item(self.hwnd, ID_CHOICE), CB_SETCURSEL, index, 0);
