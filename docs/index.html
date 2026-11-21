@@ -11,243 +11,159 @@
 <link rel="icon" href="icon.png">
 <style>
 :root {
-  --bg: #f5f6f9; --bg2: #eceef4; --card: #ffffff; --text: #1b1d22; --muted: #5d6370; --line: #dde1e9;
-  --accent: #2f6fe4; --accent2: #7b4fe0; --accent-text: #ffffff; --code: #eef1f6;
-  --kbd: #ffffff; --kbd-line: #c9ceda; --glow: rgba(47, 111, 228, .18); --shadow: 0 1px 2px rgba(20, 30, 60, .06), 0 8px 24px rgba(20, 30, 60, .06);
+  --bg: #fbfbfa; --text: #1c1c1c; --muted: #636363; --line: #e2e2df; --accent: #1f5fbf; --code: #f0f0ed;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121317; --bg2: #191b21; --card: #1d1f25; --text: #e9ebf0; --muted: #9aa1ae; --line: #2c2f38;
-    --accent: #6b9cf7; --accent2: #a585f5; --accent-text: #0c1120; --code: #272a33;
-    --kbd: #2a2d36; --kbd-line: #41454f; --glow: rgba(107, 156, 247, .16); --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
-  }
+  :root { --bg: #161616; --text: #e6e6e4; --muted: #9a9a96; --line: #2e2e2c; --accent: #7aa7ec; --code: #242422; }
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
-  font: 16px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 a { color: var(--accent); }
-.wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+.page { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+code, kbd, pre { font-family: "Cascadia Mono", Consolas, monospace; }
+code { background: var(--code); padding: 1px 4px; border-radius: 3px; font-size: .88em; }
 
-/* Top bar */
-nav.top {
-  position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(1.4) blur(14px);
-  background: color-mix(in srgb, var(--bg) 82%, transparent); border-bottom: 1px solid var(--line);
+header { padding: 48px 0 32px; border-bottom: 1px solid var(--line); }
+.title { display: flex; align-items: center; gap: 14px; }
+.title img { width: 48px; height: 48px; }
+h1 { font-size: 34px; margin: 0; letter-spacing: -.3px; }
+.version { color: var(--muted); font-size: 15px; font-weight: 400; margin-left: 4px; }
+header p { font-size: 18px; max-width: 620px; margin: 16px 0 24px; }
+.get { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+.download {
+  display: inline-block; background: var(--accent); color: var(--bg); text-decoration: none;
+  font-weight: 600; padding: 9px 18px; border-radius: 4px;
 }
-nav.top .wrap { display: flex; align-items: center; gap: 20px; height: 56px; }
-nav.top .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; color: var(--text); text-decoration: none; }
-nav.top .brand img { width: 26px; height: 26px; }
-nav.top .links { display: flex; gap: 18px; margin-left: auto; font-size: 15px; }
-nav.top .links a { color: var(--muted); text-decoration: none; }
-nav.top .links a:hover { color: var(--text); }
-@media (max-width: 640px) { nav.top .links .opt { display: none; } }
+.download:hover { filter: brightness(1.1); }
+.small { color: var(--muted); font-size: 14px; }
 
-/* Hero */
-.hero { position: relative; overflow: hidden; padding: 72px 0 56px; text-align: center; }
-.hero::before {
-  content: ""; position: absolute; inset: -40% -10% auto; height: 520px; z-index: -1;
-  background: radial-gradient(closest-side, var(--glow), transparent), radial-gradient(closest-side at 70% 40%, color-mix(in srgb, var(--accent2) 16%, transparent), transparent);
-}
-.hero img.logo { width: 92px; height: 92px; filter: drop-shadow(0 10px 24px var(--glow)); }
-.badge {
-  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
-  border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 12px; margin-top: 18px;
-}
-.badge b { color: var(--accent); font-weight: 650; }
-h1 {
-  font-size: clamp(38px, 7vw, 60px); line-height: 1.05; margin: 18px 0 12px; letter-spacing: -1.2px;
-  background: linear-gradient(120deg, var(--text) 30%, var(--accent) 75%, var(--accent2));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.tag { font-size: clamp(17px, 2.4vw, 21px); color: var(--muted); margin: 0 auto 30px; max-width: 640px; }
-.buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.btn {
-  display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 10px;
-  text-decoration: none; font-weight: 620; border: 1px solid var(--line); color: var(--text); background: var(--card);
-  box-shadow: var(--shadow); transition: transform .15s ease, box-shadow .15s ease;
-}
-.btn:hover { transform: translateY(-1px); }
-.btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; }
-.btn svg { width: 18px; height: 18px; }
-.note { color: var(--muted); font-size: 14px; margin-top: 14px; }
+section { padding: 36px 0 4px; }
+h2 { font-size: 21px; margin: 0 0 12px; }
+section > p { margin: 0 0 12px; }
+ul.points { margin: 0; padding-left: 20px; }
+ul.points li { margin: 4px 0; }
 
-/* Highlights */
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 8px 0 0; }
-.fact { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
-.fact .n { font-size: 26px; font-weight: 700; letter-spacing: -.5px; }
-.fact p { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; }
-
-/* Sections */
-section { padding: 56px 0 0; }
-h2 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.4px; }
-.lead { color: var(--muted); margin: 0 0 22px; }
-
-/* Utilities */
-.tools-head { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; justify-content: space-between; margin-bottom: 18px; }
-.search {
-  display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line);
-  border-radius: 10px; padding: 0 12px; min-width: min(320px, 100%); flex: 0 1 320px;
+.tools-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+#filter {
+  font: inherit; font-size: 15px; color: var(--text); background: transparent; width: min(260px, 100%);
+  border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px;
 }
-.search svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
-.search input { border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; padding: 10px 0; width: 100%; }
-.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
-.card {
-  background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px;
-  display: flex; flex-direction: column; transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
-}
-.card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); transform: translateY(-2px); box-shadow: var(--shadow); }
-.card h3 { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; font-size: 17px; }
-.card h3 img { width: 34px; height: 34px; }
-.card p { margin: 0 0 12px; color: var(--muted); font-size: 14.5px; flex: 1; }
-.card .keys { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 12.5px; color: var(--muted); }
-.card .keys .combo { display: inline-flex; align-items: center; gap: 3px; }
+#filter:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+ul.tools { list-style: none; margin: 12px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.tool { display: grid; grid-template-columns: 28px 1fr; gap: 2px 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.tool img { width: 28px; height: 28px; grid-row: span 3; margin-top: 2px; }
+.tool h3 { font-size: 16px; margin: 0; }
+.tool p { margin: 0; color: var(--muted); font-size: 15px; }
+.keys { font-size: 13px; color: var(--muted); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
 kbd {
-  font: 600 12px/1 "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--kbd);
-  border: 1px solid var(--kbd-line); border-bottom-width: 2px; border-radius: 5px; padding: 3px 6px; white-space: nowrap;
+  font-size: 12px; color: var(--text); border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 3px; padding: 0 5px; background: var(--code);
 }
-.empty { display: none; color: var(--muted); padding: 24px 0; text-align: center; }
-code { background: var(--code); border-radius: 4px; padding: 1px 5px; font-size: .9em; }
+.empty { display: none; color: var(--muted); padding: 14px 0; }
 
-/* Steps */
-.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; counter-reset: step; }
-.step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; position: relative; }
-.step::before {
-  counter-increment: step; content: counter(step); display: grid; place-items: center; width: 30px; height: 30px;
-  border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 700; margin-bottom: 10px;
+ol.steps { margin: 0; padding-left: 22px; }
+ol.steps li { margin: 6px 0; }
+pre {
+  background: var(--code); padding: 14px 16px; border-radius: 4px; overflow-x: auto;
+  font-size: 13.5px; line-height: 1.7; margin: 0;
 }
-.step h3 { margin: 0 0 4px; font-size: 17px; }
-.step p { margin: 0; color: var(--muted); font-size: 14.5px; }
+pre .c { color: var(--muted); }
+dl { margin: 0; }
+dt { font-weight: 600; margin-top: 14px; }
+dd { margin: 2px 0 0; color: var(--muted); }
 
-/* Questions */
-details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0 18px; margin-bottom: 10px; }
-summary { cursor: pointer; padding: 14px 0; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
-summary::-webkit-details-marker { display: none; }
-summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 20px; line-height: 1; }
-details[open] summary::after { content: "\2212"; }
-details p { margin: 0 0 16px; color: var(--muted); }
-
-pre.cli {
-  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto;
-  font: 13.5px/1.7 "Cascadia Code", Consolas, monospace; margin: 0;
-}
-pre.cli .c { color: var(--muted); }
-
-footer { text-align: center; color: var(--muted); font-size: 14px; padding: 64px 16px 40px; }
+footer { color: var(--muted); font-size: 14px; padding: 40px 0; margin-top: 36px; border-top: 1px solid var(--line); }
 footer a { color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
-<nav class="top">
-  <div class="wrap">
-    <a class="brand" href="#"><img src="icon.png" alt="">PowerKit</a>
-    <div class="links">
-      <a href="#utilities">Utilities</a>
-      <a class="opt" href="#start">Get started</a>
-      <a class="opt" href="#questions">Questions</a>
-      <a href="https://github.com/siddarth1872004/PowerKit">GitHub</a>
-    </div>
-  </div>
-</nav>
-
-<header class="hero">
-  <div class="wrap">
-    <img class="logo" src="icon.png" alt="">
-    <div><span class="badge">Latest release <b>v<!-- VERSION --></b></span></div>
-    <h1>PowerKit</h1>
-    <p class="tag"><!-- COUNT --> utilities for Windows power users: window zones, a launcher, clipboard history, screen tools and more, in one small program that sits in the tray.</p>
-    <div class="buttons">
-      <a class="btn primary" href="https://github.com/siddarth1872004/PowerKit/releases/latest/download/powerkit.exe">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>
-        Download for Windows
-      </a>
-      <a class="btn" href="https://github.com/siddarth1872004/PowerKit">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.7 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
-        Source on GitHub
-      </a>
-    </div>
-    <p class="note">Windows 10 and 11 &middot; one .exe, no installer &middot; MIT license</p>
+<div class="page">
+<header>
+  <div class="title"><img src="icon.png" alt=""><h1>PowerKit <span class="version">v<!-- VERSION --></span></h1></div>
+  <p><!-- COUNT --> utilities for Windows in one small program that runs in the tray: window zones, a launcher, clipboard history, a color picker, screen tools and more.</p>
+  <div class="get">
+    <a class="download" href="https://github.com/siddarth1872004/PowerKit/releases/latest/download/powerkit.exe">Download powerkit.exe</a>
+    <span class="small">Windows 10 and 11 &middot; no installer &middot; <a href="https://github.com/siddarth1872004/PowerKit">source on GitHub</a> &middot; MIT license</span>
   </div>
 </header>
 
-<main class="wrap">
-  <div class="facts">
-    <div class="fact"><div class="n"><!-- COUNT --> utilities</div><p>Turn on the ones you want; the rest cost nothing.</p></div>
-    <div class="fact"><div class="n">One process</div><p>Written in Rust. Everything runs in a single small background program.</p></div>
-    <div class="fact"><div class="n">Stays on your PC</div><p>No account, no telemetry. The only request it makes is the daily update check.</p></div>
-    <div class="fact"><div class="n">Updates itself</div><p>Each download is checked against GitHub's checksum before it is installed.</p></div>
+<section>
+  <h2>What it is</h2>
+  <ul class="points">
+    <li>One background program written in Rust. Utilities you leave off do nothing.</li>
+    <li>No account and no telemetry. The only thing it fetches is the daily update check.</li>
+    <li>Updates itself, checking each download against the checksum on GitHub first.</li>
+    <li>Each utility has a short walkthrough in the settings, drawn with your own shortcuts.</li>
+  </ul>
+</section>
+
+<section id="utilities">
+  <div class="tools-head">
+    <h2>Utilities</h2>
+    <input id="filter" type="search" placeholder="Filter" aria-label="Filter utilities">
   </div>
-
-  <section id="utilities">
-    <div class="tools-head">
-      <div>
-        <h2>Utilities</h2>
-        <p class="lead" style="margin:0">Each one has a short animated walkthrough in the settings, drawn with your own shortcuts.</p>
-      </div>
-      <label class="search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="filter" type="search" placeholder="Find a utility" aria-label="Find a utility">
-      </label>
-    </div>
-    <div class="grid" id="tools">
+  <ul class="tools" id="tools">
 <!-- UTILITIES -->
-    </div>
-    <p class="empty" id="empty">No utility matches that.</p>
-  </section>
+  </ul>
+  <p class="empty" id="empty">Nothing matches.</p>
+</section>
 
-  <section id="start">
-    <h2>Get started</h2>
-    <p class="lead">No installer and nothing to configure first.</p>
-    <div class="steps">
-      <div class="step"><h3>Download and run</h3><p>Run <code>powerkit.exe</code>. PowerKit lives in the notification area and can show up in Start and Windows search.</p></div>
-      <div class="step"><h3>Pick your utilities</h3><p>Click the tray icon for settings. Switch utilities on or off on the Dashboard, or find any setting by typing a word.</p></div>
-      <div class="step"><h3>Stay current</h3><p>PowerKit looks for a new release once a day. Choose <strong>Install update</strong> in the tray menu and it updates and restarts.</p></div>
-    </div>
-  </section>
+<section id="start">
+  <h2>Getting started</h2>
+  <ol class="steps">
+    <li>Download and run <code>powerkit.exe</code>. It goes to the notification area and can add itself to Start and Windows search.</li>
+    <li>Click the tray icon to open the settings. Turn utilities on or off on the Dashboard, or type in its search box to find any setting.</li>
+    <li>When a new release is out, choose <strong>Install update</strong> in the tray menu.</li>
+  </ol>
+</section>
 
-  <section id="cli">
-    <h2>From the command line</h2>
-    <p class="lead">Every window can be opened from a script or a shortcut.</p>
-<pre class="cli">powerkit --workspace "Work"   <span class="c"># bring back a saved workspace</span>
+<section id="cli">
+  <h2>Command line</h2>
+<pre>powerkit --workspace "Work"   <span class="c"># launch a saved workspace</span>
 powerkit --rename *.jpg       <span class="c"># PowerRename these files</span>
 powerkit --hosts              <span class="c"># Hosts File Editor</span>
 powerkit --unlock C:\file.txt <span class="c"># which programs are using it</span>
-powerkit --quit               <span class="c"># ask the running PowerKit to exit</span></pre>
-  </section>
+powerkit --quit               <span class="c"># close the running PowerKit</span></pre>
+</section>
 
-  <section id="questions">
-    <h2>Questions</h2>
-    <p class="lead">&nbsp;</p>
-    <details><summary>Can I keep it on a USB stick?</summary><p>Yes. Put an empty file named <code>portable</code> next to <code>powerkit.exe</code> and settings are kept in a <code>data</code> folder beside it instead of in your profile.</p></details>
-    <details><summary>Does it need administrator rights?</summary><p>No. Windows asks only when you save the hosts file or system environment variables, and once when you turn on the Windows 11 context menu entries.</p></details>
-    <details><summary>Can I move my settings to another PC?</summary><p>Yes. Under General in the settings, Export settings saves them to a file and Import settings reads that file on the other PC.</p></details>
-    <details><summary>How do I remove it?</summary><p>Uninstall PowerKit from Settings &gt; Apps &gt; Installed apps. It undoes what it set up in Windows and asks before deleting your settings.</p></details>
-    <details><summary>Is it related to Microsoft PowerToys?</summary><p>No. PowerKit is an independent project with its own code. It covers similar ground, in a single small program.</p></details>
-  </section>
-</main>
+<section id="questions">
+  <h2>Questions</h2>
+  <dl>
+    <dt>Can I keep it on a USB stick?</dt>
+    <dd>Yes. Put an empty file named <code>portable</code> next to <code>powerkit.exe</code> and its settings go in a <code>data</code> folder beside it.</dd>
+    <dt>Does it need administrator rights?</dt>
+    <dd>No. Windows asks only when you save the hosts file or system environment variables, and once when you turn on the Windows 11 context menu entries.</dd>
+    <dt>Can I move my settings to another PC?</dt>
+    <dd>Yes. Use Export settings and Import settings under General in the settings.</dd>
+    <dt>How do I remove it?</dt>
+    <dd>Uninstall it from Settings &gt; Apps &gt; Installed apps. It undoes what it set up in Windows and asks before deleting your settings.</dd>
+    <dt>Is it related to Microsoft PowerToys?</dt>
+    <dd>No. PowerKit is an independent project with its own code.</dd>
+  </dl>
+</section>
 
 <footer>
-  PowerKit is an independent project, not affiliated with Microsoft. &middot;
   <a href="https://github.com/siddarth1872004/PowerKit/releases">Releases</a> &middot;
-  <a href="https://github.com/siddarth1872004/PowerKit/issues">Report a problem</a>
+  <a href="https://github.com/siddarth1872004/PowerKit/issues">Report a problem</a> &middot;
+  Not affiliated with Microsoft.
 </footer>
+</div>
 
 <script>
 (function () {
   var input = document.getElementById("filter");
-  var cards = Array.prototype.slice.call(document.querySelectorAll("#tools .card"));
+  var tools = Array.prototype.slice.call(document.querySelectorAll("#tools .tool"));
   var empty = document.getElementById("empty");
   input.addEventListener("input", function () {
     var words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
     var shown = 0;
-    cards.forEach(function (card) {
-      var text = card.textContent.toLowerCase();
+    tools.forEach(function (tool) {
+      var text = tool.textContent.toLowerCase();
       var match = words.every(function (w) { return text.indexOf(w) >= 0; });
-      card.style.display = match ? "" : "none";
+      tool.style.display = match ? "" : "none";
       if (match) shown++;
     });
     empty.style.display = shown ? "none" : "block";

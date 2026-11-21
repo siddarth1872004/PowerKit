@@ -29,17 +29,17 @@ def inline(md):
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
 
 
-cards = []
+tools = []
 for line in (root / "README.md").read_text(encoding="utf-8").splitlines():
     m = row.match(line)
     if m:
         icon, name, what, keys = m.groups()
         keys = "" if keys.strip() in ("—", "-") else f'\n  <div class="keys">{keycaps(keys)}</div>'
-        cards.append(
-            f'<div class="card">\n  <h3><img src="icons/{icon}.png" alt="">{inline(name)}</h3>\n'
-            f"  <p>{inline(what)}</p>{keys}\n</div>"
+        tools.append(
+            f'<li class="tool">\n  <img src="icons/{icon}.png" alt="">\n  <h3>{inline(name)}</h3>\n'
+            f"  <p>{inline(what)}</p>{keys}\n</li>"
         )
-if not cards:
+if not tools:
     raise SystemExit("no utilities found in README.md")
 
 page = (root / "docs" / "index.html").read_text(encoding="utf-8")
@@ -49,11 +49,11 @@ for marker in ("<!-- UTILITIES -->", "<!-- VERSION -->", "<!-- COUNT -->"):
 version = re.search(r'^version = "([^"]+)"', (root / "Cargo.toml").read_text(encoding="utf-8"), re.M)
 if not version:
     raise SystemExit("no version in Cargo.toml")
-page = page.replace("<!-- VERSION -->", version.group(1)).replace("<!-- COUNT -->", str(len(cards)))
+page = page.replace("<!-- VERSION -->", version.group(1)).replace("<!-- COUNT -->", str(len(tools)))
 shutil.rmtree(out, ignore_errors=True)
 (out / "icons").mkdir(parents=True)
-(out / "index.html").write_text(page.replace("<!-- UTILITIES -->", "\n".join(cards)), encoding="utf-8")
+(out / "index.html").write_text(page.replace("<!-- UTILITIES -->", "\n".join(tools)), encoding="utf-8")
 for png in (root / "assets" / "modules").glob("*.png"):
     shutil.copy(png, out / "icons" / png.name)
 shutil.copy(root / "apps/desktop/src-tauri/icons/128x128@2x.png", out / "icon.png")
-print(f"site/ built with {len(cards)} utilities")
+print(f"site/ built with {len(tools)} utilities")
