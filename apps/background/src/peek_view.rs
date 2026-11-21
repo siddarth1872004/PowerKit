@@ -107,8 +107,10 @@ fn shown(width: u32, height: u32, mut pixels: Vec<u32>, light: bool) -> PeekView
 fn rendered(img: powerkit_preview::image::Image, light: bool) -> PeekView {
     let pixels = img
         .pixels
-        .chunks_exact(4)
-        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| u32::from_le_bytes(*c))
         .collect();
     shown(img.width, img.height, pixels, light)
 }
