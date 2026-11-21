@@ -35,7 +35,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         # notes/<tag>.md is what What's new in the tray shows; without one GitHub lists the changes.
+        # A release made by hand on GitHub for this tag is filled in instead of failing.
         run: |
-          notes=(--generate-notes)
-          if [ -f "notes/$GITHUB_REF_NAME.md" ]; then notes=(--notes-file "notes/$GITHUB_REF_NAME.md"); fi
-          gh release create "$GITHUB_REF_NAME" target/release/powerkit.exe --title "PowerKit ${GITHUB_REF_NAME#v}" "${notes[@]}"
+          title="PowerKit ${GITHUB_REF_NAME#v}"
+          file="notes/$GITHUB_REF_NAME.md"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            notes=()
+            if [ -f "$file" ]; then notes=(--notes-file "$file"); fi
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --draft=false "${notes[@]}"
+            gh release upload "$GITHUB_REF_NAME" target/release/powerkit.exe --clobber
+          else
+            notes=(--generate-notes)
+            if [ -f "$file" ]; then notes=(--notes-file "$file"); fi
+            gh release create "$GITHUB_REF_NAME" target/release/powerkit.exe --title "$title" "${notes[@]}"
+          fi
