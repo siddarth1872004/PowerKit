@@ -33,6 +33,7 @@ use powerkit_host::resizer::ResizerUi;
 use powerkit_host::screenshots::ScreenshotsUi;
 use powerkit_host::settings::SettingsUi;
 use powerkit_host::tool_tray::{power_plan_menu, ToolTrays};
+use powerkit_host::uninstall;
 use powerkit_host::update::{self, Release};
 use powerkit_host::workspace_editor::WorkspacesUi;
 use powerkit_host::{builtin_modules, Backend, Host, Output};
@@ -181,6 +182,102 @@ fn spawn_menu_job(
     });
 }
 
+/// Take PowerKit off this PC, as asked for from Installed apps: stop it, undo what it
+/// set up in Windows and, if the user agrees, delete its settings. Windows cannot
+/// delete a running program, so powerkit.exe is left for the user to delete.
+fn remove_powerkit() -> u8 {
+    use powerkit_platform::dialog::{ask, tell};
+    const TITLE: &str = "Uninstall PowerKit";
+    if !ask(TITLE, "Remove PowerKit from this PC?") {
+        return 0;
+    }
+    match Client::connect().and_then(|mut c| c.call("app.quit", Value::Null)) {
+        Ok(_) | Err(powerkit_ipc::IpcError::NotRunning) => {}
+        Err(e) => {
+            tell(
+                TITLE,
+                &format!("PowerKit is running and could not be stopped: {e}"),
+                true,
+            );
+            return 1;
+        }
+    }
+    // Quitting answers before the running copy has closed.
+    // Held until the end, so PowerKit cannot start again half removed.
+    let lock = format!("{}.lock", powerkit_ipc::pipe_name());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let _instance = loop {
+        match SingleInstance::acquire(&lock) {
+            Ok(Some(guard)) => break guard,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(200)),
+            Ok(None) => {
+                tell(
+                    TITLE,
+                    "PowerKit is still running. Quit it from the tray and try again.",
+                    true,
+                );
+                return 1;
+            }
+            Err(e) => {
+                tell(
+                    TITLE,
+                    &format!("Could not check whether PowerKit is running: {e}"),
+                    true,
+                );
+                return 1;
+            }
+        }
+    };
+    let paths = Paths::resolve();
+    let mut problems = Vec::new();
+    let mut note = |what: &str, r: Result<(), String>| {
+        if let Err(e) = r {
+            problems.push(format!("{what}: {e}"));
+        }
+    };
+    note(
+        "Run at startup",
+        shell::set_launch_at_startup(STARTUP_VALUE, None).map_err(|e| e.to_string()),
+    );
+    note(
+        "Start menu",
+        shell::set_start_menu_shortcut(STARTUP_VALUE, None).map_err(|e| e.to_string()),
+    );
+    note(
+        "Explorer menu",
+        explorer_menu::uninstall(&explorer_menu::folder(&paths.root)),
+    );
+    note(
+        "PowerShell profiles",
+        command_not_found::remove_from_profiles()
+            .map(drop)
+            .map_err(|e| format!("{e:#}")),
+    );
+    note("Installed apps", uninstall::unregister());
+    let question = format!(
+        "Also delete your PowerKit settings, notes and history?\n\n{}",
+        paths.root.display()
+    );
+    if paths.root.exists() && ask(TITLE, &question) {
+        note(
+            "Settings",
+            std::fs::remove_dir_all(&paths.root).map_err(|e| e.to_string()),
+        );
+    }
+    let exe = std::env::current_exe().map_or_else(|_| "powerkit.exe".into(), |p| p.display().to_string());
+    if problems.is_empty() {
+        tell(TITLE, &format!("PowerKit is removed. Delete {exe} to finish."), false);
+        0
+    } else {
+        let text = format!(
+            "PowerKit is removed, except:\n\n{}\n\nDelete {exe} to finish.",
+            problems.join("\n")
+        );
+        tell(TITLE, &text, true);
+        1
+    }
+}
+
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let has = |flag: &str| args.iter().any(|a| a == flag);
@@ -221,6 +318,9 @@ fn main() -> std::process::ExitCode {
                 1.into()
             }
         };
+    }
+    if has(uninstall::FLAG) {
+        return remove_powerkit().into();
     }
     if has("--version") {
         println!("PowerKit {}", env!("CARGO_PKG_VERSION"));
@@ -455,6 +555,16 @@ fn run(
     )?;
 
     host.start();
+    // A portable copy is not installed, so it stays out of Installed apps.
+    match std::env::current_exe() {
+        Ok(exe) if exe.with_file_name("portable").exists() => {}
+        Ok(exe) => {
+            if let Err(e) = uninstall::register(&exe) {
+                tracing::warn!("listing PowerKit in Installed apps: {e}");
+            }
+        }
+        Err(e) => tracing::warn!("finding powerkit.exe: {e}"),
+    }
     if after_update {
         let _ = tray.notify("PowerKit", &format!("Updated to version {}.", update::CURRENT));
     }

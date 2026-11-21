@@ -71,6 +71,11 @@ turned on or off from the tray icon.
 To keep settings next to the program (for a USB stick, say), put an empty file named
 `portable` beside `powerkit.exe`.
 
+To remove PowerKit, uninstall it from **Settings > Apps > Installed apps** (or run
+`powerkit --uninstall`). It quits, takes itself out of startup, the Start menu, Explorer's
+menu and your PowerShell profiles, offers to delete your settings, and leaves
+`powerkit.exe` for you to delete.
+
 ### Updates
 
 PowerKit checks GitHub for a new release once a day, starting two minutes after it starts,

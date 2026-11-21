@@ -5,6 +5,7 @@
 
 #[cfg(windows)]
 mod live;
+pub use live::uninstall as remove_from_profiles;
 
 use anyhow::{bail, Result};
 use powerkit_core::Event;

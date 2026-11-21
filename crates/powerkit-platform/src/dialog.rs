@@ -76,3 +76,27 @@ pub(crate) fn pick(owner: HWND, save: bool, kinds: &FileKinds, name: Option<&Pat
         })?)))
     }
 }
+
+/// Ask a yes-or-no question in a message box of its own; true for yes.
+pub fn ask(title: &str, text: &str) -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, IDYES, MB_DEFBUTTON2, MB_ICONQUESTION, MB_YESNO};
+    let (title, text) = (wide(title), wide(text));
+    // SAFETY: the strings outlive the modal call.
+    unsafe {
+        MessageBoxW(
+            None,
+            pcwstr(&text),
+            pcwstr(&title),
+            MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2,
+        ) == IDYES
+    }
+}
+
+/// Show `text` in a message box of its own, as a problem when `error`.
+pub fn tell(title: &str, text: &str, error: bool) {
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_ICONINFORMATION, MB_OK};
+    let (title, text) = (wide(title), wide(text));
+    let icon = if error { MB_ICONERROR } else { MB_ICONINFORMATION };
+    // SAFETY: the strings outlive the modal call.
+    let _ = unsafe { MessageBoxW(None, pcwstr(&text), pcwstr(&title), MB_OK | icon) };
+}

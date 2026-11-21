@@ -17,6 +17,7 @@ pub mod resizer;
 pub mod screenshots;
 pub mod settings;
 pub mod tool_tray;
+pub mod uninstall;
 pub mod update;
 pub mod workspace_editor;
 

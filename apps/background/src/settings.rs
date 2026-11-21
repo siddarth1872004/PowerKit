@@ -2241,7 +2241,10 @@ mod tests {
         let config = serde_json::to_value(Config::new()).unwrap();
         let mut kinds = HashMap::new();
         let titles = |groups: &[Group]| -> Vec<String> {
-            groups[1..].iter().flat_map(|g| g.items.iter().map(|i| i.title.clone())).collect()
+            groups[1..]
+                .iter()
+                .flat_map(|g| g.items.iter().map(|i| i.title.clone()))
+                .collect()
         };
         let found = search_results("RUN startup", &[], &mut kinds, &config, &config);
         assert_eq!(titles(&found), ["Run at startup"]);
