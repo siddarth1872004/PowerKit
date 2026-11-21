@@ -83,6 +83,20 @@ const RESET_ALL: &str = "!reset";
 const LOGS: &str = "!logs";
 /// After a utility's id.
 const RESET_ONE: &str = "!restore";
+const SEARCH: &str = "!search";
+
+/// Whether every word is in the setting's page name, title or description, or in
+/// those of a setting under it.
+fn matches_search(item: &Item, page: &str, words: &[String]) -> bool {
+    let mut text = format!("{page} {} {}", item.title, item.description).to_lowercase();
+    for child in &item.children {
+        text.push(' ');
+        text.push_str(&child.title.to_lowercase());
+        text.push(' ');
+        text.push_str(&child.description.to_lowercase());
+    }
+    words.iter().all(|w| text.contains(w.as_str()))
+}
 
 fn action(key: &str, title: &str, description: &str, label: &str) -> Item {
     let mut item = Item::new(
@@ -1734,6 +1748,70 @@ fn dashboard(modules: &[Module]) -> Page {
     }
 }
 
+/// The search box, then the settings of every page that match what was typed in
+/// it, each group named after its page.
+fn search_results(
+    search: &str,
+    modules: &[Module],
+    kinds: &mut HashMap<String, Kind>,
+    config: &Value,
+    defaults: &Value,
+) -> Vec<Group> {
+    let mut field = Item::new(
+        SEARCH,
+        "Find a setting",
+        Control::Text {
+            value: search.to_string(),
+            placeholder: "Type a word and press Enter".into(),
+            lines: 1,
+            wide: true,
+        },
+    );
+    field.glyph = Some('\u{E721}');
+    let mut out = vec![Group {
+        title: String::new(),
+        items: vec![field],
+    }];
+    if search.is_empty() {
+        return out;
+    }
+    let words: Vec<String> = search.to_lowercase().split_whitespace().map(String::from).collect();
+    let mut pages = vec![("general".to_string(), "General".to_string(), general_spec(), true)];
+    for m in modules {
+        let enabled = at(config, &format!("{}.enabled", m.id)).as_bool().unwrap_or(m.enabled);
+        pages.push((m.id.clone(), m.name.clone(), module_spec(&m.id), enabled));
+    }
+    let mut found = 0;
+    for (section, name, spec, enabled) in pages {
+        for g in groups(&section, spec, config, defaults, enabled, kinds) {
+            let items: Vec<Item> = g
+                .items
+                .into_iter()
+                .filter(|i| matches_search(i, &name, &words))
+                .collect();
+            if items.is_empty() {
+                continue;
+            }
+            found += items.len();
+            let title = if g.title.is_empty() || g.title == name {
+                name.clone()
+            } else {
+                format!("{name} \u{203A} {}", g.title)
+            };
+            out.push(Group { title, items });
+        }
+    }
+    if found == 0 {
+        let mut none = Item::new("!nothing", "No setting matches", Control::None);
+        none.description = "Try another word, or open a utility's page from the list.".into();
+        out.push(Group {
+            title: String::new(),
+            items: vec![none],
+        });
+    }
+    out
+}
+
 #[derive(Default)]
 pub struct SettingsUi {
     window: Option<SettingsWindow>,
@@ -1745,6 +1823,8 @@ pub struct SettingsUi {
     kinds: HashMap<String, Kind>,
     zones: Option<ZoneEditor>,
     lists: Lists,
+    /// What was typed in the Dashboard's search box.
+    search: String,
 }
 
 /// The templates of the FancyZones layout editor, for one to eight zones.
@@ -1918,7 +1998,13 @@ impl SettingsUi {
                 };
                 (page, scene)
             }
-            _ => (dashboard(&self.modules), None),
+            _ => {
+                let mut page = dashboard(&self.modules);
+                let mut found = search_results(&self.search, &self.modules, &mut self.kinds, &config, &defaults);
+                found.append(&mut page.groups);
+                page.groups = found;
+                (page, None)
+            }
         };
         w.set_page(page, scene);
     }
@@ -1990,6 +2076,13 @@ impl SettingsUi {
                     }
                     self.refresh(host);
                 }
+            }
+            SettingsEvent::Set {
+                key,
+                value: SettingValue::Text(text),
+            } if key == SEARCH => {
+                self.search = text.trim().to_string();
+                self.refresh(host);
             }
             SettingsEvent::Set { key, value } => self.save(host, &key, value),
         }
@@ -2142,6 +2235,22 @@ impl SettingsUi {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn search_finds_settings_by_every_word() {
+        let config = serde_json::to_value(Config::new()).unwrap();
+        let mut kinds = HashMap::new();
+        let titles = |groups: &[Group]| -> Vec<String> {
+            groups[1..].iter().flat_map(|g| g.items.iter().map(|i| i.title.clone())).collect()
+        };
+        let found = search_results("RUN startup", &[], &mut kinds, &config, &config);
+        assert_eq!(titles(&found), ["Run at startup"]);
+        assert_eq!(found[1].title, "General \u{203A} Appearance & behavior");
+        assert!(kinds.contains_key("general.launch_at_startup"));
+        let found = search_results("no such thing", &[], &mut kinds, &config, &config);
+        assert_eq!(titles(&found), ["No setting matches"]);
+        assert_eq!(search_results("", &[], &mut kinds, &config, &config).len(), 1);
+    }
 
     #[test]
     fn every_setting_has_a_card() {
