@@ -76,6 +76,40 @@ const APPS: &str = "Program names such as notepad.exe, one per line";
 
 use Kind::*;
 
+// Keys of the buttons that are not settings; '!' never appears in a setting key.
+const EXPORT: &str = "!export";
+const IMPORT: &str = "!import";
+const RESET_ALL: &str = "!reset";
+const LOGS: &str = "!logs";
+/// After a utility's id.
+const RESET_ONE: &str = "!restore";
+
+fn action(key: &str, title: &str, description: &str, label: &str) -> Item {
+    let mut item = Item::new(
+        key,
+        title,
+        Control::Button {
+            label: label.into(),
+            accent: false,
+        },
+    );
+    item.description = description.into();
+    item
+}
+
+/// `done`, followed by any warnings the host gave about the settings it read.
+fn warned(done: &str, reply: &Value) -> String {
+    let warnings: Vec<&str> = reply["warnings"]
+        .as_array()
+        .map(|w| w.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    if warnings.is_empty() {
+        format!("{done}.")
+    } else {
+        format!("{done}, with warnings: {}", warnings.join(" "))
+    }
+}
+
 /// The general settings, under the "general" section.
 fn general_spec() -> Vec<(&'static str, Vec<Spec>)> {
     vec![
@@ -1803,6 +1837,30 @@ impl SettingsUi {
                 about.description = format!("Version {}", host.status()["version"].as_str().unwrap_or("?"));
                 about.icon = Some(crate::icons::APP);
                 groups.push(Group {
+                    title: "Backup & restore".into(),
+                    items: vec![
+                        action(EXPORT, "Export settings", "Save every setting to a file", "Export"),
+                        action(
+                            IMPORT,
+                            "Import settings",
+                            "Replace every setting with those in an exported file",
+                            "Import",
+                        ),
+                        action(
+                            RESET_ALL,
+                            "Reset all settings",
+                            "Put every utility back to how it came",
+                            "Reset",
+                        ),
+                        action(
+                            LOGS,
+                            "Log files",
+                            "Open the folder PowerKit writes its logs to",
+                            "Open folder",
+                        ),
+                    ],
+                });
+                groups.push(Group {
                     title: "About".into(),
                     items: vec![about],
                 });
@@ -1835,6 +1893,15 @@ impl SettingsUi {
                     enabled,
                     &mut self.kinds,
                 ));
+                groups.push(Group {
+                    title: String::new(),
+                    items: vec![action(
+                        &format!("{}{RESET_ONE}", m.id),
+                        "Restore defaults",
+                        &format!("Put every {} setting back to how it came", m.name),
+                        "Restore",
+                    )],
+                });
                 // Restarted after every save too, so a changed shortcut shows straight away.
                 let scene = powerkit_guide::walkthrough(&m.id).map(|walk| {
                     let config = host.config().clone();
@@ -1870,6 +1937,40 @@ impl SettingsUi {
                     }
                 }
             }
+            SettingsEvent::Action(key) if key == EXPORT || key == IMPORT || key == RESET_ALL || key == LOGS => {
+                let info = self.general_action(&key, host);
+                self.read_modules(host);
+                self.refresh(host);
+                self.lists.refresh(host);
+                if let (Some(info), Some(w)) = (info, self.window.as_mut()) {
+                    w.set_info(Some(info));
+                }
+            }
+            SettingsEvent::Action(key) if key.ends_with(RESET_ONE) => {
+                let section = key.trim_end_matches(RESET_ONE);
+                let name = self
+                    .modules
+                    .iter()
+                    .find(|m| m.id == section)
+                    .map_or(section, |m| m.name.as_str());
+                let ask = format!("Put every {name} setting back to how it came?");
+                if self
+                    .window
+                    .as_ref()
+                    .is_some_and(|w| w.confirm("Restore defaults", &ask))
+                {
+                    let info = match host.handle_request("config.reset", &json!({ "section": section })) {
+                        Ok(_) => (Severity::Success, format!("{name} is back to its defaults.")),
+                        Err(e) => (Severity::Error, format!("Not restored: {e}")),
+                    };
+                    self.read_modules(host);
+                    self.refresh(host);
+                    self.lists.refresh(host);
+                    if let Some(w) = self.window.as_mut() {
+                        w.set_info(Some(info));
+                    }
+                }
+            }
             SettingsEvent::Action(key) if Lists::edits(&key) => {
                 if let Err(e) = self.lists.open_for(&key, host) {
                     if let Some(w) = self.window.as_mut() {
@@ -1892,6 +1993,44 @@ impl SettingsUi {
             }
             SettingsEvent::Set { key, value } => self.save(host, &key, value),
         }
+    }
+
+    /// Export, import, reset everything or open the logs; what to tell the user.
+    fn general_action(&mut self, key: &str, host: &mut Host) -> Option<(Severity, String)> {
+        let w = self.window.as_ref()?;
+        let outcome = match key {
+            EXPORT => match w.pick_settings_file(true, Some(std::path::Path::new("PowerKit settings.json"))) {
+                Ok(Some(path)) => host
+                    .handle_request("config.export", &json!({ "path": path }))
+                    .map(|_| format!("Saved to {}.", path.display())),
+                Ok(None) => return None,
+                Err(e) => Err(e.to_string()),
+            },
+            IMPORT => match w.pick_settings_file(false, None) {
+                Ok(Some(path)) => host
+                    .handle_request("config.import", &json!({ "path": path }))
+                    .map(|v| warned("Imported", &v)),
+                Ok(None) => return None,
+                Err(e) => Err(e.to_string()),
+            },
+            RESET_ALL => {
+                if !w.confirm("Reset all settings", "Put every PowerKit setting back to how it came?") {
+                    return None;
+                }
+                host.handle_request("config.reset", &Value::Null)
+                    .map(|_| "Every setting is back to its default.".into())
+            }
+            _ => {
+                let logs = host.paths().logs();
+                return powerkit_platform::shell::open(&logs.to_string_lossy(), None)
+                    .err()
+                    .map(|e| (Severity::Error, format!("Could not open {}: {e}", logs.display())));
+            }
+        };
+        Some(match outcome {
+            Ok(text) => (Severity::Success, text),
+            Err(e) => (Severity::Error, e),
+        })
     }
 
     fn open_zones(&mut self, host: &Host) -> Result<(), String> {

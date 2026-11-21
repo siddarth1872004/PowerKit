@@ -1767,6 +1767,31 @@ impl SettingsWindow {
     pub fn set_icon(&mut self, ico: &'static [u8]) -> Result<()> {
         crate::icon::set_window_icon(self.hwnd, ico)
     }
+
+    /// Ask for a settings file to open, or where to save one (suggesting `name`);
+    /// `None` when the user cancelled.
+    pub fn pick_settings_file(&self, save: bool, name: Option<&std::path::Path>) -> Result<Option<std::path::PathBuf>> {
+        const KINDS: crate::dialog::FileKinds = crate::dialog::FileKinds {
+            filters: &[("PowerKit settings", "*.json")],
+            extension: "json",
+        };
+        crate::dialog::pick(self.hwnd, save, &KINDS, name)
+    }
+
+    /// Ask a yes-or-no question over the window; true for yes.
+    pub fn confirm(&self, title: &str, text: &str) -> bool {
+        let (title, text) = (wide(title), wide(text));
+        // SAFETY: the strings outlive the modal call; `hwnd` is our window.
+        let answer = unsafe {
+            MessageBoxW(
+                Some(self.hwnd),
+                pcwstr(&text),
+                pcwstr(&title),
+                MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2,
+            )
+        };
+        answer == IDYES
+    }
 }
 
 impl Drop for SettingsWindow {
