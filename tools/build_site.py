@@ -8,7 +8,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 out = root / "site"
-row = re.compile(r'^\| <img src="assets/modules/(\w+)\.png"[^|]*\| \*\*(.+?)\*\* \| (.+?) \| (.+?) \|$')
+row = re.compile(r'^\| <img src="assets/modules/(\w+)\.png"[^>]*><br>\*\*(.+?)\*\* \| (.+?) \| (.+?) \|$')
 
 
 def keycaps(md):

@@ -399,7 +399,7 @@ def main():
         with open(os.path.join(out, name + ".ico"), "wb") as f:
             f.write(ico(images))
         with open(os.path.join(out, name + ".png"), "wb") as f:
-            f.write(png(64, images[64]))
+            f.write(png(128, render(128)))
     sample = app_sample
     print(f"app icon and {len(MODULES)} module icons written")
 
