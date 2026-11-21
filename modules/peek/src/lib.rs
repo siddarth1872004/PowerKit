@@ -24,9 +24,13 @@ pub const TEXT_LIMIT: usize = 512 * 1024;
 pub enum Kind {
     Picture,
     Text,
+    Pdf,
+    /// Drawn as a picture.
+    Svg,
     /// Not known by its extension; text if its first bytes look like text.
     Unknown,
-    /// Shown as details only.
+    /// Shown as its Windows thumbnail (video frame, document page, album art) when
+    /// it has one, otherwise as details.
     Other,
 }
 
@@ -85,12 +89,11 @@ const TEXT: &[&str] = &[
     "gitignore",
     "editorconfig",
     "env",
-    "svg",
 ];
 /// Files that are never text, so their first bytes are not read.
 const BINARY: &[&str] = &[
-    "exe", "dll", "sys", "msi", "zip", "7z", "rar", "gz", "tar", "iso", "pdf", "doc", "docx", "xls", "xlsx", "ppt",
-    "pptx", "mp3", "mp4", "mkv", "avi", "mov", "wav", "flac", "ogg", "psd", "lnk",
+    "exe", "dll", "sys", "msi", "zip", "7z", "rar", "gz", "tar", "iso", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "mp3", "mp4", "mkv", "avi", "mov", "wav", "flac", "ogg", "psd", "lnk",
 ];
 
 pub fn kind(path: &Path) -> Kind {
@@ -101,6 +104,10 @@ pub fn kind(path: &Path) -> Kind {
         .to_lowercase();
     if PICTURES.contains(&ext.as_str()) {
         Kind::Picture
+    } else if ext == "pdf" {
+        Kind::Pdf
+    } else if ext == "svg" {
+        Kind::Svg
     } else if TEXT.contains(&ext.as_str()) {
         Kind::Text
     } else if BINARY.contains(&ext.as_str()) {
@@ -323,6 +330,8 @@ mod tests {
         assert_eq!(kind(Path::new("notes.md")), Kind::Text);
         assert_eq!(kind(Path::new("setup.exe")), Kind::Other);
         assert_eq!(kind(Path::new("README")), Kind::Unknown);
+        assert_eq!(kind(Path::new("Report.PDF")), Kind::Pdf);
+        assert_eq!(kind(Path::new("logo.svg")), Kind::Svg);
     }
 
     #[test]

@@ -40,6 +40,7 @@ power-plan.workspace = true
 advanced-paste.workspace = true
 command-not-found.workspace = true
 file-explorer.workspace = true
+powerkit-preview = { workspace = true, features = ["render"] }
 mouse-without-borders = { workspace = true, optional = true }
 color-picker.workspace = true
 fancy-zones.workspace = true

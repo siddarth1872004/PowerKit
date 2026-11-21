@@ -73,19 +73,10 @@ fn details(path: &Path, note: Option<String>) -> PeekView {
 }
 
 /// `area` is the most room the picture gets; it is shrunk to fit, never enlarged.
-fn picture(path: &Path, area: (u32, u32), light: bool) -> Result<(PeekView, String), String> {
-    let pic = image::open(path).map_err(|e| e.to_string())?;
-    let s = (area.0 as f64 / pic.width.max(1) as f64)
-        .min(area.1 as f64 / pic.height.max(1) as f64)
-        .min(1.0);
-    let size = (
-        ((pic.width as f64 * s) as u32).max(1),
-        ((pic.height as f64 * s) as u32).max(1),
-    );
-    let mut pixels = pic.pixels(size).map_err(|e| e.to_string())?;
-    // The pixels are premultiplied; lay them over the window's background.
+/// Lay premultiplied pixels over the window's background, so they can be drawn opaque.
+fn flatten(pixels: &mut [u32], light: bool) {
     let bg = background(light);
-    for p in &mut pixels {
+    for p in pixels {
         let a = *p >> 24;
         if a == 255 {
             continue;
@@ -97,15 +88,81 @@ fn picture(path: &Path, area: (u32, u32), light: bool) -> Result<(PeekView, Stri
         };
         *p = 0xFF00_0000 | mix(16) | mix(8) | mix(0);
     }
+}
+
+/// The largest size at most `max` that keeps the shape of `w` by `h` and fits `area`.
+fn fit_area(w: u32, h: u32, area: (u32, u32)) -> (u32, u32) {
+    let s = (area.0 as f64 / w.max(1) as f64)
+        .min(area.1 as f64 / h.max(1) as f64)
+        .min(1.0);
+    (((w as f64 * s) as u32).max(1), ((h as f64 * s) as u32).max(1))
+}
+
+fn shown(width: u32, height: u32, mut pixels: Vec<u32>, light: bool) -> PeekView {
+    flatten(&mut pixels, light);
+    PeekView::Picture { width, height, pixels }
+}
+
+/// A picture drawn by the preview renderer: premultiplied BGRA bytes.
+fn rendered(img: powerkit_preview::image::Image, light: bool) -> PeekView {
+    let pixels = img
+        .pixels
+        .chunks_exact(4)
+        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+    shown(img.width, img.height, pixels, light)
+}
+
+fn picture(path: &Path, area: (u32, u32), light: bool) -> Result<(PeekView, String), String> {
+    let pic = image::open(path).map_err(|e| e.to_string())?;
+    let size = fit_area(pic.width, pic.height, area);
+    let pixels = pic.pixels(size).map_err(|e| e.to_string())?;
     let footer = format!("{} \u{d7} {}", pic.width, pic.height);
-    Ok((
-        PeekView::Picture {
-            width: size.0,
-            height: size.1,
-            pixels,
-        },
-        footer,
-    ))
+    Ok((shown(size.0, size.1, pixels, light), footer))
+}
+
+fn svg(path: &Path, area: (u32, u32), light: bool) -> Result<(PeekView, String), String> {
+    let source = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let img = powerkit_preview::render::svg(&source, area.0.min(area.1).max(1)).map_err(|e| e.message())?;
+    Ok((rendered(img, light), "SVG picture".into()))
+}
+
+/// The first page, fitted to the window.
+fn pdf(path: &Path, area: (u32, u32), light: bool) -> Result<(PeekView, String), String> {
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let doc = powerkit_preview::render::Pdf::open(&bytes).map_err(|e| e.message())?;
+    let &(pw, ph) = doc.pages.first().ok_or("the document has no pages")?;
+    let (w, _) = fit_area(pw.max(1.0) as u32 * 3, ph.max(1.0) as u32 * 3, area);
+    let img = doc.page(0, w).map_err(|e| e.message())?;
+    let n = doc.pages.len();
+    let footer = if n == 1 {
+        "1 page".to_string()
+    } else {
+        format!("page 1 of {n}; Enter opens the whole document")
+    };
+    Ok((rendered(img, light), footer))
+}
+
+/// What Explorer would show for the file in its largest view; details when it has
+/// only an icon.
+fn thumbnail(path: &Path, area: (u32, u32), light: bool) -> (PeekView, String) {
+    match shell::thumbnail(path, area.0.max(area.1)) {
+        Ok((w, h, pixels)) if w <= area.0 && h <= area.1 => (shown(w, h, pixels, light), String::new()),
+        Ok((w, h, pixels)) => {
+            // Windows may hand back a larger size than asked for; shrink by sampling.
+            let (fw, fh) = fit_area(w, h, area);
+            let mut small = Vec::with_capacity(fw as usize * fh as usize);
+            for y in 0..fh {
+                let sy = (u64::from(y) * u64::from(h) / u64::from(fh)) as usize;
+                for x in 0..fw {
+                    let sx = (u64::from(x) * u64::from(w) / u64::from(fw)) as usize;
+                    small.push(pixels[sy * w as usize + sx]);
+                }
+            }
+            (shown(fw, fh, small, light), String::new())
+        }
+        Err(_) => (details(path, None), String::new()),
+    }
 }
 
 /// The start of the file, and whether there is more.
@@ -138,19 +195,32 @@ fn text(path: &Path, sure: bool) -> Option<(PeekView, String)> {
 
 /// What to show for `path`, and a note for the footer.
 fn load(path: &Path, area: (u32, u32), light: bool) -> (PeekView, String) {
+    shell::init_com_thread();
     if path.is_dir() {
-        return (details(path, None), String::new());
+        return thumbnail(path, area, light);
     }
+    let failed = |what: &str, e: String| {
+        (
+            details(path, Some(format!("{what} could not be read: {e}"))),
+            String::new(),
+        )
+    };
     match kind(path) {
-        Kind::Picture => picture(path, area, light).unwrap_or_else(|e| {
-            (
-                details(path, Some(format!("the picture could not be read: {e}"))),
-                String::new(),
-            )
-        }),
+        // Explorer may read formats WIC has no codec for here (HEIC without the
+        // extension, for one) through another thumbnail provider.
+        Kind::Picture => picture(path, area, light)
+            .or_else(|e| match thumbnail(path, area, light) {
+                shown @ (PeekView::Picture { .. }, _) => Ok(shown),
+                _ => Err(e),
+            })
+            .unwrap_or_else(|e| failed("the picture", e)),
+        Kind::Pdf => pdf(path, area, light).unwrap_or_else(|e| failed("the document", e)),
+        Kind::Svg => svg(path, area, light)
+            .or_else(|e| text(path, true).ok_or(e))
+            .unwrap_or_else(|e| failed("the picture", e)),
         Kind::Text => text(path, true).unwrap_or_else(|| (details(path, None), String::new())),
-        Kind::Unknown => text(path, false).unwrap_or_else(|| (details(path, None), String::new())),
-        Kind::Other => (details(path, None), String::new()),
+        Kind::Unknown => text(path, false).unwrap_or_else(|| thumbnail(path, area, light)),
+        Kind::Other => thumbnail(path, area, light),
     }
 }
 
@@ -290,5 +360,39 @@ impl PeekUi {
             PeekEvent::Closed => self.close(),
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn svg_files_are_drawn_and_binary_files_without_a_thumbnail_show_details() {
+        let dir = std::env::temp_dir().join(format!("pk-peek-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let svg_path = dir.join("square.svg");
+        std::fs::write(
+            &svg_path,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="10" height="10" fill="red"/></svg>"#,
+        )
+        .unwrap();
+        let (view, _) = load(&svg_path, (200, 100), true);
+        let PeekView::Picture { width, height, pixels } = view else {
+            panic!("an SVG should be drawn, got {view:?}");
+        };
+        assert_eq!((width, height), (100, 50));
+        assert_eq!(pixels[25 * 100 + 10] & 0x00FF_FFFF, 0x00FF_0000, "left half is red");
+
+        let blob = dir.join("data.bin7");
+        std::fs::write(&blob, [0u8, 1, 2, 0, 0, 0xFF]).unwrap();
+        assert!(matches!(load(&blob, (200, 100), true).0, PeekView::Details { .. }));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn pictures_only_shrink_to_fit() {
+        assert_eq!(fit_area(400, 200, (100, 100)), (100, 50));
+        assert_eq!(fit_area(40, 20, (100, 100)), (40, 20));
     }
 }

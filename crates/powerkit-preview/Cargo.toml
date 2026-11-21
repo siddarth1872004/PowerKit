@@ -12,6 +12,8 @@ crate-type = ["rlib", "cdylib"]
 # Builds the COM server Explorer loads. Off for powerkit.exe, which only needs the
 # handler list; the DLL is built on its own and embedded.
 server = []
+# Drawing PDF pages and SVG pictures, without the COM server; Peek uses it.
+render = []
 
 [target.'cfg(windows)'.dependencies]
 windows-core = "0.62"

@@ -647,6 +647,7 @@ dependencies = [
  "powerkit-menu",
  "powerkit-platform",
  "powerkit-plugin-api",
+ "powerkit-preview",
  "quick-accent",
  "quick-notes",
  "registry-preview",

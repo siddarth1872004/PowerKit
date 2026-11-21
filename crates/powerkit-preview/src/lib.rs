@@ -16,7 +16,7 @@ pub mod rtf;
 pub mod stl;
 pub mod svg;
 
-#[cfg(all(windows, any(feature = "server", test)))]
+#[cfg(all(windows, any(feature = "server", feature = "render", test)))]
 pub mod render;
 #[cfg(all(windows, feature = "server"))]
 mod server;

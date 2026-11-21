@@ -404,6 +404,91 @@ pub fn game_running() -> bool {
     }
 }
 
+/// Make the calling worker thread able to use COM and Windows Runtime objects (PDF
+/// rendering, for one) for the rest of its life.
+pub fn init_com_thread() {
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    // SAFETY: no pointers. S_FALSE (already initialised) is as good as S_OK here.
+    if let Err(e) = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.ok() {
+        tracing::debug!(error = %e, "COM was already set up differently on this thread");
+    }
+}
+
+/// The picture Explorer shows for `path` in its largest views (a video frame, a
+/// document's first page, album art, a folder's contents), at most `size` pixels on its
+/// longer side: width, height and premultiplied BGRA pixels, top row first. Fails when
+/// the file has only an icon, so callers can show something more useful instead.
+pub fn thumbnail(path: &std::path::Path, size: u32) -> Result<(u32, u32, Vec<u32>)> {
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::Graphics::Gdi::{
+        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO, BITMAPINFOHEADER,
+        BI_RGB, DIB_RGB_COLORS, HGDIOBJ,
+    };
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    use windows::Win32::UI::Shell::{
+        IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK, SIIGBF_THUMBNAILONLY,
+    };
+    let text = wide(&path.to_string_lossy());
+    let side = i32::try_from(size).unwrap_or(i32::MAX);
+    // SAFETY: the bitmap Windows returns is read into a buffer of the size described to
+    // GetDIBits, then deleted; the memory DC is deleted on every path.
+    unsafe {
+        // Already initialised on this thread is fine.
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let item: IShellItemImageFactory =
+            SHCreateItemFromParsingName(pcwstr(&text), None).context(format!("finding {}", path.display()))?;
+        let bitmap = item
+            .GetImage(SIZE { cx: side, cy: side }, SIIGBF_THUMBNAILONLY | SIIGBF_BIGGERSIZEOK)
+            .context("this file has no thumbnail")?;
+        let mut info = BITMAP::default();
+        let got = GetObjectW(
+            HGDIOBJ(bitmap.0),
+            std::mem::size_of::<BITMAP>() as i32,
+            Some(&mut info as *mut BITMAP as *mut core::ffi::c_void),
+        );
+        let (w, h) = (info.bmWidth, info.bmHeight.abs());
+        let result = if got == 0 || w <= 0 || h <= 0 {
+            Err(Error::Other("the thumbnail could not be read".into()))
+        } else {
+            let mut header = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: w,
+                    biHeight: -h,
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut pixels = vec![0u32; w as usize * h as usize];
+            let dc = CreateCompatibleDC(None);
+            let lines = GetDIBits(
+                dc,
+                bitmap,
+                0,
+                h as u32,
+                Some(pixels.as_mut_ptr().cast()),
+                &mut header,
+                DIB_RGB_COLORS,
+            );
+            let _ = DeleteDC(dc);
+            if lines == 0 {
+                Err(Error::Other("the thumbnail could not be read".into()))
+            } else {
+                // Thumbnails without transparency come back with alpha 0 everywhere.
+                if pixels.iter().all(|p| p >> 24 == 0) {
+                    pixels.iter_mut().for_each(|p| *p |= 0xFF00_0000);
+                }
+                Ok((w as u32, h as u32, pixels))
+            }
+        };
+        let _ = DeleteObject(HGDIOBJ(bitmap.0));
+        result
+    }
+}
+
 /// Let whichever process comes next (the running PowerKit) bring a window to the
 /// front. A process started from Explorer may; the instance it hands over to may not.
 pub fn allow_foreground() {
