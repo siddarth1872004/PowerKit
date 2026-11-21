@@ -311,6 +311,54 @@ pub fn launch_at_startup_command(name: &str) -> Result<Option<String>> {
     registry_get(RUN_KEY, name)
 }
 
+/// Put `<name>.lnk` starting `target` in the user's Start menu, which is what makes a
+/// program show up in Windows search, or remove it when `target` is `None`.
+pub fn set_start_menu_shortcut(name: &str, target: Option<&std::path::Path>) -> Result<()> {
+    use windows::core::Interface;
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, IPersistFile, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ,
+    };
+    use windows::Win32::UI::Shell::{IShellLinkW, ShellLink};
+    let link = known_folder(&windows::Win32::UI::Shell::FOLDERID_Programs, "Start menu")?.join(format!("{name}.lnk"));
+    let Some(target) = target else {
+        return match std::fs::remove_file(&link) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                Err(Error::Other(format!("removing {}: {e}", link.display())))
+            }
+            _ => Ok(()),
+        };
+    };
+    let exe = wide(&target.to_string_lossy());
+    let dir = wide(&target.parent().unwrap_or(target).to_string_lossy());
+    let file = wide(&link.to_string_lossy());
+    // SAFETY: the strings are NUL-terminated and outlive the calls that read them.
+    unsafe {
+        // Already initialised on this thread is fine; the link object works either way.
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let shell_link: IShellLinkW =
+            CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).context("creating a shortcut")?;
+        let persist = shell_link.cast::<IPersistFile>().context("IPersistFile")?;
+        // Runs at every start; leave a shortcut that already points here untouched.
+        if link.exists() && persist.Load(pcwstr(&file), STGM_READ).is_ok() {
+            let mut current = [0u16; 1024];
+            if shell_link.GetPath(&mut current, std::ptr::null_mut(), 0).is_ok()
+                && from_wide(&current).eq_ignore_ascii_case(&target.to_string_lossy())
+            {
+                return Ok(());
+            }
+        }
+        shell_link
+            .SetPath(pcwstr(&exe))
+            .context("setting the shortcut target")?;
+        shell_link
+            .SetWorkingDirectory(pcwstr(&dir))
+            .context("setting the shortcut folder")?;
+        persist
+            .Save(pcwstr(&file), true)
+            .context(format!("saving {}", link.display()))
+    }
+}
+
 /// Holds a named mutex for the lifetime of the process to prevent a second instance.
 pub struct SingleInstance {
     handle: HANDLE,

@@ -153,6 +153,25 @@ impl Layout {
         )
     }
 
+    /// `n` zones in a near-square grid; when `n` does not fill the grid, the last row
+    /// has fewer, wider zones.
+    pub fn grid_of(n: u32) -> Layout {
+        let n = n.clamp(1, 36);
+        let cols = (1..=n).find(|c| c * c >= n).unwrap_or(1);
+        let rows = n.div_ceil(cols);
+        let mut zones = Vec::new();
+        for (r, (y, h)) in spans(rows).into_iter().enumerate() {
+            let in_row = (n - r as u32 * cols).min(cols);
+            zones.extend(spans(in_row).into_iter().map(|(x, w)| Zone::new(x, y, w, h)));
+        }
+        Self::template(
+            &format!("grid-{n}"),
+            &format!("Grid ({n} zones)"),
+            LayoutKind::Grid,
+            zones,
+        )
+    }
+
     /// One wide primary zone with `n - 1` narrower side zones (side columns for
     /// n <= 3, a stacked side column otherwise).
     pub fn priority(n: u32) -> Layout {
@@ -448,6 +467,18 @@ impl FancyZones {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn grid_of_makes_exactly_n_zones_filling_the_area() {
+        for n in 1..=8 {
+            let l = Layout::grid_of(n);
+            assert_eq!(l.zones.len() as u32, n);
+            let area: u64 = l.zones.iter().map(|z| u64::from(z.w) * u64::from(z.h)).sum();
+            assert_eq!(area, u64::from(UNITS) * u64::from(UNITS), "n = {n}");
+        }
+        let five = Layout::grid_of(5);
+        assert_eq!(five.zones[3].w, UNITS / 2, "last row of 5 has two wide zones");
+    }
 
     fn tiles_exactly(l: &Layout) -> bool {
         let area: u64 = l.zones.iter().map(|z| z.w as u64 * z.h as u64).sum();

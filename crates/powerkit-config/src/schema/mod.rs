@@ -106,6 +106,8 @@ pub enum LogLevel {
 #[serde(default)]
 pub struct General {
     pub launch_at_startup: bool,
+    /// A Start menu shortcut, so PowerKit can be found in Windows search.
+    pub start_menu_entry: bool,
     /// Closing the settings window keeps PowerKit running in the tray.
     pub minimize_to_tray: bool,
     /// Do not open the settings window when PowerKit starts.
@@ -125,6 +127,7 @@ impl Default for General {
     fn default() -> Self {
         Self {
             launch_at_startup: false,
+            start_menu_entry: true,
             minimize_to_tray: true,
             start_minimized: true,
             theme: Theme::System,

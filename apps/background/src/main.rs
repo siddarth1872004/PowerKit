@@ -94,6 +94,15 @@ impl Backend for OsBackend {
         shell::set_launch_at_startup(STARTUP_VALUE, command.as_deref()).map_err(|e| e.to_string())
     }
 
+    fn set_start_menu_entry(&mut self, enabled: bool) -> Result<(), String> {
+        let exe = if enabled {
+            Some(std::env::current_exe().map_err(|e| e.to_string())?)
+        } else {
+            None
+        };
+        shell::set_start_menu_shortcut(STARTUP_VALUE, exe.as_deref()).map_err(|e| e.to_string())
+    }
+
     fn set_log_level(&mut self, level: LogLevel) {
         if let Some(log) = &self.log {
             log.set_level(level);

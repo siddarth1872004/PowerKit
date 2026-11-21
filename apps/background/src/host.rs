@@ -15,6 +15,7 @@ pub trait Backend {
     fn register_hotkey(&mut self, id: i32, shortcut: Shortcut) -> Result<(), String>;
     fn unregister_hotkey(&mut self, id: i32);
     fn set_launch_at_startup(&mut self, enabled: bool) -> Result<(), String>;
+    fn set_start_menu_entry(&mut self, enabled: bool) -> Result<(), String>;
     fn set_log_level(&mut self, level: LogLevel);
 }
 
@@ -131,6 +132,9 @@ impl Host {
             .set_launch_at_startup(self.config.general.launch_at_startup)
         {
             tracing::warn!("startup registration: {e}");
+        }
+        if let Err(e) = self.backend.set_start_menu_entry(self.config.general.start_menu_entry) {
+            tracing::warn!("Start menu shortcut: {e}");
         }
         if matches!(self.load_source, LoadSource::Backup { .. } | LoadSource::Reset { .. }) {
             self.outbox.push(Output::Notify {
@@ -308,6 +312,14 @@ impl Host {
             if let Err(e) = self.backend.set_launch_at_startup(new.general.launch_at_startup) {
                 self.outbox.push(Output::Notify {
                     title: "Startup setting not applied".into(),
+                    message: e,
+                });
+            }
+        }
+        if new.general.start_menu_entry != self.config.general.start_menu_entry {
+            if let Err(e) = self.backend.set_start_menu_entry(new.general.start_menu_entry) {
+                self.outbox.push(Output::Notify {
+                    title: "Start menu setting not applied".into(),
                     message: e,
                 });
             }
@@ -686,6 +698,9 @@ mod tests {
         }
         fn set_launch_at_startup(&mut self, enabled: bool) -> Result<(), String> {
             self.0.borrow_mut().startup.push(enabled);
+            Ok(())
+        }
+        fn set_start_menu_entry(&mut self, _enabled: bool) -> Result<(), String> {
             Ok(())
         }
         fn set_log_level(&mut self, _level: LogLevel) {}

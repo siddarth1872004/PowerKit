@@ -95,6 +95,12 @@ fn general_spec() -> Vec<(&'static str, Vec<Spec>)> {
                     Toggle,
                 ),
                 s(
+                    "start_menu_entry",
+                    "Show in Start menu and search",
+                    "Find PowerKit by typing its name in Windows search",
+                    Toggle,
+                ),
+                s(
                     "start_minimized",
                     "Start in the background",
                     "Open only the tray icon when PowerKit starts",
@@ -525,6 +531,12 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                         "Delay before the toolbar appears (ms)",
                         "0 to 1000",
                         Number,
+                    ),
+                    s(
+                        "skip_in_game_mode",
+                        "Do not activate in games",
+                        "Off while a game or another full-screen window is in front",
+                        Toggle,
                     ),
                 ],
             ),
@@ -1691,14 +1703,10 @@ pub struct SettingsUi {
 
 /// The templates of the FancyZones layout editor, for one to eight zones.
 fn zone_templates() -> Vec<ZoneTemplate> {
-    let grid = |n: u32| {
-        let cols = (1..=n).find(|c| c * c >= n).unwrap_or(1);
-        FzLayout::grid(cols, n.div_ceil(cols))
-    };
     let kinds: [(&str, &dyn Fn(u32) -> FzLayout); 5] = [
         ("Columns", &FzLayout::columns),
         ("Rows", &FzLayout::rows),
-        ("Grid", &grid),
+        ("Grid", &FzLayout::grid_of),
         ("Priority grid", &FzLayout::priority),
         ("Focus", &FzLayout::focus),
     ];

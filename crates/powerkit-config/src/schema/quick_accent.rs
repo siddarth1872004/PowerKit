@@ -60,6 +60,9 @@ pub struct QuickAccent {
     pub languages: Vec<String>,
     /// Lowercase executable names where the bar never opens.
     pub excluded_apps: Vec<String>,
+    /// Never open while a game or another full-screen window is in front, where
+    /// holding a letter and pressing Space is moving and jumping, not typing.
+    pub skip_in_game_mode: bool,
 }
 
 impl Default for QuickAccent {
@@ -70,6 +73,7 @@ impl Default for QuickAccent {
             input_delay_ms: 300,
             languages: vec!["all".into()],
             excluded_apps: Vec::new(),
+            skip_in_game_mode: true,
         }
     }
 }

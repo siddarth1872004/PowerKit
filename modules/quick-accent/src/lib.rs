@@ -103,6 +103,8 @@ pub struct QuickAccent {
     #[cfg(windows)]
     excluded: Rc<RefCell<Vec<String>>>,
     #[cfg(windows)]
+    skip_in_game_mode: Rc<std::cell::Cell<bool>>,
+    #[cfg(windows)]
     ui: Rc<RefCell<ui::Ui>>,
     #[cfg(windows)]
     hook: Option<powerkit_platform::keyhook::KeyboardHook>,
@@ -124,6 +126,8 @@ impl QuickAccent {
         if let Ok(mut x) = self.excluded.try_borrow_mut() {
             x.clone_from(&s.excluded_apps);
         }
+        #[cfg(windows)]
+        self.skip_in_game_mode.set(s.skip_in_game_mode);
     }
 
     /// Hook the keyboard only while running and not paused.
@@ -140,6 +144,7 @@ impl QuickAccent {
         }
         if self.hook.is_none() {
             let (engine, ui, excluded) = (Rc::clone(&self.engine), Rc::clone(&self.ui), Rc::clone(&self.excluded));
+            let skip_in_game_mode = Rc::clone(&self.skip_in_game_mode);
             let epoch = std::time::Instant::now();
             self.hook = Some(KeyboardHook::install(move |vk, down| {
                 let now = epoch.elapsed().as_millis() as u64;
@@ -149,7 +154,7 @@ impl QuickAccent {
                         down,
                         now,
                         |shift| shift ^ powerkit_platform::input::caps_lock_on(),
-                        || !foreground_excluded(&excluded.borrow()),
+                        || !foreground_excluded(&excluded.borrow()) && !(skip_in_game_mode.get() && game_in_front()),
                     ),
                     Err(_) => return KeyDecision::Pass,
                 };
@@ -184,6 +189,22 @@ fn foreground_excluded(excluded: &[String]) -> bool {
         .and_then(window::thread_process)
         .and_then(|(pid, _)| window::process_exe(pid));
     exe.is_some_and(|exe| excluded.contains(&exe.to_lowercase()))
+}
+
+/// Games often run in a borderless window covering the screen rather than in the
+/// exclusive full-screen mode Windows reports, so both count.
+#[cfg(windows)]
+fn game_in_front() -> bool {
+    use powerkit_platform::window::{self, Unmanageable};
+    use powerkit_platform::{monitor, shell};
+    if shell::game_running() {
+        return true;
+    }
+    let Some(fg) = window::foreground() else { return false };
+    let (Ok(info), Some(mon)) = (window::info(fg), monitor::from_window(fg)) else {
+        return false;
+    };
+    info.manageable(&mon.rect) == Err(Unmanageable::FullScreen)
 }
 
 impl Module for QuickAccent {
