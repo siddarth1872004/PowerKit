@@ -290,6 +290,18 @@ pub fn module_spec(id: &str) -> Vec<(&'static str, Vec<Spec>)> {
                         Toggle,
                     ),
                     s(
+                        "override_snap_keys",
+                        "Override Windows Snap",
+                        "Win+Left and Win+Right move the window between zones",
+                        Toggle,
+                    ),
+                    s(
+                        "move_new_windows",
+                        "Move new windows to their last zone",
+                        "A window an app opens goes where that app's last window was snapped",
+                        Toggle,
+                    ),
+                    s(
                         "zone_number_modifiers",
                         "Snap to zone by number",
                         "Hold these keys and press a zone's number",

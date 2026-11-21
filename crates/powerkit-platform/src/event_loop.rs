@@ -322,7 +322,10 @@ unsafe extern "system" fn winevent_proc(
         EVENT_SYSTEM_MINIMIZESTART => WindowEventKind::Minimized,
         EVENT_SYSTEM_MINIMIZEEND => WindowEventKind::Restored,
         EVENT_OBJECT_DESTROY => WindowEventKind::Destroyed,
-        EVENT_OBJECT_SHOW => WindowEventKind::Shown,
+        // Controls inside windows are shown all the time; only whole windows matter.
+        // SAFETY: GetAncestor accepts any handle and returns null for invalid ones.
+        EVENT_OBJECT_SHOW if unsafe { GetAncestor(hwnd, GA_ROOT) } == hwnd => WindowEventKind::Shown,
+        EVENT_OBJECT_SHOW => return,
         EVENT_OBJECT_HIDE => WindowEventKind::Hidden,
         EVENT_OBJECT_LOCATIONCHANGE => WindowEventKind::LocationChange,
         _ => return,
@@ -364,13 +367,15 @@ fn install(min: u32, max: u32, pid: u32, tid: u32, flags: u32) -> Result<WinEven
 }
 
 /// System-wide hooks for cheap, infrequent events: foreground changes, move/size
-/// start/end and minimize/restore. Events from PowerKit's own windows are skipped.
+/// start/end, minimize/restore and windows being shown (controls being shown are
+/// dropped in the callback). Events from PowerKit's own windows are skipped.
 pub fn hook_global_window_events() -> Result<Vec<WinEventHook>> {
     let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
     Ok(vec![
         install(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, 0, 0, flags)?,
         install(EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZEEND, 0, 0, flags)?,
         install(EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND, 0, 0, flags)?,
+        install(EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW, 0, 0, flags)?,
     ])
 }
 

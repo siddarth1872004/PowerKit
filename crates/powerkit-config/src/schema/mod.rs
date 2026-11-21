@@ -401,6 +401,10 @@ impl Config {
         push("fancy_zones", "prev_zone", &fz.prev_zone_shortcut);
         push("fancy_zones", "cycle_layout", &fz.cycle_layout_shortcut);
         push("fancy_zones", "toggle_overlay", &fz.toggle_overlay_shortcut);
+        if fz.override_snap_keys {
+            push("fancy_zones", "next_zone", "Win+Right");
+            push("fancy_zones", "prev_zone", "Win+Left");
+        }
         if !fz.zone_number_modifiers.is_empty() {
             for n in 1..=9 {
                 push(

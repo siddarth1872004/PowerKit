@@ -23,7 +23,7 @@ in one small background process. The goal is to cover every Microsoft PowerToys 
 
 | | Utility | What it does | Default shortcut |
 |---|---|---|---|
-| <img src="assets/modules/fancy_zones.png" width="48" height="48" alt=""> | **FancyZones** | Snap windows into custom zone layouts. Drag with Shift held, or send a window by keyboard. | `Win+Ctrl+Alt+←/→`, `Win+Ctrl+Alt+1…9` |
+| <img src="assets/modules/fancy_zones.png" width="48" height="48" alt=""> | **FancyZones** | Snap windows into custom zone layouts. Drag with Shift held, or send a window by keyboard (optionally with Win+←/→ in place of Windows Snap). New windows open in their app's last zone. | `Win+Ctrl+Alt+←/→`, `Win+Ctrl+Alt+1…9` |
 | <img src="assets/modules/launcher.png" width="48" height="48" alt=""> | **PowerKit Run** | A launcher for apps, files, calculations and commands. | `Alt+Space` |
 | <img src="assets/modules/keyboard_manager.png" width="48" height="48" alt=""> | **Keyboard Manager** | Remap keys and shortcuts, everywhere or only in chosen apps. | — |
 | <img src="assets/modules/color_picker.png" width="48" height="48" alt=""> | **Color Picker** | Pick any color on screen and copy it as HEX, RGB, HSL and more. | `Win+Shift+C` |

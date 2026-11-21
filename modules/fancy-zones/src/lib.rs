@@ -16,6 +16,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 pub const ID: &str = "fancy_zones";
+#[cfg(windows)]
+const LAST_ZONES: &str = "fancy_zones_last";
 
 #[derive(Deserialize)]
 struct PreviewArgs {
@@ -73,6 +75,8 @@ pub struct FancyZones {
     paused: bool,
     #[cfg(windows)]
     snap: Option<snap::Snapper>,
+    #[cfg(windows)]
+    state: Option<powerkit_config::StateFile>,
 }
 
 impl FancyZones {
@@ -100,6 +104,19 @@ impl FancyZones {
 
     #[cfg(not(windows))]
     fn halt(&mut self) {}
+
+    /// Write where apps' windows were last put, when that changed.
+    #[cfg(windows)]
+    fn save_last_zones(&mut self) {
+        let (Some(snap), Some(state)) = (self.snap.as_mut(), &self.state) else {
+            return;
+        };
+        if std::mem::take(&mut snap.last_changed) {
+            if let Err(e) = state.save(&snap.last) {
+                tracing::warn!("FancyZones: last zones not saved: {e}");
+            }
+        }
+    }
 
     #[cfg(windows)]
     fn run_shortcut(&mut self, s: Shortcut, ctx: &mut Ctx) -> Result<()> {
@@ -181,6 +198,12 @@ impl Module for FancyZones {
     fn start(&mut self, ctx: &mut Ctx) -> Result<()> {
         self.settings = ctx.config.fancy_zones.clone();
         self.paused = false;
+        #[cfg(windows)]
+        {
+            let state = powerkit_config::StateFile::new(ctx.paths, LAST_ZONES);
+            self.snapper().last = state.load();
+            self.state = Some(state);
+        }
         Ok(())
     }
 
@@ -210,7 +233,10 @@ impl Module for FancyZones {
         if self.paused {
             return Ok(());
         }
-        self.run_shortcut(s, ctx)
+        let result = self.run_shortcut(s, ctx);
+        #[cfg(windows)]
+        self.save_last_zones();
+        result
     }
 
     #[cfg(windows)]
@@ -219,11 +245,13 @@ impl Module for FancyZones {
             return Ok(());
         }
         let settings = self.settings.clone();
-        match self.snap.as_mut() {
+        let result = match self.snap.as_mut() {
             Some(s) => s.on_event(event, &settings),
             None if snap::starts_drag(event) => self.snapper().on_event(event, &settings),
             None => Ok(()),
-        }
+        };
+        self.save_last_zones();
+        result
     }
 
     fn command(&mut self, id: &str, args: &Value, ctx: &mut Ctx) -> Result<Value> {
@@ -434,6 +462,10 @@ mod tests {
             .any(|k| k.action == "zone_3" && k.shortcut == "Win+Ctrl+Alt+3"));
         let mut m2 = fx.started();
         assert!(m2.on_hotkey("nope", &mut fx.ctx()).is_err());
+        fx.config.fancy_zones.override_snap_keys = true;
+        let keys = m.hotkeys(&fx.config);
+        assert!(keys.iter().any(|k| k.action == "prev_zone" && k.shortcut == "Win+Left"));
+        assert!(keys.iter().any(|k| k.action == "next_zone" && k.shortcut == "Win+Right"));
     }
 
     #[test]

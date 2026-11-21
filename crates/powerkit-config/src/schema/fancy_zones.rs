@@ -238,9 +238,15 @@ impl Layout {
                     .iter()
                     .enumerate()
                     .map(|(i, z)| Zone {
+                        // The same rectangle keeps its name wherever it moved in the
+                        // order; a resized zone keeps it while the count is unchanged.
                         name: old
-                            .and_then(|l| l.zones.get(i))
-                            .filter(|o| [o.x, o.y, o.w, o.h] == *z)
+                            .and_then(|l| {
+                                l.zones
+                                    .iter()
+                                    .find(|o| [o.x, o.y, o.w, o.h] == *z)
+                                    .or_else(|| (l.zones.len() == e.zones.len()).then(|| l.zones.get(i)).flatten())
+                            })
                             .map(|o| o.name.clone())
                             .unwrap_or_default(),
                         ..Zone::new(z[0], z[1], z[2], z[3])
@@ -335,6 +341,11 @@ pub struct FancyZones {
     pub restore_size_on_unsnap: bool,
     /// Keyboard zone moves may continue onto the next monitor.
     pub move_across_monitors: bool,
+    /// Win+Left and Win+Right move the active window between zones instead of Windows
+    /// Snap.
+    pub override_snap_keys: bool,
+    /// A window an app opens goes into the zone where that app's last window was put.
+    pub move_new_windows: bool,
     pub zone_color: String,
     pub highlight_color: String,
     /// Opacity of the zone overlay, 10-90 percent.
@@ -360,6 +371,8 @@ impl Default for FancyZones {
             drag_modifier: DragModifier::Shift,
             restore_size_on_unsnap: true,
             move_across_monitors: true,
+            override_snap_keys: false,
+            move_new_windows: true,
             zone_color: "#3B82F6".into(),
             highlight_color: "#0F7BFF".into(),
             overlay_opacity: 45,
@@ -513,10 +526,20 @@ mod tests {
         assert_eq!(same[0].name, "Two");
         edited.zones[0][2] = 4_000;
         edited.zones[1] = [4_000, 0, 6_000, UNITS];
-        let changed = Layout::from_editor(&[edited], &[before]);
+        let changed = Layout::from_editor(std::slice::from_ref(&edited), std::slice::from_ref(&before));
         assert_eq!(changed[0].kind, LayoutKind::Custom);
-        assert_eq!(changed[0].zones[0].name, "");
+        assert_eq!(changed[0].zones[0].name, "left", "a resized zone keeps its name");
         assert_eq!(changed[0].zones[1], Zone::new(4_000, 0, 6_000, UNITS));
+
+        let mut swapped = before.to_editor();
+        swapped.zones.reverse();
+        swapped.zones.push([0, 0, 1_000, 1_000]);
+        let moved = Layout::from_editor(&[swapped], &[before]);
+        assert_eq!(
+            moved[0].zones[1].name, "left",
+            "a zone keeps its name when the order changes"
+        );
+        assert_eq!(moved[0].zones[2].name, "");
     }
 
     #[test]

@@ -8,10 +8,11 @@ use powerkit_core::{Event, Rect, WindowEventKind};
 use powerkit_platform::event_loop::{kill_timer, set_timer};
 use powerkit_platform::input::{cursor_pos, key_down};
 use powerkit_platform::monitor::{self, Monitor};
-use powerkit_platform::window::{self, Hwnd, WindowInfo};
+use powerkit_platform::window::{self, Hwnd, WindowInfo, WS_THICKFRAME_BITS};
 use powerkit_platform::zones::{ZoneOverlay, ZoneView};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const VK_SHIFT: u32 = 0x10;
 const VK_CONTROL: u32 = 0x11;
@@ -23,6 +24,8 @@ const RESIZE_TOLERANCE: i32 = 2;
 /// Dragging a maximized or snapped-by-the-shell window changes its size once when it
 /// is restored; a second change means the user is resizing, not moving.
 const MAX_SIZE_CHANGES_WHILE_MOVING: u8 = 1;
+/// How long the zones show after the layout changes.
+const FLASH_MS: u32 = 800;
 
 fn friendly(e: powerkit_platform::Error) -> anyhow::Error {
     if e.is_access_denied() {
@@ -121,13 +124,29 @@ impl Drop for Drag {
     }
 }
 
+/// Where an app's window was last put, for its next new window.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct LastZone {
+    monitor: String,
+    layout: String,
+    zones: Vec<usize>,
+}
+
 #[derive(Default)]
 pub(crate) struct Snapper {
     overlay: Option<ZoneOverlay>,
     drag: Option<Drag>,
     /// The overlay was opened with the toggle shortcut.
     pinned_overlay: bool,
+    /// The timer that hides zones shown because the layout changed.
+    flash: Option<usize>,
     snapped: HashMap<isize, Snapped>,
+    /// By executable name.
+    pub(crate) last: HashMap<String, LastZone>,
+    /// `last` changed since it was saved.
+    pub(crate) last_changed: bool,
+    /// Windows already shown once, so only new ones are moved to their app's zone.
+    seen: HashSet<isize>,
 }
 
 impl Snapper {
@@ -143,7 +162,14 @@ impl Snapper {
     pub(crate) fn cancel(&mut self) {
         self.drag = None;
         self.pinned_overlay = false;
+        self.stop_flash();
         self.hide();
+    }
+
+    fn stop_flash(&mut self) {
+        if let Some(t) = self.flash.take() {
+            kill_timer(t);
+        }
     }
 
     fn hide(&mut self) {
@@ -177,7 +203,12 @@ impl Snapper {
                 match kind {
                     WindowEventKind::MoveSizeStart => self.begin_drag(hwnd, settings),
                     WindowEventKind::MoveSizeEnd if self.dragging(hwnd) => self.end_drag(settings),
+                    WindowEventKind::Shown if settings.move_new_windows => {
+                        self.place_new(hwnd, settings);
+                        Ok(())
+                    }
                     WindowEventKind::Destroyed => {
+                        self.seen.remove(&hwnd.0);
                         self.snapped.remove(&hwnd.0);
                         if self.dragging(hwnd) {
                             self.cancel();
@@ -188,6 +219,13 @@ impl Snapper {
                 }
             }
             Event::Timer(id) if self.drag.as_ref().is_some_and(|d| d.timer == id) => self.tick(settings),
+            Event::Timer(id) if self.flash == Some(id) => {
+                self.stop_flash();
+                if !self.pinned_overlay && self.drag.is_none() {
+                    self.hide();
+                }
+                Ok(())
+            }
             Event::DisplayChanged => {
                 self.cancel();
                 Ok(())
@@ -198,6 +236,42 @@ impl Snapper {
 
     fn dragging(&self, hwnd: Hwnd) -> bool {
         self.drag.as_ref().is_some_and(|d| d.hwnd == hwnd)
+    }
+
+    /// Put a window an app just opened where that app's last window went, unless the
+    /// layout there changed since.
+    fn place_new(&mut self, hwnd: Hwnd, settings: &Settings) {
+        // Destroyed windows are reported only for windows tracked per thread.
+        if self.seen.len() > 1024 {
+            self.seen.retain(|h| window::is_window(Hwnd(*h)));
+        }
+        if !self.seen.insert(hwnd.0) || self.snapped.contains_key(&hwnd.0) || self.drag.is_some() {
+            return;
+        }
+        let Ok(info) = eligible(hwnd, settings) else { return };
+        // Fixed-size windows are dialogs and splash screens, not app windows.
+        if info.maximized || !info.has_style(WS_THICKFRAME_BITS) {
+            return;
+        }
+        let Some(last) = self.last.get(&info.exe).cloned() else {
+            return;
+        };
+        let Some(mon) = monitor::enumerate()
+            .ok()
+            .and_then(|all| all.into_iter().find(|m| m.id == last.monitor))
+        else {
+            return;
+        };
+        let (layout, rects) = monitor_zones(settings, &mon);
+        if layout != last.layout || last.zones.iter().any(|z| *z >= rects.len()) {
+            return;
+        }
+        let Some(target) = engine::union(&rects, &last.zones) else {
+            return;
+        };
+        if let Err(e) = self.place(hwnd, target, &mon, &layout, last.zones, size_of(info.rect)) {
+            tracing::debug!(error = %e, "new window not moved to its app's zone");
+        }
     }
 
     fn begin_drag(&mut self, hwnd: Hwnd, settings: &Settings) -> Result<()> {
@@ -289,6 +363,10 @@ impl Snapper {
                 let Some(s) = self.snapped.remove(&d.hwnd.0) else {
                     return Ok(());
                 };
+                // Taken out of its zone: the app's next window opens where Windows puts it.
+                if let Ok(info) = window::info(d.hwnd) {
+                    self.last_changed |= self.last.remove(&info.exe).is_some();
+                }
                 if !settings.restore_size_on_unsnap || s.restore == d.size {
                     return Ok(());
                 }
@@ -312,6 +390,18 @@ impl Snapper {
     ) -> Result<()> {
         window::set_visible_rect(hwnd, target).map_err(friendly)?;
         let pid = window::thread_process(hwnd).map_or(0, |(pid, _)| pid);
+        self.seen.insert(hwnd.0);
+        if let Some(exe) = window::process_exe(pid).filter(|e| !e.is_empty()) {
+            let last = LastZone {
+                monitor: mon.id.clone(),
+                layout: layout.to_string(),
+                zones: zones.clone(),
+            };
+            if self.last.get(&exe) != Some(&last) {
+                self.last.insert(exe, last);
+                self.last_changed = true;
+            }
+        }
         self.snapped.insert(
             hwnd.0,
             Snapped {
@@ -437,7 +527,11 @@ impl Snapper {
                 }
             }
         }
-        if self.pinned_overlay {
+        if !self.pinned_overlay && self.drag.is_none() {
+            self.stop_flash();
+            self.flash = Some(set_timer(FLASH_MS)?);
+        }
+        if self.flash.is_some() || self.pinned_overlay {
             self.show(&updated, &mon, rects, Vec::new())?;
         }
         Ok((mon.id, next))
