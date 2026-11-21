@@ -34,4 +34,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" target/release/powerkit.exe --title "PowerKit ${GITHUB_REF_NAME#v}" --generate-notes
+        # notes/<tag>.md is what What's new in the tray shows; without one GitHub lists the changes.
+        run: |
+          notes=(--generate-notes)
+          if [ -f "notes/$GITHUB_REF_NAME.md" ]; then notes=(--notes-file "notes/$GITHUB_REF_NAME.md"); fi
+          gh release create "$GITHUB_REF_NAME" target/release/powerkit.exe --title "PowerKit ${GITHUB_REF_NAME#v}" "${notes[@]}"
